@@ -8,13 +8,13 @@ using Microsoft.Data.Entity.Storage;
 
 namespace Microsoft.Data.Entity.Infrastructure
 {
-    public class RelationalStoreSqlExecutor
+    public class RelationalSqlExecutor
     {
         private ISqlStatementExecutor _statementExecutor;
         private IRelationalConnection _connection;
         private IRelationalTypeMapper _typeMapper;
 
-        public RelationalStoreSqlExecutor(
+        public RelationalSqlExecutor(
             [NotNull] ISqlStatementExecutor statementExecutor,
             [NotNull] IRelationalConnection connection,
             [NotNull] IRelationalTypeMapper typeMapper)

@@ -20,12 +20,12 @@ namespace Microsoft.Data.Entity
         public static void ApplyMigrations([NotNull] this DatabaseFacade databaseFacade)
             => Check.NotNull(databaseFacade, nameof(databaseFacade)).GetService<IMigrator>().ApplyMigrations();
 
-        public static void ExecuteStoreSql(
+        public static void ExecuteSqlCommand(
             [NotNull] this DatabaseFacade databaseFacade,
             [NotNull] string sql,
             [NotNull] params object[] parameters)
             => Check.NotNull(databaseFacade, nameof(databaseFacade))
-                .GetService<RelationalStoreSqlExecutor>()
+                .GetService<RelationalSqlExecutor>()
                     .ExecuteStoreSql(
                         sql,
                         parameters);

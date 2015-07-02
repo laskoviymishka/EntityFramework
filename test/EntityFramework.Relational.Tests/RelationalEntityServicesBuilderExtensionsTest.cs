@@ -39,7 +39,7 @@ namespace Microsoft.Data.Entity.Tests
             VerifyScoped<BatchExecutor>();
             VerifyScoped<ModelDiffer>();
             VerifyScoped<RelationalValueGeneratorSelector>();
-            VerifyScoped<RelationalStoreSqlExecutor>();
+            VerifyScoped<RelationalSqlExecutor>();
             VerifyScoped<SqlStatementExecutor>();
             VerifyScoped<CommandBatchPreparer>();
 

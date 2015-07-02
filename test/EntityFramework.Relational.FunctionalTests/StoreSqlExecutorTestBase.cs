@@ -14,7 +14,7 @@ namespace Microsoft.Data.Entity.FunctionalTests
         {
             using (var context = CreateContext())
             {
-                context.Database.ExecuteStoreSql(TenMostExpensiveProductsSproc);
+                context.Database.ExecuteSqlCommand(TenMostExpensiveProductsSproc);
             }
         }
 
@@ -23,7 +23,7 @@ namespace Microsoft.Data.Entity.FunctionalTests
         {
             using (var context = CreateContext())
             {
-                context.Database.ExecuteStoreSql(CustomerOrderHistorySproc, "ALFKI");
+                context.Database.ExecuteSqlCommand(CustomerOrderHistorySproc, "ALFKI");
             }
         }
 

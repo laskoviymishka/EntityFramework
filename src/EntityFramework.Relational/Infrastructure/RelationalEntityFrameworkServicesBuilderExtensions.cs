@@ -41,7 +41,7 @@ namespace Microsoft.Data.Entity.Infrastructure
                 .AddScoped<BatchExecutor>()
                 .AddScoped<ModelDiffer>()
                 .AddScoped<RelationalValueGeneratorSelector>()
-                .AddScoped<RelationalStoreSqlExecutor>()
+                .AddScoped<RelationalSqlExecutor>()
                 .AddScoped<SqlStatementExecutor>()
                 .AddScoped<CommandBatchPreparer>()
                 .AddScoped<IModelDiffer, ModelDiffer>()
