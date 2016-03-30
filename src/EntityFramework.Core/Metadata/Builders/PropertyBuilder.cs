@@ -1,11 +1,10 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using JetBrains.Annotations;
 using Microsoft.Data.Entity.Infrastructure;
 using Microsoft.Data.Entity.Metadata.Internal;
 using Microsoft.Data.Entity.Utilities;
-using Microsoft.Data.Entity.ValueGeneration;
 
 namespace Microsoft.Data.Entity.Metadata.Builders
 {
@@ -18,10 +17,8 @@ namespace Microsoft.Data.Entity.Metadata.Builders
     ///         and it is not designed to be directly constructed in your application code.
     ///     </para>
     /// </summary>
-    public class PropertyBuilder : IAccessor<Model>, IAccessor<InternalPropertyBuilder>
+    public class PropertyBuilder : IInfrastructure<IMutableModel>, IInfrastructure<InternalPropertyBuilder>
     {
-        private readonly InternalPropertyBuilder _builder;
-
         /// <summary>
         ///     <para>
         ///         Initializes a new instance of the <see cref="PropertyBuilder" /> class to configure a given
@@ -37,23 +34,23 @@ namespace Microsoft.Data.Entity.Metadata.Builders
         {
             Check.NotNull(builder, nameof(builder));
 
-            _builder = builder;
+            Builder = builder;
         }
 
         /// <summary>
         ///     The internal builder being used to configure the property.
         /// </summary>
-        InternalPropertyBuilder IAccessor<InternalPropertyBuilder>.Service => _builder;
+        InternalPropertyBuilder IInfrastructure<InternalPropertyBuilder>.Instance => Builder;
 
         /// <summary>
         ///     The property being configured.
         /// </summary>
-        public virtual Property Metadata => Builder.Metadata;
+        public virtual IMutableProperty Metadata => Builder.Metadata;
 
         /// <summary>
         ///     The model that the property belongs to.
         /// </summary>
-        Model IAccessor<Model>.Service => Builder.ModelBuilder.Metadata;
+        IMutableModel IInfrastructure<IMutableModel>.Instance => Builder.ModelBuilder.Metadata;
 
         /// <summary>
         ///     Adds or updates an annotation on the property. If an annotation with the key specified in
@@ -62,12 +59,12 @@ namespace Microsoft.Data.Entity.Metadata.Builders
         /// <param name="annotation"> The key of the annotation to be added or updated. </param>
         /// <param name="value"> The value to be stored in the annotation. </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
-        public virtual PropertyBuilder Annotation([NotNull] string annotation, [NotNull] object value)
+        public virtual PropertyBuilder HasAnnotation([NotNull] string annotation, [NotNull] object value)
         {
             Check.NotEmpty(annotation, nameof(annotation));
             Check.NotNull(value, nameof(value));
 
-            Builder.Annotation(annotation, value, ConfigurationSource.Explicit);
+            Builder.HasAnnotation(annotation, value, ConfigurationSource.Explicit);
 
             return this;
         }
@@ -77,11 +74,11 @@ namespace Microsoft.Data.Entity.Metadata.Builders
         ///     A property can only be configured as non-required if it is based on a CLR type that can be
         ///     assigned null.
         /// </summary>
-        /// <param name="isRequired"> A value indicating whether the property is required. </param>
+        /// <param name="required"> A value indicating whether the property is required. </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
-        public virtual PropertyBuilder Required(bool isRequired = true)
+        public virtual PropertyBuilder IsRequired(bool required = true)
         {
-            Builder.Required(isRequired, ConfigurationSource.Explicit);
+            Builder.IsRequired(required, ConfigurationSource.Explicit);
 
             return this;
         }
@@ -92,72 +89,72 @@ namespace Microsoft.Data.Entity.Metadata.Builders
         /// </summary>
         /// <param name="maxLength"> The maximum length of data allowed in the property. </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
-        public virtual PropertyBuilder MaxLength(int maxLength)
+        public virtual PropertyBuilder HasMaxLength(int maxLength)
         {
-            Builder.MaxLength(maxLength, ConfigurationSource.Explicit);
+            Builder.HasMaxLength(maxLength, ConfigurationSource.Explicit);
 
             return this;
         }
 
         /// <summary>
         ///     Configures whether this property should be used as a concurrency token. When a property is configured
-        ///     as a concurrency token the value in the data store will be checked when an instance of this entity type
-        ///     is updated or deleted during <see cref="DbContext.SaveChanges" /> to ensure it has not changed since
-        ///     the instance was retrieved from the data store. If it has changed, an exception will be thrown and the
-        ///     changes will not be applied to the data store.
+        ///     as a concurrency token the value in the database will be checked when an instance of this entity type
+        ///     is updated or deleted during <see cref="DbContext.SaveChanges()" /> to ensure it has not changed since
+        ///     the instance was retrieved from the database. If it has changed, an exception will be thrown and the
+        ///     changes will not be applied to the database.
         /// </summary>
-        /// <param name="isConcurrencyToken"> A value indicating whether this property is a concurrency token. </param>
+        /// <param name="concurrencyToken"> A value indicating whether this property is a concurrency token. </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
-        public virtual PropertyBuilder ConcurrencyToken(bool isConcurrencyToken = true)
+        public virtual PropertyBuilder IsConcurrencyToken(bool concurrencyToken = true)
         {
-            Builder.ConcurrencyToken(isConcurrencyToken, ConfigurationSource.Explicit);
+            Builder.IsConcurrencyToken(concurrencyToken, ConfigurationSource.Explicit);
 
             return this;
         }
 
         /// <summary>
-        ///     Configures whether a value is generated for this property when a new instance of the entity type
-        ///     is added to a context. Data stores will typically register an appropriate
-        ///     <see cref="ValueGenerator" /> to handle generating values. This functionality is typically
-        ///     used for key values and is switched on by convention.
+        ///     Configures a property to never have a value generated when an instance of this
+        ///     entity type is saved.
         /// </summary>
-        /// <param name="generateValue"> A value indicating whether a value should be generated. </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
-        public virtual PropertyBuilder GenerateValueOnAdd(bool generateValue = true)
+        /// <remarks>
+        ///     Note that temporary values may still be generated for use internally before a
+        ///     new entity is saved.
+        /// </remarks>
+        public virtual PropertyBuilder ValueGeneratedNever()
         {
-            Builder.GenerateValueOnAdd(generateValue, ConfigurationSource.Explicit);
+            Builder.ValueGenerated(ValueGenerated.Never, ConfigurationSource.Explicit);
 
             return this;
         }
 
         /// <summary>
-        ///     Configures whether a value is generated for this property by the data store every time an
-        ///     instance of this entity type is saved (initial add and any subsequent updates).
+        ///     Configures a property to have a value generated only when saving a new entity, unless a non-null,
+        ///     non-temporary value has been set, in which case the set value will be saved instead. The value
+        ///     may be generated by a client-side value generator or may be generated by the database as part
+        ///     of saving the entity.
         /// </summary>
-        /// <param name="computed"> A value indicating whether a value is generated by the data store. </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
-        public virtual PropertyBuilder StoreComputed(bool computed = true)
+        public virtual PropertyBuilder ValueGeneratedOnAdd()
         {
-            Builder.StoreComputed(computed, ConfigurationSource.Explicit);
+            Builder.ValueGenerated(ValueGenerated.OnAdd, ConfigurationSource.Explicit);
 
             return this;
         }
 
         /// <summary>
-        ///     Configures whether a default value is generated for this property by the store when an instance
-        ///     of this entity type is saved and no value has been set.
+        ///     Configures a property to have a value generated only when saving a new or existing entity, unless
+        ///     a non-null, non-temporary value has been set for a new entity, or the existing property value has
+        ///     been modified for an existing entity, in which case the set value will be saved instead.
         /// </summary>
-        /// <param name="useDefault">
-        ///     A value indicating whether a default value is generated by the data store when no value is set.
-        /// </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
-        public virtual PropertyBuilder UseStoreDefault(bool useDefault = true)
+        public virtual PropertyBuilder ValueGeneratedOnAddOrUpdate()
         {
-            Builder.UseStoreDefault(useDefault, ConfigurationSource.Explicit);
+            Builder.ValueGenerated(ValueGenerated.OnAddOrUpdate, ConfigurationSource.Explicit);
 
             return this;
         }
 
-        private InternalPropertyBuilder Builder => ((IAccessor<InternalPropertyBuilder>)this).Service;
+        private InternalPropertyBuilder Builder { get; }
     }
 }

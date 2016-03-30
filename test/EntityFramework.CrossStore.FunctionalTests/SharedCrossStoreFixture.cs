@@ -1,11 +1,12 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using Microsoft.Data.Entity.FunctionalTests.TestModels;
 using Microsoft.Data.Entity.InMemory.FunctionalTests;
+using Microsoft.Data.Entity.Sqlite.FunctionalTests;
 using Microsoft.Data.Entity.SqlServer.FunctionalTests;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Data.Entity.FunctionalTests
 {
@@ -17,7 +18,8 @@ namespace Microsoft.Data.Entity.FunctionalTests
         public SharedCrossStoreFixture()
             : this(new ServiceCollection()
                 .AddEntityFramework()
-                .AddInMemoryStore()
+                .AddInMemoryDatabase()
+                .AddSqlite()
                 .AddSqlServer()
                 .ServiceCollection()
                 .BuildServiceProvider())
@@ -41,6 +43,11 @@ namespace Microsoft.Data.Entity.FunctionalTests
                 return SqlServerTestStore.CreateScratch();
             }
 
+            if (testStoreType == typeof(SqliteTestStore))
+            {
+                return SqliteTestStore.CreateScratch();
+            }
+
             throw new NotImplementedException();
         }
 
@@ -50,9 +57,22 @@ namespace Microsoft.Data.Entity.FunctionalTests
             if (inMemoryTestStore != null)
             {
                 var optionsBuilder = new DbContextOptionsBuilder();
-                optionsBuilder.UseInMemoryStore();
+                optionsBuilder.UseInMemoryDatabase();
 
                 return new CrossStoreContext(_serviceProvider, optionsBuilder.Options);
+            }
+
+            var sqliteTestStore = testStore as SqliteTestStore;
+            if (sqliteTestStore != null)
+            {
+                var optionsBuilder = new DbContextOptionsBuilder();
+                optionsBuilder.UseSqlite(sqliteTestStore.Connection);
+
+                var context = new CrossStoreContext(_serviceProvider, optionsBuilder.Options);
+                context.Database.EnsureCreated();
+                context.Database.UseTransaction(sqliteTestStore.Transaction);
+
+                return context;
             }
 
             var sqlServerTestStore = testStore as SqlServerTestStore;
@@ -63,7 +83,7 @@ namespace Microsoft.Data.Entity.FunctionalTests
 
                 var context = new CrossStoreContext(_serviceProvider, optionsBuilder.Options);
                 context.Database.EnsureCreated();
-                context.Database.AsRelational().Connection.UseTransaction(sqlServerTestStore.Transaction);
+                context.Database.UseTransaction(sqlServerTestStore.Transaction);
 
                 return context;
             }

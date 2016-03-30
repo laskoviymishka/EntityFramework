@@ -1,7 +1,8 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Microsoft.Data.Entity.FunctionalTests.TestModels.ComplexNavigationsModel
 {
@@ -204,13 +205,12 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.ComplexNavigationsMod
                 l1s[5].OneToMany_Optional_Self = new List<Level1> { l1s[4] };
                 l1s[7].OneToMany_Optional_Self = new List<Level1> { l1s[6] };
                 l1s[9].OneToMany_Optional_Self = new List<Level1> { l1s[8] };
-
-                // issue #1417
-                //l1s[0].OneToOne_Optional_Self = l1s[9];
-                //l1s[1].OneToOne_Optional_Self = l1s[8];
-                //l1s[2].OneToOne_Optional_Self = l1s[7];
-                //l1s[3].OneToOne_Optional_Self = l1s[6];
-                //l1s[4].OneToOne_Optional_Self = l1s[5];
+                
+                l1s[0].OneToOne_Optional_Self = l1s[9];
+                l1s[1].OneToOne_Optional_Self = l1s[8];
+                l1s[2].OneToOne_Optional_Self = l1s[7];
+                l1s[3].OneToOne_Optional_Self = l1s[6];
+                l1s[4].OneToOne_Optional_Self = l1s[5];
 
                 l2s[0].OneToOne_Optional_PK = l3s[0];
                 l2s[2].OneToOne_Optional_PK = l3s[2];
@@ -232,13 +232,12 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.ComplexNavigationsMod
                 l2s[5].OneToMany_Optional_Self = new List<Level2> { l2s[4] };
                 l2s[7].OneToMany_Optional_Self = new List<Level2> { l2s[6] };
                 l2s[9].OneToMany_Optional_Self = new List<Level2> { l2s[8] };
-
-                // issue #1417
-                //l2s[0].OneToOne_Optional_Self = l2s[9];
-                //l2s[1].OneToOne_Optional_Self = l2s[8];
-                //l2s[2].OneToOne_Optional_Self = l2s[7];
-                //l2s[3].OneToOne_Optional_Self = l2s[6];
-                //l2s[4].OneToOne_Optional_Self = l2s[5];
+                
+                l2s[0].OneToOne_Optional_Self = l2s[9];
+                l2s[1].OneToOne_Optional_Self = l2s[8];
+                l2s[2].OneToOne_Optional_Self = l2s[7];
+                l2s[3].OneToOne_Optional_Self = l2s[6];
+                l2s[4].OneToOne_Optional_Self = l2s[5];
 
                 l3s[0].OneToOne_Optional_PK = l4s[0];
                 l3s[2].OneToOne_Optional_PK = l4s[2];
@@ -259,13 +258,12 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.ComplexNavigationsMod
                 l3s[5].OneToMany_Optional_Self = new List<Level3> { l3s[4] };
                 l3s[7].OneToMany_Optional_Self = new List<Level3> { l3s[6] };
                 l3s[9].OneToMany_Optional_Self = new List<Level3> { l3s[8] };
-
-                // issue #1417
-                //l3s[0].OneToOne_Optional_Self = l3s[9];
-                //l3s[1].OneToOne_Optional_Self = l3s[8];
-                //l3s[2].OneToOne_Optional_Self = l3s[7];
-                //l3s[3].OneToOne_Optional_Self = l3s[6];
-                //l3s[4].OneToOne_Optional_Self = l3s[5];
+                
+                l3s[0].OneToOne_Optional_Self = l3s[9];
+                l3s[1].OneToOne_Optional_Self = l3s[8];
+                l3s[2].OneToOne_Optional_Self = l3s[7];
+                l3s[3].OneToOne_Optional_Self = l3s[6];
+                l3s[4].OneToOne_Optional_Self = l3s[5];
 
                 l4s[1].OneToMany_Optional_Self = new List<Level4> { l4s[0] };
                 l4s[3].OneToMany_Optional_Self = new List<Level4> { l4s[2] };
@@ -273,6 +271,41 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.ComplexNavigationsMod
                 l4s[7].OneToMany_Optional_Self = new List<Level4> { l4s[6] };
                 l4s[9].OneToMany_Optional_Self = new List<Level4> { l4s[8] };
 
+                context.SaveChanges();
+
+                for (int i = 0; i < 10; i++)
+                {
+                    var language = new ComplexNavigationLanguage { Name = "Language" + i, CultureString = "Foo" + i };
+                    context.Languages.Add(language);
+                }
+
+                context.SaveChanges();
+
+                int ii = 0;
+                foreach (var l in context.Languages)
+                {
+                    var globalization = new ComplexNavigationGlobalization { Text = "Globalization" + ii, Language = l };
+                    ii++;
+
+                    context.Globalizations.Add(globalization);
+                }
+
+                context.SaveChanges();
+
+                var globalizations = context.Globalizations.ToList();
+
+                var mls1 = new ComplexNavigationString { DefaultText = "MLS1", Globalizations = globalizations.Take(3).ToList() };
+                var mls2 = new ComplexNavigationString { DefaultText = "MLS2", Globalizations = globalizations.Skip(3).Take(3).ToList() };
+                var mls3 = new ComplexNavigationString { DefaultText = "MLS3", Globalizations = globalizations.Skip(6).Take(3).ToList() };
+                var mls4 = new ComplexNavigationString { DefaultText = "MLS4", Globalizations = globalizations.Skip(9).ToList() };
+
+                context.MultilingualStrings.AddRange(new[] { mls1, mls2, mls3, mls4 });
+                context.SaveChanges();
+
+                var field1 = new ComplexNavigationField { Name = "Field1", Label = mls1, Placeholder = null };
+                var field2 = new ComplexNavigationField { Name = "Field2", Label = mls3, Placeholder = mls4 };
+
+                context.Fields.AddRange(new[] { field1, field2 });
                 context.SaveChanges();
             }
         }

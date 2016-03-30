@@ -1,6 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\..\packages\xunit.core.2.0.0-rc3-build2880\build\portable-net45+aspnetcore50+win+wpa81+wp80+monotouch+monoandroid+Xamarin.iOS\xunit.core.props" Condition="Exists('..\..\packages\xunit.core.2.0.0-rc3-build2880\build\portable-net45+aspnetcore50+win+wpa81+wp80+monotouch+monoandroid+Xamarin.iOS\xunit.core.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Import Project="..\..\tools\EntityFramework.props" />
   <PropertyGroup>
@@ -11,9 +10,8 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Microsoft.Data.Entity.FunctionalTests</RootNamespace>
     <AssemblyName>EntityFramework.CrossStore.FunctionalTests</AssemblyName>
-    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <NuGetPackageImportStamp>fd74b8fa</NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -35,34 +33,6 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Data" />
-    <PackageReference Include="Microsoft.Framework.DependencyInjection">
-      <TargetFramework>net45</TargetFramework>
-    </PackageReference>
-    <PackageReference Include="Microsoft.Framework.DependencyInjection.Interfaces">
-      <TargetFramework>net45</TargetFramework>
-    </PackageReference>
-    <PackageReference Include="Microsoft.Framework.Logging">
-      <TargetFramework>net45</TargetFramework>
-    </PackageReference>
-    <PackageReference Include="Microsoft.Framework.Logging.Interfaces">
-      <TargetFramework>net45</TargetFramework>
-    </PackageReference>
-    <PackageReference Include="System.Data.Common">
-      <TargetFramework>net45</TargetFramework>
-    </PackageReference>
-    <PackageReference Include="Ix-Async">
-      <Assemblies>System.Interactive.Async</Assemblies>
-      <TargetFramework>net45</TargetFramework>
-    </PackageReference>
-    <Reference Include="xunit.abstractions">
-      <HintPath>..\..\packages\xunit.abstractions.2.0.0-rc3-build2880\lib\net35\xunit.abstractions.dll</HintPath>
-    </Reference>
-    <Reference Include="xunit.assert">
-      <HintPath>..\..\packages\xunit.assert.2.0.0-rc3-build2880\lib\portable-net45+aspnetcore50+win+wpa81+wp80+monotouch+monoandroid+Xamarin.iOS\xunit.assert.dll</HintPath>
-    </Reference>
-    <Reference Include="xunit.core">
-      <HintPath>..\..\packages\xunit.extensibility.core.2.0.0-rc3-build2880\lib\portable-net45+aspnetcore50+win+wpa81+wp80+monotouch+monoandroid+Xamarin.iOS\xunit.core.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\EntityFramework.Relational\EntityFramework.Relational.csproj">
@@ -77,9 +47,13 @@
       <Project>{BA3F5DBC-EC16-4D5A-8298-8226E6C5ACCC}</Project>
       <Name>EntityFramework.InMemory</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\EntityFramework.SqlServer\EntityFramework.SqlServer.csproj">
+    <ProjectReference Include="..\..\src\EntityFramework.Sqlite\EntityFramework.Sqlite.csproj">
+      <Project>{e340807b-ecbb-41df-a164-23fe833c76de}</Project>
+      <Name>EntityFramework.Sqlite</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\EntityFramework.MicrosoftSqlServer\EntityFramework.MicrosoftSqlServer.csproj">
       <Project>{04E6620B-5B41-45FE-981A-F40EB7686B0E}</Project>
-      <Name>EntityFramework.SqlServer</Name>
+      <Name>EntityFramework.MicrosoftSqlServer</Name>
     </ProjectReference>
     <ProjectReference Include="..\EntityFramework.Core.FunctionalTests\EntityFramework.Core.FunctionalTests.csproj">
       <Project>{6ab933c7-de2a-45f2-bdc6-e71a01ef7756}</Project>
@@ -93,13 +67,16 @@
       <Project>{82fad20c-28c6-4b48-b7e4-971ac821e27a}</Project>
       <Name>EntityFramework.Relational.FunctionalTests</Name>
     </ProjectReference>
-    <ProjectReference Include="..\EntityFramework.SqlServer.FunctionalTests\EntityFramework.SqlServer.FunctionalTests.csproj">
+    <ProjectReference Include="..\EntityFramework.Sqlite.FunctionalTests\EntityFramework.Sqlite.FunctionalTests.csproj">
+      <Project>{664b4d75-6cb7-4d90-a8e1-2a201500c859}</Project>
+      <Name>EntityFramework.Sqlite.FunctionalTests</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\EntityFramework.MicrosoftSqlServer.FunctionalTests\EntityFramework.MicrosoftSqlServer.FunctionalTests.csproj">
       <Project>{fa789ed6-2aac-4baa-a4fb-b600be2da956}</Project>
-      <Name>EntityFramework.SqlServer.FunctionalTests</Name>
+      <Name>EntityFramework.MicrosoftSqlServer.FunctionalTests</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
     <None Include="project.json" />
   </ItemGroup>
   <ItemGroup>
@@ -107,20 +84,12 @@
     <Compile Include="EndToEndTest.cs" />
     <Compile Include="InMemoryCrossStoreFixture.cs" />
     <Compile Include="SharedCrossStoreFixture.cs" />
+    <Compile Include="SqliteCrossStoreFixture.cs" />
     <Compile Include="SqlServerCrossStoreFixture.cs" />
     <Compile Include="TestModels\CrossStoreContext.cs" />
     <Compile Include="TestModels\SimpleEntity.cs" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Properties\" />
-  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('..\..\packages\xunit.core.2.0.0-rc3-build2880\build\portable-net45+aspnetcore50+win+wpa81+wp80+monotouch+monoandroid+Xamarin.iOS\xunit.core.props')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\xunit.core.2.0.0-rc3-build2880\build\portable-net45+aspnetcore50+win+wpa81+wp80+monotouch+monoandroid+Xamarin.iOS\xunit.core.props'))" />
-  </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

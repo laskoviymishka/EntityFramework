@@ -1,31 +1,33 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Linq.Expressions;
 using JetBrains.Annotations;
-using Microsoft.Data.Entity.Relational.Query.Expressions;
+using Microsoft.Data.Entity.Query.Expressions;
 
-namespace Microsoft.Data.Entity.Relational.Query.Sql
+namespace Microsoft.Data.Entity.Query.Sql
 {
     public interface ISqlExpressionVisitor
     {
-        Expression VisitColumnExpression([NotNull] ColumnExpression columnExpression);
-        Expression VisitIsNullExpression([NotNull] IsNullExpression isNullExpression);
-        Expression VisitIsNotNullExpression([NotNull] IsNotNullExpression isNotNullExpression);
-        Expression VisitLikeExpression([NotNull] LikeExpression likeExpression);
-        Expression VisitLiteralExpression([NotNull] LiteralExpression literalExpression);
-        Expression VisitSelectExpression([NotNull] SelectExpression selectExpression);
-        Expression VisitTableExpression([NotNull] TableExpression tableExpression);
-        Expression VisitRawSqlDerivedTableExpression([NotNull] RawSqlDerivedTableExpression rawSqlDerivedTableExpression);
-        Expression VisitCrossJoinExpression([NotNull] CrossJoinExpression crossJoinExpression);
-        Expression VisitInnerJoinExpression([NotNull] InnerJoinExpression innerJoinExpression);
-        Expression VisitOuterJoinExpression([NotNull] LeftOuterJoinExpression leftOuterJoinExpression);
-        Expression VisitCaseExpression([NotNull] CaseExpression caseExpression);
-        Expression VisitExistsExpression([NotNull] ExistsExpression existsExpression);
-        Expression VisitCountExpression([NotNull] CountExpression countExpression);
-        Expression VisitSumExpression([NotNull] SumExpression sumExpression);
-        Expression VisitMinExpression([NotNull] MinExpression minExpression);
-        Expression VisitMaxExpression([NotNull] MaxExpression maxExpression);
-        Expression VisitInExpression([NotNull] InExpression inExpression);
+        Expression VisitColumn([NotNull] ColumnExpression columnExpression);
+        Expression VisitAlias([NotNull] AliasExpression aliasExpression);
+        Expression VisitIsNull([NotNull] IsNullExpression isNullExpression);
+        Expression VisitLike([NotNull] LikeExpression likeExpression);
+        Expression VisitLiteral([NotNull] LiteralExpression literalExpression);
+        Expression VisitSelect([NotNull] SelectExpression selectExpression);
+        Expression VisitTable([NotNull] TableExpression tableExpression);
+        Expression VisitRawSqlDerivedTable([NotNull] RawSqlDerivedTableExpression rawSqlDerivedTableExpression);
+        Expression VisitCrossJoin([NotNull] CrossJoinExpression crossJoinExpression);
+        Expression VisitLateralJoin([NotNull] LateralJoinExpression lateralJoinExpression);
+        Expression VisitInnerJoin([NotNull] InnerJoinExpression innerJoinExpression);
+        Expression VisitOuterJoin([NotNull] LeftOuterJoinExpression leftOuterJoinExpression);
+        Expression VisitExists([NotNull] ExistsExpression existsExpression);
+        Expression VisitCount([NotNull] CountExpression countExpression);
+        Expression VisitSum([NotNull] SumExpression sumExpression);
+        Expression VisitMin([NotNull] MinExpression minExpression);
+        Expression VisitMax([NotNull] MaxExpression maxExpression);
+        Expression VisitIn([NotNull] InExpression inExpression);
+        Expression VisitSqlFunction([NotNull] SqlFunctionExpression sqlFunctionExpression);
+        Expression VisitStringCompare([NotNull] StringCompareExpression stringCompareExpression);
     }
 }

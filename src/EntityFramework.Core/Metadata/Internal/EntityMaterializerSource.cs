@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -9,106 +9,63 @@ using System.Reflection;
 using JetBrains.Annotations;
 using Microsoft.Data.Entity.Internal;
 using Microsoft.Data.Entity.Storage;
-using Microsoft.Data.Entity.Utilities;
 
 namespace Microsoft.Data.Entity.Metadata.Internal
 {
     public class EntityMaterializerSource : IEntityMaterializerSource
     {
         private static readonly MethodInfo _readValue
-            = typeof(IValueReader).GetTypeInfo().GetDeclaredMethods("ReadValue").Single();
-
-        private static readonly MethodInfo _isNull
-            = typeof(IValueReader).GetTypeInfo().GetDeclaredMethods("IsNull").Single();
+            = typeof(ValueBuffer).GetTypeInfo().DeclaredProperties
+                .Single(p => p.GetIndexParameters().Any()).GetMethod;
 
         private readonly IMemberMapper _memberMapper;
 
-        /// <summary>
-        ///     This constructor is intended only for use when creating test doubles that will override members
-        ///     with mocked or faked behavior. Use of this constructor for other purposes may result in unexpected
-        ///     behavior including but not limited to throwing <see cref="NullReferenceException" />.
-        /// </summary>
-        protected EntityMaterializerSource()
-        {
-        }
-
         public EntityMaterializerSource([NotNull] IMemberMapper memberMapper)
         {
-            Check.NotNull(memberMapper, nameof(memberMapper));
-
             _memberMapper = memberMapper;
         }
 
-        public virtual Expression CreateReadValueExpression(Expression valueReader, Type type, int index)
-        {
-            Check.NotNull(valueReader, nameof(valueReader));
-            Check.NotNull(type, nameof(type));
+        public virtual Expression CreateReadValueExpression(Expression valueBuffer, Type type, int index)
+            => Expression.Convert(CreateReadValueCallExpression(valueBuffer, index), type);
 
-            var unwrappedTargetMemberType = type.UnwrapNullableType();
-            var underlyingTargetMemberType = unwrappedTargetMemberType.UnwrapEnumType();
-            var indexExpression = Expression.Constant(index);
-
-            Expression readValueExpression
-                = Expression.Call(
-                    valueReader,
-                    _readValue.MakeGenericMethod(underlyingTargetMemberType),
-                    indexExpression);
-
-            if (underlyingTargetMemberType != type)
-            {
-                readValueExpression
-                    = Expression.Convert(readValueExpression, type);
-            }
-
-            if (type.IsNullableType())
-            {
-                readValueExpression
-                    = Expression.Condition(
-                        Expression.Call(valueReader, _isNull, indexExpression),
-                        Expression.Constant(null, type),
-                        readValueExpression);
-            }
-
-            return readValueExpression;
-        }
+        public virtual Expression CreateReadValueCallExpression(Expression valueBuffer, int index)
+            => Expression.Call(valueBuffer, _readValue, Expression.Constant(index));
 
         public virtual Expression CreateMaterializeExpression(
             IEntityType entityType,
-            Expression valueReaderExpression,
+            Expression valueBufferExpression,
             int[] indexMap = null)
         {
-            Check.NotNull(entityType, nameof(entityType));
-            Check.NotNull(valueReaderExpression, nameof(valueReaderExpression));
-
+            // ReSharper disable once SuspiciousTypeConversion.Global
             var materializer = entityType as IEntityMaterializer;
 
             if (materializer != null)
             {
                 return Expression.Call(
                     Expression.Constant(materializer),
-                    ((Func<IValueReader, object>)materializer.CreateEntity).GetMethodInfo(),
-                    valueReaderExpression);
+                    ((Func<ValueBuffer, object>)materializer.CreateEntity).GetMethodInfo(),
+                    valueBufferExpression);
             }
 
             if (!entityType.HasClrType())
             {
-                throw new InvalidOperationException(Strings.NoClrType(entityType.Name));
+                throw new InvalidOperationException(CoreStrings.NoClrType(entityType.Name));
             }
 
-            if (entityType.IsAbstract)
+            if (entityType.IsAbstract())
             {
-                throw new InvalidOperationException(Strings.CannotMaterializeAbstractType(entityType));
+                throw new InvalidOperationException(CoreStrings.CannotMaterializeAbstractType(entityType));
             }
 
             var instanceVariable = Expression.Variable(entityType.ClrType, "instance");
 
             var blockExpressions
                 = new List<Expression>
-                    {
-                        Expression.Assign(
-                            instanceVariable,
-                            Expression.New(entityType.ClrType.GetDeclaredConstructor(null)))
-                    };
+                {
+                    Expression.Assign(
+                        instanceVariable,
+                        Expression.New(entityType.ClrType.GetDeclaredConstructor(null)))
+                };
 
             blockExpressions.AddRange(
                 from mapping in _memberMapper.MapPropertiesToMembers(entityType)
@@ -121,9 +78,9 @@ namespace Microsoft.Data.Entity.Metadata.Internal
                     Expression.Assign(
                         targetMember,
                         CreateReadValueExpression(
-                            valueReaderExpression,
+                            valueBufferExpression,
                             targetMember.Type,
-                            indexMap?[mapping.Item1.Index] ?? mapping.Item1.Index)));
+                            indexMap?[mapping.Item1.GetIndex()] ?? mapping.Item1.GetIndex())));
 
             blockExpressions.Add(instanceVariable);
 

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Entity.Internal;
 using Microsoft.Data.Entity.Query;
+using Microsoft.Data.Entity.Query.Internal;
 using Moq;
 using Xunit;
 
@@ -257,7 +258,7 @@ namespace Microsoft.Data.Entity.Tests
             await SourceNonAsyncEnumerableTest<int>(() => Source().ToListAsync());
 
             Assert.Equal(
-                Strings.IQueryableNotAsync(typeof(int)),
+                CoreStrings.IQueryableNotAsync(typeof(int)),
                 Assert.Throws<InvalidOperationException>(() => Source().AsAsyncEnumerable()).Message);
         }
 
@@ -274,14 +275,14 @@ namespace Microsoft.Data.Entity.Tests
         private static async Task SourceNonAsyncQueryableTest(Func<Task> test)
         {
             Assert.Equal(
-                Strings.IQueryableProviderNotAsync,
+                CoreStrings.IQueryableProviderNotAsync,
                 (await Assert.ThrowsAsync<InvalidOperationException>(test)).Message);
         }
 
         private static async Task SourceNonAsyncEnumerableTest<T>(Func<Task> test)
         {
             Assert.Equal(
-                Strings.IQueryableNotAsync(typeof(T)),
+                CoreStrings.IQueryableNotAsync(typeof(T)),
                 (await Assert.ThrowsAsync<InvalidOperationException>(test)).Message);
         }
 

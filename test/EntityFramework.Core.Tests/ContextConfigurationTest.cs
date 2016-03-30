@@ -1,13 +1,13 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using JetBrains.Annotations;
 using Microsoft.Data.Entity.ChangeTracking.Internal;
 using Microsoft.Data.Entity.Infrastructure;
-using Microsoft.Data.Entity.Metadata;
 using Microsoft.Data.Entity.Metadata.Internal;
 using Microsoft.Data.Entity.Storage;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Microsoft.Data.Entity.Tests
@@ -44,72 +44,65 @@ namespace Microsoft.Data.Entity.Tests
         }
 
         [Fact]
-        public void Scoped_data_store_services_can_be_obtained_from_configuration()
+        public void Scoped_provider_services_can_be_obtained_from_configuration()
         {
             var serviceProvider = TestHelpers.Instance.CreateServiceProvider();
 
-            IDataStore store;
-            IDataStoreCreator creator;
-            IDataStoreConnection connection;
+            IDatabase database;
+            IDatabaseCreator creator;
 
-            using (var context = new DbContext(serviceProvider))
+            using (var context = new GiddyupContext(serviceProvider))
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
+                database = context.GetService<IDatabase>();
+                creator = context.GetService<IDatabaseCreator>();
 
-                store = contextServices.GetRequiredService<IDataStore>();
-                creator = contextServices.GetRequiredService<IDataStoreCreator>();
-                connection = contextServices.GetRequiredService<IDataStoreConnection>();
-
-                Assert.Same(store, contextServices.GetRequiredService<IDataStore>());
-                Assert.Same(creator, contextServices.GetRequiredService<IDataStoreCreator>());
-                Assert.Same(connection, contextServices.GetRequiredService<IDataStoreConnection>());
+                Assert.Same(database, context.GetService<IDatabase>());
+                Assert.Same(creator, context.GetService<IDatabaseCreator>());
             }
 
-            using (var context = new DbContext(serviceProvider))
+            using (var context = new GiddyupContext(serviceProvider))
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
-
-                Assert.NotSame(store, contextServices.GetRequiredService<IDataStore>());
-                Assert.NotSame(creator, contextServices.GetRequiredService<IDataStoreCreator>());
-                Assert.NotSame(connection, contextServices.GetRequiredService<IDataStoreConnection>());
+                Assert.NotSame(database, context.GetService<IDatabase>());
+                Assert.NotSame(creator, context.GetService<IDatabaseCreator>());
             }
         }
 
         [Fact]
-        public void Scoped_data_store_services_can_be_obtained_from_configuration_with_implicit_service_provider()
+        public void Scoped_provider_services_can_be_obtained_from_configuration_with_implicit_service_provider()
         {
-            IDataStore store;
-            IDataStoreCreator creator;
-            IDataStoreConnection connection;
+            IDatabase database;
+            IDatabaseCreator creator;
 
             using (var context = new GiddyupContext())
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
+                database = context.GetService<IDatabase>();
+                creator = context.GetService<IDatabaseCreator>();
 
-                store = contextServices.GetRequiredService<IDataStore>();
-                creator = contextServices.GetRequiredService<IDataStoreCreator>();
-                connection = contextServices.GetRequiredService<IDataStoreConnection>();
-
-                Assert.Same(store, contextServices.GetRequiredService<IDataStore>());
-                Assert.Same(creator, contextServices.GetRequiredService<IDataStoreCreator>());
-                Assert.Same(connection, contextServices.GetRequiredService<IDataStoreConnection>());
+                Assert.Same(database, context.GetService<IDatabase>());
+                Assert.Same(creator, context.GetService<IDatabaseCreator>());
             }
 
             using (var context = new GiddyupContext())
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
-
-                Assert.NotSame(store, contextServices.GetRequiredService<IDataStore>());
-                Assert.NotSame(creator, contextServices.GetRequiredService<IDataStoreCreator>());
-                Assert.NotSame(connection, contextServices.GetRequiredService<IDataStoreConnection>());
+                Assert.NotSame(database, context.GetService<IDatabase>());
+                Assert.NotSame(creator, context.GetService<IDatabaseCreator>());
             }
         }
 
         private class GiddyupContext : DbContext
         {
+            public GiddyupContext()
+            {
+            }
+
+            public GiddyupContext([NotNull] IServiceProvider serviceProvider)
+                : base(serviceProvider)
+            {
+            }
+
             protected internal override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
-                optionsBuilder.UseInMemoryStore();
+                optionsBuilder.UseInMemoryDatabase();
             }
         }
     }

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -9,12 +9,13 @@ namespace Microsoft.Data.Entity.Metadata.Internal
 {
     public interface IEntityMaterializerSource
     {
-        Expression CreateReadValueExpression(
-            [NotNull] Expression valueReader, [NotNull] Type type, int index);
+        Expression CreateReadValueExpression([NotNull] Expression valueBuffer, [NotNull] Type type, int index);
+
+        Expression CreateReadValueCallExpression([NotNull] Expression valueBuffer, int index);
 
         Expression CreateMaterializeExpression(
             [NotNull] IEntityType entityType,
-            [NotNull] Expression valueReaderExpression,
+            [NotNull] Expression valueBufferExpression,
             [CanBeNull] int[] indexMap = null);
     }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -6,7 +6,9 @@ using System.Linq;
 using Microsoft.Data.Entity.Infrastructure;
 using Microsoft.Data.Entity.Internal;
 using Microsoft.Data.Entity.Metadata;
-using Microsoft.Data.Entity.Metadata.Builders;
+using Microsoft.Data.Entity.Metadata.Conventions.Internal;
+using Microsoft.Data.Entity.Metadata.Internal;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 
@@ -20,17 +22,19 @@ namespace Microsoft.Data.Entity.Tests
             var setFinderMock = new Mock<IDbSetFinder>();
             setFinderMock.Setup(m => m.FindSets(It.IsAny<DbContext>())).Returns(
                 new[]
-                    {
-                        new DbSetProperty(typeof(JustAClass), "One", typeof(Random), hasSetter: true),
-                        new DbSetProperty(typeof(JustAClass), "Two", typeof(object), hasSetter: true),
-                        new DbSetProperty(typeof(JustAClass), "Three", typeof(Random), hasSetter: true)
-                    });
+                {
+                    new DbSetProperty("One", typeof(SetA), setter: null),
+                    new DbSetProperty("Two", typeof(SetB), setter: null),
+                    new DbSetProperty("Three", typeof(SetA), setter: null)
+                });
 
-            var model = CreateDefaultModelSource(setFinderMock.Object).GetModel(new Mock<DbContext>().Object, new ModelBuilderFactory());
+            var model = CreateDefaultModelSource(setFinderMock.Object)
+                .GetModel(new Mock<DbContext>().Object, null,
+                    new LoggingModelValidator(new Logger<LoggingModelValidator>(new LoggerFactory())));
 
             Assert.Equal(
-                new[] { typeof(object).FullName, typeof(Random).FullName },
-                model.EntityTypes.Select(e => e.Name).ToArray());
+                new[] { typeof(SetA).DisplayName(), typeof(SetB).DisplayName() },
+                model.GetEntityTypes().Select(e => e.Name).ToArray());
         }
 
         private class JustAClass
@@ -41,17 +45,42 @@ namespace Microsoft.Data.Entity.Tests
             private DbSet<string> Four { get; set; }
         }
 
+        private class SetA
+        {
+            public int Id { get; set; }
+        }
+
+        private class SetB
+        {
+            public int Id { get; set; }
+        }
+
         [Fact]
         public void Caches_model_by_context_type()
         {
             var modelSource = CreateDefaultModelSource(new DbSetFinder());
 
-            var model1 = modelSource.GetModel(new Context1(), new ModelBuilderFactory());
-            var model2 = modelSource.GetModel(new Context2(), new ModelBuilderFactory());
+            var model1 = modelSource.GetModel(new Context1(), null,
+                new LoggingModelValidator(new Logger<LoggingModelValidator>(new LoggerFactory())));
+            var model2 = modelSource.GetModel(new Context2(), null,
+                new LoggingModelValidator(new Logger<LoggingModelValidator>(new LoggerFactory())));
 
             Assert.NotSame(model1, model2);
-            Assert.Same(model1, modelSource.GetModel(new Context1(), new ModelBuilderFactory()));
-            Assert.Same(model2, modelSource.GetModel(new Context2(), new ModelBuilderFactory()));
+            Assert.Same(model1, modelSource.GetModel(new Context1(), null,
+                new LoggingModelValidator(new Logger<LoggingModelValidator>(new LoggerFactory()))));
+            Assert.Same(model2, modelSource.GetModel(new Context2(), null,
+                new LoggingModelValidator(new Logger<LoggingModelValidator>(new LoggerFactory()))));
+        }
+
+        [Fact]
+        public void Stores_model_version_information_as_annotation_on_model()
+        {
+            var modelSource = CreateDefaultModelSource(new DbSetFinder());
+
+            var model = modelSource.GetModel(new Context1(), null,
+                new LoggingModelValidator(new Logger<LoggingModelValidator>(new LoggerFactory())));
+
+            Assert.StartsWith("7.0.0", model.GetProductVersion(), StringComparison.OrdinalIgnoreCase);
         }
 
         private class Context1 : DbContext
@@ -62,7 +91,15 @@ namespace Microsoft.Data.Entity.Tests
         {
         }
 
-        private IModelSource CreateDefaultModelSource(IDbSetFinder setFinder) 
-            => new ModelSource(setFinder, Mock.Of<IModelValidator>());
+        private IModelSource CreateDefaultModelSource(IDbSetFinder setFinder)
+            => new ConcreteModelSource(setFinder);
+
+        private class ConcreteModelSource : ModelSource
+        {
+            public ConcreteModelSource(IDbSetFinder setFinder)
+                : base(setFinder, new CoreConventionSetBuilder())
+            {
+            }
+        }
     }
 }

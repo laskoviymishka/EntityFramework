@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -65,48 +65,62 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.GearsOfWarModel
 
                 var marcusLancer = new Weapon
                     {
-                        Name = "Marcus' Lancer"
+                        Name = "Marcus' Lancer",
+                        AmmunitionType = AmmunitionType.Cartridge
                     };
 
                 var marcusGnasher = new Weapon
                     {
                         Name = "Marcus' Gnasher",
+                        AmmunitionType = AmmunitionType.Shell,
                         SynergyWith = marcusLancer
                     };
 
                 var domsHammerburst = new Weapon
                     {
-                        Name = "Dom's Hammerburst"
+                        Name = "Dom's Hammerburst",
+                        AmmunitionType = AmmunitionType.Cartridge
                     };
 
                 var domsGnasher = new Weapon
                     {
-                        Name = "Dom's Gnasher"
+                        Name = "Dom's Gnasher",
+                        AmmunitionType = AmmunitionType.Shell
                     };
 
                 var colesGnasher = new Weapon
                     {
-                        Name = "Cole's Gnasher"
+                        Name = "Cole's Gnasher",
+                        AmmunitionType = AmmunitionType.Shell
                     };
 
                 var colesMulcher = new Weapon
                     {
-                        Name = "Cole's Mulcher"
+                        Name = "Cole's Mulcher",
+                        AmmunitionType = AmmunitionType.Cartridge
                     };
 
                 var bairdsLancer = new Weapon
                     {
-                        Name = "Baird's Lancer"
+                        Name = "Baird's Lancer",
+                        AmmunitionType = AmmunitionType.Cartridge
                     };
 
                 var bairdsGnasher = new Weapon
                     {
-                        Name = "Baird's Gnasher"
+                        Name = "Baird's Gnasher",
+                        AmmunitionType = AmmunitionType.Shell
                     };
 
                 var paduksMarkza = new Weapon
                     {
-                        Name = "Paduk's Markza"
+                        Name = "Paduk's Markza",
+                        AmmunitionType = AmmunitionType.Cartridge
+                    };
+
+                var maulersFlail = new Weapon
+                    {
+                        Name = "Mauler's Flail"
                     };
 
                 context.Weapons.Add(marcusLancer);
@@ -118,6 +132,7 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.GearsOfWarModel
                 context.Weapons.Add(bairdsLancer);
                 context.Weapons.Add(bairdsGnasher);
                 context.Weapons.Add(paduksMarkza);
+                context.Weapons.Add(maulersFlail);
                 context.SaveChanges();
 
                 var marcusTag = new CogTag
@@ -173,7 +188,6 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.GearsOfWarModel
                         AssignedCity = ephyra,
                         CityOrBirthName = ephyra.Name,
                         Tag = domsTag,
-                        Reports = new List<Gear>(),
                         Weapons = new List<Weapon> { domsHammerburst, domsGnasher }
                     };
 
@@ -186,7 +200,6 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.GearsOfWarModel
                         CityOrBirthName = hanover.Name,
                         AssignedCity = jacinto,
                         Tag = colesTag,
-                        Reports = new List<Gear>(),
                         Weapons = new List<Weapon> { colesGnasher, colesMulcher }
                     };
 
@@ -198,11 +211,10 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.GearsOfWarModel
                         Rank = MilitaryRank.Private,
                         CityOrBirthName = unknown.Name,
                         Tag = paduksTag,
-                        Reports = new List<Gear>(),
                         Weapons = new List<Weapon> { paduksMarkza }
                     };
 
-                var baird = new Gear
+                var baird = new Officer
                     {
                         Nickname = "Baird",
                         FullName = "Damon Baird",
@@ -215,8 +227,8 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.GearsOfWarModel
                         Weapons = new List<Weapon> { bairdsLancer, bairdsGnasher }
                     };
 
-                var marcus = new Gear
-                    {
+                var marcus = new Officer
+                {
                         Nickname = "Marcus",
                         FullName = "Marcus Fenix",
                         SquadId = deltaSquad.Id,

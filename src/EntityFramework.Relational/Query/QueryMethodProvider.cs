@@ -1,77 +1,158 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
-using System.Data.Common;
 using System.Linq;
 using System.Reflection;
 using JetBrains.Annotations;
-using Microsoft.Data.Entity.ChangeTracking.Internal;
+using Microsoft.Data.Entity.Infrastructure;
 using Microsoft.Data.Entity.Metadata;
-using Microsoft.Data.Entity.Query;
-using Microsoft.Data.Entity.Relational.Utilities;
+using Microsoft.Data.Entity.Query.Internal;
 using Microsoft.Data.Entity.Storage;
-using Remotion.Linq.Clauses;
 
-namespace Microsoft.Data.Entity.Relational.Query
+namespace Microsoft.Data.Entity.Query
 {
     public class QueryMethodProvider : IQueryMethodProvider
     {
+        public virtual MethodInfo ShapedQueryMethod => _shapedQueryMethodInfo;
+
+        private static readonly MethodInfo _shapedQueryMethodInfo
+            = typeof(QueryMethodProvider).GetTypeInfo()
+                .GetDeclaredMethod(nameof(_ShapedQuery));
+
+        [UsedImplicitly]
+        internal static IEnumerable<T> _ShapedQuery<T>(
+            QueryContext queryContext,
+            CommandBuilder commandBuilder,
+            Func<ValueBuffer, T> shaper)
+            => new QueryingEnumerable(
+                (RelationalQueryContext)queryContext,
+                commandBuilder,
+                queryIndex: null)
+                .Select(shaper); // TODO: Pass shaper to underlying enumerable
+
+        public virtual MethodInfo QueryMethod => _queryMethodInfo;
+
+        private static readonly MethodInfo _queryMethodInfo
+            = typeof(QueryMethodProvider).GetTypeInfo()
+                .GetDeclaredMethod(nameof(_Query));
+
+        [UsedImplicitly]
+        private static IEnumerable<ValueBuffer> _Query(
+            QueryContext queryContext,
+            CommandBuilder commandBuilder,
+            int? queryIndex)
+            => new QueryingEnumerable(
+                ((RelationalQueryContext)queryContext),
+                commandBuilder,
+                queryIndex);
+
         public virtual MethodInfo GetResultMethod => _getResultMethodInfo;
 
         private static readonly MethodInfo _getResultMethodInfo
             = typeof(QueryMethodProvider).GetTypeInfo()
-                .GetDeclaredMethod("GetResult");
+                .GetDeclaredMethod(nameof(GetResult));
 
         [UsedImplicitly]
-        private static TResult GetResult<TResult>(IEnumerable<DbDataReader> dataReaders)
+        internal static TResult GetResult<TResult>(IEnumerable<ValueBuffer> valueBuffers)
         {
-            using (var enumerator = dataReaders.GetEnumerator())
+            using (var enumerator = valueBuffers.GetEnumerator())
             {
                 if (enumerator.MoveNext())
                 {
-                    return enumerator.Current.IsDBNull(0)
+                    return enumerator.Current[0] == null
                         ? default(TResult)
-                        : (TResult)enumerator.Current.GetValue(0);
+                        : (TResult)enumerator.Current[0];
                 }
             }
 
             return default(TResult);
         }
 
-        public virtual MethodInfo QueryMethod => _queryMethodInfo;
+        public virtual MethodInfo GroupJoinMethod => _groupJoinMethodInfo;
 
-        private static readonly MethodInfo _queryMethodInfo
-            = typeof(QueryMethodProvider).GetTypeInfo()
-                .GetDeclaredMethod("_Query");
+        private static readonly MethodInfo _groupJoinMethodInfo
+            = typeof(QueryMethodProvider)
+                .GetTypeInfo().GetDeclaredMethod(nameof(_GroupJoin));
 
         [UsedImplicitly]
-        private static IEnumerable<T> _Query<T>(
-            QueryContext queryContext, CommandBuilder commandBuilder, Func<DbDataReader, T> shaper)
+        internal static IEnumerable<TResult> _GroupJoin<TOuter, TInner, TKey, TResult>(
+            IEnumerable<ValueBuffer> source,
+            Func<ValueBuffer, TOuter> outerFactory,
+            Func<ValueBuffer, TInner> innerFactory,
+            Func<TInner, TKey> innerKeySelector,
+            Func<TOuter, IEnumerable<TInner>, TResult> resultSelector)
         {
-            return new QueryingEnumerable<T>(
-                ((RelationalQueryContext)queryContext),
-                commandBuilder,
-                shaper,
-                queryContext.Logger);
+            using (var sourceEnumerator = source.GetEnumerator())
+            {
+                var comparer = EqualityComparer<TKey>.Default;
+                var hasNext = sourceEnumerator.MoveNext();
+
+                while (hasNext)
+                {
+                    var outer = outerFactory(sourceEnumerator.Current);
+                    var inner = innerFactory(sourceEnumerator.Current);
+                    var inners = new List<TInner>();
+
+                    if (inner == null)
+                    {
+                        yield return resultSelector(outer, inners);
+
+                        hasNext = sourceEnumerator.MoveNext();
+                    }
+                    else
+                    {
+                        var currentGroupKey = innerKeySelector(inner);
+
+                        inners.Add(inner);
+
+                        while (true)
+                        {
+                            hasNext = sourceEnumerator.MoveNext();
+
+                            if (!hasNext)
+                            {
+                                break;
+                            }
+
+                            inner = innerFactory(sourceEnumerator.Current);
+
+                            if (inner == null)
+                            {
+                                break;
+                            }
+
+                            var innerKey = innerKeySelector(inner);
+
+                            if (!comparer.Equals(currentGroupKey, innerKey))
+                            {
+                                break;
+                            }
+
+                            inners.Add(inner);
+                        }
+
+                        yield return resultSelector(outer, inners);
+                    }
+                }
+            }
         }
 
         public virtual MethodInfo IncludeMethod => _includeMethodInfo;
 
         private static readonly MethodInfo _includeMethodInfo
             = typeof(QueryMethodProvider).GetTypeInfo()
-                .GetDeclaredMethod("_Include");
+                .GetDeclaredMethod(nameof(_Include));
 
         [UsedImplicitly]
-        private static IEnumerable<T> _Include<T>(
+        internal static IEnumerable<T> _Include<T>(
             RelationalQueryContext queryContext,
             IEnumerable<T> innerResults,
-            IQuerySource querySource,
+            Func<T, object> entityAccessor,
             IReadOnlyList<INavigation> navigationPath,
             IReadOnlyList<Func<IIncludeRelatedValuesStrategy>> includeRelatedValuesStrategyFactories,
             bool querySourceRequiresTracking)
-            where T : QuerySourceScope
         {
             queryContext.BeginIncludeScope();
 
@@ -86,16 +167,16 @@ namespace Microsoft.Data.Entity.Relational.Query
                     .ToArray();
 
             return innerResults
-                .Select(qss =>
+                .Select(r =>
                     {
                         queryContext.QueryBuffer
                             .Include(
-                                qss.GetResult(querySource),
+                                entityAccessor == null ? r : entityAccessor(r), // TODO: Compile time?
                                 navigationPath,
                                 relatedEntitiesLoaders,
                                 querySourceRequiresTracking);
 
-                        return qss;
+                        return r;
                     })
                 .Finally(() =>
                     {
@@ -108,51 +189,46 @@ namespace Microsoft.Data.Entity.Relational.Query
                     });
         }
 
-        public virtual Type IncludeRelatedValuesFactoryType => typeof(Func<IIncludeRelatedValuesStrategy>);
-
-        public virtual MethodInfo CreateReferenceIncludeRelatedValuesStrategyMethod => _createReferenceIncludeStrategyMethodInfo;
+        public virtual MethodInfo CreateReferenceIncludeRelatedValuesStrategyMethod
+            => _createReferenceIncludeStrategyMethodInfo;
 
         private static readonly MethodInfo _createReferenceIncludeStrategyMethodInfo
             = typeof(QueryMethodProvider).GetTypeInfo()
-                .GetDeclaredMethod("_CreateReferenceIncludeStrategy");
+                .GetDeclaredMethod(nameof(_CreateReferenceIncludeStrategy));
 
         [UsedImplicitly]
-        private static IIncludeRelatedValuesStrategy _CreateReferenceIncludeStrategy(
+        internal static IIncludeRelatedValuesStrategy _CreateReferenceIncludeStrategy(
             RelationalQueryContext relationalQueryContext,
-            int readerIndex,
-            int readerOffset,
-            Func<IValueReader, object> materializer)
-        {
-            return new ReferenceIncludeRelatedValuesStrategy(relationalQueryContext, readerIndex, readerOffset, materializer);
-        }
+            int valueBufferOffset,
+            int queryIndex,
+            Func<ValueBuffer, object> materializer)
+            => new ReferenceIncludeRelatedValuesStrategy(
+                relationalQueryContext, valueBufferOffset, queryIndex, materializer);
 
         private class ReferenceIncludeRelatedValuesStrategy : IIncludeRelatedValuesStrategy
         {
             private readonly RelationalQueryContext _queryContext;
-            private readonly int _readerIndex;
-            private readonly int _readerOffset;
-            private readonly Func<IValueReader, object> _materializer;
+            private readonly int _valueBufferOffset;
+            private readonly int _queryIndex;
+            private readonly Func<ValueBuffer, object> _materializer;
 
             public ReferenceIncludeRelatedValuesStrategy(
                 RelationalQueryContext queryContext,
-                int readerIndex,
-                int readerOffset,
-                Func<IValueReader, object> materializer)
+                int valueBufferOffset,
+                int queryIndex,
+                Func<ValueBuffer, object> materializer)
             {
                 _queryContext = queryContext;
-                _readerIndex = readerIndex;
-                _readerOffset = readerOffset;
+                _valueBufferOffset = valueBufferOffset;
+                _queryIndex = queryIndex;
                 _materializer = materializer;
             }
 
-            public IEnumerable<EntityLoadInfo> GetRelatedValues(EntityKey key, Func<IValueReader, EntityKey> keyFactory)
+            public IEnumerable<EntityLoadInfo> GetRelatedValues(IKeyValue keyValue, Func<ValueBuffer, IKeyValue> keyFactory)
             {
-                yield return
-                    new EntityLoadInfo(
-                        new OffsetValueReaderDecorator(
-                            _queryContext.CreateValueReader(_readerIndex),
-                            _readerOffset),
-                        _materializer);
+                var valueBuffer = _queryContext.GetIncludeValueBuffer(_queryIndex).WithOffset(_valueBufferOffset);
+
+                yield return new EntityLoadInfo(valueBuffer, _materializer);
             }
 
             public void Dispose()
@@ -161,44 +237,42 @@ namespace Microsoft.Data.Entity.Relational.Query
             }
         }
 
-        public virtual MethodInfo CreateCollectionIncludeRelatedValuesStrategyMethod => _createCollectionIncludeStrategyMethodInfo;
+        public virtual MethodInfo CreateCollectionIncludeRelatedValuesStrategyMethod
+            => _createCollectionIncludeStrategyMethodInfo;
 
         private static readonly MethodInfo _createCollectionIncludeStrategyMethodInfo
             = typeof(QueryMethodProvider).GetTypeInfo()
-                .GetDeclaredMethod("_CreateCollectionIncludeStrategy");
+                .GetDeclaredMethod(nameof(_CreateCollectionIncludeStrategy));
 
         [UsedImplicitly]
         private static IIncludeRelatedValuesStrategy _CreateCollectionIncludeStrategy(
-            IEnumerable<IValueReader> relatedValueReaders, Func<IValueReader, object> materializer)
-        {
-            return new CollectionIncludeRelatedValuesStrategy(relatedValueReaders, materializer);
-        }
+            IEnumerable<ValueBuffer> relatedValueBuffers, Func<ValueBuffer, object> materializer)
+            => new CollectionIncludeRelatedValuesStrategy(relatedValueBuffers, materializer);
 
         private class CollectionIncludeRelatedValuesStrategy : IIncludeRelatedValuesStrategy
         {
             private readonly IncludeCollectionIterator _includeCollectionIterator;
-            private readonly Func<IValueReader, object> _materializer;
+            private readonly Func<ValueBuffer, object> _materializer;
 
             public CollectionIncludeRelatedValuesStrategy(
-                IEnumerable<IValueReader> relatedValueReaders, Func<IValueReader, object> materializer)
+                IEnumerable<ValueBuffer> relatedValueBuffers, Func<ValueBuffer, object> materializer)
             {
                 _materializer = materializer;
                 _includeCollectionIterator
-                    = new IncludeCollectionIterator(relatedValueReaders.GetEnumerator());
+                    = new IncludeCollectionIterator(relatedValueBuffers.GetEnumerator());
             }
 
-            public IEnumerable<EntityLoadInfo> GetRelatedValues(EntityKey key, Func<IValueReader, EntityKey> keyFactory)
+            public IEnumerable<EntityLoadInfo> GetRelatedValues(IKeyValue keyValue, Func<ValueBuffer, IKeyValue> keyFactory)
             {
                 return
                     _includeCollectionIterator
-                        .GetRelatedValues(key, keyFactory)
+                        .GetRelatedValues(keyValue, keyFactory)
                         .Select(vr => new EntityLoadInfo(vr, _materializer));
             }
 
-            public void Dispose()
-            {
-                _includeCollectionIterator.Dispose();
-            }
+            public void Dispose() => _includeCollectionIterator.Dispose();
         }
+
+        public virtual Type IncludeRelatedValuesFactoryType => typeof(Func<IIncludeRelatedValuesStrategy>);
     }
 }

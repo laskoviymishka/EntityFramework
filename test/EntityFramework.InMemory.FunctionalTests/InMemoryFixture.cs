@@ -1,9 +1,9 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using Microsoft.Data.Entity.FunctionalTests;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Data.Entity.InMemory.FunctionalTests
 {
@@ -16,7 +16,7 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
             ServiceProvider
                 = new ServiceCollection()
                     .AddEntityFramework()
-                    .AddInMemoryStore()
+                    .AddInMemoryDatabase()
                     .ServiceCollection()
                     .BuildServiceProvider();
         }

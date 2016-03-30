@@ -1,14 +1,25 @@
 {
-    "dependencies": {
-        "Microsoft.Framework.Runtime.Roslyn": "1.0.0-beta4",
-		"EntityFramework.Commands": "7.0.0-beta4",
-        "EntityFramework.Relational.Tests": "1.0.0"
-    },
-    "compile": "..\\..\\src\\EntityFramework.Commands\\tools\\Handlers.cs",
-    "commands": {
-        "test": "xunit.runner.aspnet"
-    },
-    "frameworks": {
-        "dnx451": { }
+  "compilationOptions": {
+    "define": [
+      "OMIT_HANDLER_INTERFACES",
+      "ENABLE_HANDLERS"
+    ],
+    "keyFile": "../../tools/Key.snk"
+  },
+  "dependencies": {
+    "EntityFramework.Commands": "7.0.0-rc1-final",
+    "EntityFramework.Relational.Tests": "1.0.0"
+  },
+  "compile": "..\\..\\src\\EntityFramework.Commands\\Design\\OperationHandlers.cs",
+  "commands": {
+    "test": "xunit.runner.aspnet"
+  },
+  "frameworks": {
+    "net46": {},
+    "dnx451": {
+      "dependencies": {
+        "Microsoft.Dnx.Compilation.CSharp": "1.0.0-rc1-final"
+      }
     }
+  }
 }

@@ -1,84 +1,226 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
-using System.Data.Common;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
-using Microsoft.Data.Entity.ChangeTracking.Internal;
+using Microsoft.Data.Entity.Infrastructure;
 using Microsoft.Data.Entity.Metadata;
-using Microsoft.Data.Entity.Query;
+using Microsoft.Data.Entity.Query.Internal;
 using Microsoft.Data.Entity.Storage;
-using Remotion.Linq.Clauses;
 
-namespace Microsoft.Data.Entity.Relational.Query
+namespace Microsoft.Data.Entity.Query
 {
     public class AsyncQueryMethodProvider : IQueryMethodProvider
     {
+        public virtual MethodInfo ShapedQueryMethod => _shapedQueryMethodInfo;
+
+        private static readonly MethodInfo _shapedQueryMethodInfo
+            = typeof(AsyncQueryMethodProvider).GetTypeInfo()
+                .GetDeclaredMethod(nameof(_ShapedQuery));
+
+        [UsedImplicitly]
+        internal static IAsyncEnumerable<T> _ShapedQuery<T>(
+            QueryContext queryContext,
+            CommandBuilder commandBuilder,
+            Func<ValueBuffer, T> shaper)
+            => new AsyncQueryingEnumerable(
+                (RelationalQueryContext)queryContext,
+                commandBuilder,
+                queryIndex: null)
+                .Select(shaper); // TODO: Pass shaper to underlying enumerable
+
+        public virtual MethodInfo QueryMethod => _queryMethodInfo;
+
+        private static readonly MethodInfo _queryMethodInfo
+            = typeof(AsyncQueryMethodProvider).GetTypeInfo()
+                .GetDeclaredMethod(nameof(_Query));
+
+        [UsedImplicitly]
+        private static IAsyncEnumerable<ValueBuffer> _Query(
+            QueryContext queryContext,
+            CommandBuilder commandBuilder,
+            int? queryIndex)
+            => new AsyncQueryingEnumerable(
+                ((RelationalQueryContext)queryContext),
+                commandBuilder,
+                queryIndex);
+
         public virtual MethodInfo GetResultMethod => _getResultMethodInfo;
 
         private static readonly MethodInfo _getResultMethodInfo
             = typeof(AsyncQueryMethodProvider).GetTypeInfo()
-                .GetDeclaredMethod("GetResult");
+                .GetDeclaredMethod(nameof(GetResult));
 
         [UsedImplicitly]
-        private static async Task<TResult> GetResult<TResult>(
-            IAsyncEnumerable<DbDataReader> dataReaders, CancellationToken cancellationToken)
+        internal static async Task<TResult> GetResult<TResult>(
+            IAsyncEnumerable<ValueBuffer> valueBuffers, CancellationToken cancellationToken)
         {
-            using (var enumerator = dataReaders.GetEnumerator())
+            cancellationToken.ThrowIfCancellationRequested();
+
+            using (var enumerator = valueBuffers.GetEnumerator())
             {
                 if (await enumerator.MoveNext(cancellationToken))
                 {
-                    var result
-                        = await enumerator.Current.IsDBNullAsync(0, cancellationToken)
-                            .WithCurrentCulture()
-                            ? default(TResult)
-                            : await enumerator.Current.GetFieldValueAsync<TResult>(0, cancellationToken)
-                                .WithCurrentCulture();
-
-                    return result;
+                    return enumerator.Current[0] == null
+                        ? default(TResult)
+                        : (TResult)enumerator.Current[0];
                 }
             }
 
             return default(TResult);
         }
 
-        public virtual MethodInfo QueryMethod => _queryMethodInfo;
+        public virtual MethodInfo GroupJoinMethod => _groupJoinMethodInfo;
 
-        private static readonly MethodInfo _queryMethodInfo
-            = typeof(AsyncQueryMethodProvider).GetTypeInfo()
-                .GetDeclaredMethod("_Query");
+        private static readonly MethodInfo _groupJoinMethodInfo
+            = typeof(AsyncQueryMethodProvider)
+                .GetTypeInfo().GetDeclaredMethod(nameof(_GroupJoin));
 
         [UsedImplicitly]
-        private static IAsyncEnumerable<T> _Query<T>(
-            QueryContext queryContext, CommandBuilder commandBuilder, Func<DbDataReader, T> shaper)
+        private static IAsyncEnumerable<TResult> _GroupJoin<TOuter, TInner, TKey, TResult>(
+            IAsyncEnumerable<ValueBuffer> source,
+            Func<ValueBuffer, TOuter> outerFactory,
+            Func<ValueBuffer, TInner> innerFactory,
+            Func<TInner, TKey> innerKeySelector,
+            Func<TOuter, IAsyncEnumerable<TInner>, TResult> resultSelector)
+            => new GroupJoinAsyncEnumerable<TOuter, TInner, TKey, TResult>(
+                source,
+                outerFactory,
+                innerFactory,
+                innerKeySelector,
+                resultSelector);
+
+        private class GroupJoinAsyncEnumerable<TOuter, TInner, TKey, TResult> : IAsyncEnumerable<TResult>
         {
-            return new AsyncQueryingEnumerable<T>(
-                ((RelationalQueryContext)queryContext),
-                commandBuilder,
-                shaper,
-                queryContext.Logger);
+            private readonly IAsyncEnumerable<ValueBuffer> _source;
+            private readonly Func<ValueBuffer, TOuter> _outerFactory;
+            private readonly Func<ValueBuffer, TInner> _innerFactory;
+            private readonly Func<TInner, TKey> _innerKeySelector;
+            private readonly Func<TOuter, IAsyncEnumerable<TInner>, TResult> _resultSelector;
+
+            public GroupJoinAsyncEnumerable(
+                IAsyncEnumerable<ValueBuffer> source,
+                Func<ValueBuffer, TOuter> outerFactory,
+                Func<ValueBuffer, TInner> innerFactory,
+                Func<TInner, TKey> innerKeySelector,
+                Func<TOuter, IAsyncEnumerable<TInner>, TResult> resultSelector)
+            {
+                _source = source;
+                _outerFactory = outerFactory;
+                _innerFactory = innerFactory;
+                _innerKeySelector = innerKeySelector;
+                _resultSelector = resultSelector;
+            }
+
+            public IAsyncEnumerator<TResult> GetEnumerator() => new GroupJoinAsyncEnumerator(this);
+
+            private class GroupJoinAsyncEnumerator : IAsyncEnumerator<TResult>
+            {
+                private readonly GroupJoinAsyncEnumerable<TOuter, TInner, TKey, TResult> _groupJoinAsyncEnumerable;
+                private readonly IEqualityComparer<TKey> _comparer;
+
+                private IAsyncEnumerator<ValueBuffer> _sourceEnumerator;
+                private bool _hasNext;
+
+                public GroupJoinAsyncEnumerator(
+                    GroupJoinAsyncEnumerable<TOuter, TInner, TKey, TResult> groupJoinAsyncEnumerable)
+                {
+                    _groupJoinAsyncEnumerable = groupJoinAsyncEnumerable;
+                    _comparer = EqualityComparer<TKey>.Default;
+                }
+
+                public async Task<bool> MoveNext(CancellationToken cancellationToken)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (_sourceEnumerator == null)
+                    {
+                        _sourceEnumerator = _groupJoinAsyncEnumerable._source.GetEnumerator();
+                        _hasNext = await _sourceEnumerator.MoveNext();
+                    }
+
+                    if (_hasNext)
+                    {
+                        var outer = _groupJoinAsyncEnumerable._outerFactory(_sourceEnumerator.Current);
+                        var inner = _groupJoinAsyncEnumerable._innerFactory(_sourceEnumerator.Current);
+                        var inners = new List<TInner>();
+
+                        if (inner == null)
+                        {
+                            Current
+                                = _groupJoinAsyncEnumerable._resultSelector(
+                                    outer, AsyncLinqOperatorProvider.ToAsyncEnumerable(inners));
+
+                            _hasNext = await _sourceEnumerator.MoveNext();
+
+                            return true;
+                        }
+
+                        var currentGroupKey = _groupJoinAsyncEnumerable._innerKeySelector(inner);
+
+                        inners.Add(inner);
+
+                        while (true)
+                        {
+                            _hasNext = await _sourceEnumerator.MoveNext();
+
+                            if (!_hasNext)
+                            {
+                                break;
+                            }
+
+                            inner = _groupJoinAsyncEnumerable._innerFactory(_sourceEnumerator.Current);
+
+                            if (inner == null)
+                            {
+                                break;
+                            }
+
+                            var innerKey = _groupJoinAsyncEnumerable._innerKeySelector(inner);
+
+                            if (!_comparer.Equals(currentGroupKey, innerKey))
+                            {
+                                break;
+                            }
+
+                            inners.Add(inner);
+                        }
+
+                        Current
+                            = _groupJoinAsyncEnumerable._resultSelector(
+                                outer, AsyncLinqOperatorProvider.ToAsyncEnumerable(inners));
+
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                public TResult Current { get; private set; }
+
+                public void Dispose() => _sourceEnumerator?.Dispose();
+            }
         }
 
         public virtual MethodInfo IncludeMethod => _includeMethodInfo;
 
         private static readonly MethodInfo _includeMethodInfo
             = typeof(AsyncQueryMethodProvider).GetTypeInfo()
-                .GetDeclaredMethod("_Include");
+                .GetDeclaredMethod(nameof(_Include));
 
         [UsedImplicitly]
-        private static IAsyncEnumerable<T> _Include<T>(
+        internal static IAsyncEnumerable<T> _Include<T>(
             RelationalQueryContext queryContext,
             IAsyncEnumerable<T> innerResults,
-            IQuerySource querySource,
+            Func<T, object> entityAccessor,
             IReadOnlyList<INavigation> navigationPath,
             IReadOnlyList<Func<IAsyncIncludeRelatedValuesStrategy>> includeRelatedValuesStrategyFactories,
             bool querySourceRequiresTracking)
-            where T : QuerySourceScope
         {
             queryContext.BeginIncludeScope();
 
@@ -87,81 +229,77 @@ namespace Microsoft.Data.Entity.Relational.Query
                     .Select(f => f())
                     .ToList();
 
-            var relatedValueReaders
+            var relatedValueBuffers
                 = includeRelatedValuesStrategies
                     .Select<IAsyncIncludeRelatedValuesStrategy, AsyncRelatedEntitiesLoader>(s => s.GetRelatedValues)
                     .ToArray();
 
-            return
-                innerResults.Select(
-                    async (querySourceScope, cancellationToken) =>
+            return innerResults
+                .Select(
+                    async (result, cancellationToken) =>
                         {
                             await queryContext.QueryBuffer
                                 .IncludeAsync(
-                                    querySourceScope.GetResult(querySource),
+                                    entityAccessor == null ? result : entityAccessor(result), // TODO: Compile time?
                                     navigationPath,
-                                    relatedValueReaders,
+                                    relatedValueBuffers,
                                     cancellationToken,
                                     querySourceRequiresTracking);
 
-                            return querySourceScope;
+                            return result;
                         })
-                    .Finally(() =>
+                .Finally(() =>
+                    {
+                        foreach (var includeRelatedValuesStrategy in includeRelatedValuesStrategies)
                         {
-                            foreach (var includeRelatedValuesStrategy in includeRelatedValuesStrategies)
-                            {
-                                includeRelatedValuesStrategy.Dispose();
-                            }
+                            includeRelatedValuesStrategy.Dispose();
+                        }
 
-                            queryContext.EndIncludeScope();
-                        });
+                        queryContext.EndIncludeScope();
+                    });
         }
 
-        public virtual Type IncludeRelatedValuesFactoryType => typeof(Func<IAsyncIncludeRelatedValuesStrategy>);
-
-        public virtual MethodInfo CreateReferenceIncludeRelatedValuesStrategyMethod => _createReferenceIncludeStrategyMethodInfo;
+        public virtual MethodInfo CreateReferenceIncludeRelatedValuesStrategyMethod
+            => _createReferenceIncludeStrategyMethodInfo;
 
         private static readonly MethodInfo _createReferenceIncludeStrategyMethodInfo
             = typeof(AsyncQueryMethodProvider).GetTypeInfo()
-                .GetDeclaredMethod("_CreateReferenceIncludeStrategy");
+                .GetDeclaredMethod(nameof(_CreateReferenceIncludeStrategy));
 
         [UsedImplicitly]
         private static IAsyncIncludeRelatedValuesStrategy _CreateReferenceIncludeStrategy(
             RelationalQueryContext relationalQueryContext,
-            int readerIndex,
-            int readerOffset,
-            Func<IValueReader, object> materializer)
-        {
-            return new ReferenceIncludeRelatedValuesStrategy(relationalQueryContext, readerIndex, readerOffset, materializer);
-        }
+            int valueBufferOffset,
+            int queryIndex,
+            Func<ValueBuffer, object> materializer)
+            => new ReferenceIncludeRelatedValuesStrategy(
+                relationalQueryContext, valueBufferOffset, queryIndex, materializer);
 
         private class ReferenceIncludeRelatedValuesStrategy : IAsyncIncludeRelatedValuesStrategy
         {
             private readonly RelationalQueryContext _queryContext;
-            private readonly int _readerIndex;
-            private readonly int _readerOffset;
-            private readonly Func<IValueReader, object> _materializer;
+            private readonly int _valueBufferOffset;
+            private readonly int _queryIndex;
+            private readonly Func<ValueBuffer, object> _materializer;
 
             public ReferenceIncludeRelatedValuesStrategy(
                 RelationalQueryContext queryContext,
-                int readerIndex,
-                int readerOffset,
-                Func<IValueReader, object> materializer)
+                int valueBufferOffset,
+                int queryIndex,
+                Func<ValueBuffer, object> materializer)
             {
                 _queryContext = queryContext;
-                _readerIndex = readerIndex;
-                _readerOffset = readerOffset;
+                _valueBufferOffset = valueBufferOffset;
+                _queryIndex = queryIndex;
                 _materializer = materializer;
             }
 
-            public IAsyncEnumerable<EntityLoadInfo> GetRelatedValues(EntityKey key, Func<IValueReader, EntityKey> keyFactory)
+            public IAsyncEnumerable<EntityLoadInfo> GetRelatedValues(IKeyValue keyValue, Func<ValueBuffer, IKeyValue> keyFactory)
             {
+                var valueBuffer = _queryContext.GetIncludeValueBuffer(_queryIndex).WithOffset(_valueBufferOffset);
+
                 return new AsyncEnumerableAdapter<EntityLoadInfo>(
-                    new EntityLoadInfo(
-                        new OffsetValueReaderDecorator(
-                            _queryContext.CreateValueReader(_readerIndex),
-                            _readerOffset),
-                        _materializer));
+                    new EntityLoadInfo(valueBuffer, _materializer));
             }
 
             private class AsyncEnumerableAdapter<T> : IAsyncEnumerable<T>
@@ -173,10 +311,7 @@ namespace Microsoft.Data.Entity.Relational.Query
                     _value = value;
                 }
 
-                public IAsyncEnumerator<T> GetEnumerator()
-                {
-                    return new AsyncEnumeratorAdapter(_value);
-                }
+                public IAsyncEnumerator<T> GetEnumerator() => new AsyncEnumeratorAdapter(_value);
 
                 private class AsyncEnumeratorAdapter : IAsyncEnumerator<T>
                 {
@@ -190,6 +325,8 @@ namespace Microsoft.Data.Entity.Relational.Query
 
                     public Task<bool> MoveNext(CancellationToken cancellationToken)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
+
                         var hasNext = _hasNext;
 
                         if (hasNext)
@@ -214,43 +351,41 @@ namespace Microsoft.Data.Entity.Relational.Query
             }
         }
 
-        public virtual MethodInfo CreateCollectionIncludeRelatedValuesStrategyMethod => _createCollectionIncludeStrategyMethodInfo;
+        public virtual MethodInfo CreateCollectionIncludeRelatedValuesStrategyMethod
+            => _createCollectionIncludeStrategyMethodInfo;
 
         private static readonly MethodInfo _createCollectionIncludeStrategyMethodInfo
             = typeof(AsyncQueryMethodProvider).GetTypeInfo()
-                .GetDeclaredMethod("_CreateCollectionIncludeStrategy");
+                .GetDeclaredMethod(nameof(_CreateCollectionIncludeStrategy));
 
         [UsedImplicitly]
         private static IAsyncIncludeRelatedValuesStrategy _CreateCollectionIncludeStrategy(
-            IAsyncEnumerable<IValueReader> relatedValueReaders, Func<IValueReader, object> materializer)
-        {
-            return new CollectionIncludeRelatedValuesStrategy(relatedValueReaders, materializer);
-        }
+            IAsyncEnumerable<ValueBuffer> relatedValueBuffers, Func<ValueBuffer, object> materializer)
+            => new CollectionIncludeRelatedValuesStrategy(relatedValueBuffers, materializer);
 
         private class CollectionIncludeRelatedValuesStrategy : IAsyncIncludeRelatedValuesStrategy
         {
             private readonly AsyncIncludeCollectionIterator _includeCollectionIterator;
-            private readonly Func<IValueReader, object> _materializer;
+            private readonly Func<ValueBuffer, object> _materializer;
 
             public CollectionIncludeRelatedValuesStrategy(
-                IAsyncEnumerable<IValueReader> relatedValueReaders, Func<IValueReader, object> materializer)
+                IAsyncEnumerable<ValueBuffer> relatedValueBuffers, Func<ValueBuffer, object> materializer)
             {
                 _materializer = materializer;
                 _includeCollectionIterator
-                    = new AsyncIncludeCollectionIterator(relatedValueReaders.GetEnumerator());
+                    = new AsyncIncludeCollectionIterator(relatedValueBuffers.GetEnumerator());
             }
 
-            public IAsyncEnumerable<EntityLoadInfo> GetRelatedValues(EntityKey key, Func<IValueReader, EntityKey> keyFactory)
+            public IAsyncEnumerable<EntityLoadInfo> GetRelatedValues(IKeyValue keyValue, Func<ValueBuffer, IKeyValue> keyFactory)
             {
                 return _includeCollectionIterator
-                    .GetRelatedValues(key, keyFactory)
+                    .GetRelatedValues(keyValue, keyFactory)
                     .Select(vr => new EntityLoadInfo(vr, _materializer));
             }
 
-            public void Dispose()
-            {
-                _includeCollectionIterator.Dispose();
-            }
+            public void Dispose() => _includeCollectionIterator.Dispose();
         }
+
+        public virtual Type IncludeRelatedValuesFactoryType => typeof(Func<IAsyncIncludeRelatedValuesStrategy>);
     }
 }

@@ -1,8 +1,9 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Microsoft.Data.Entity.FunctionalTests.TestModels.ConcurrencyModel
 {
@@ -30,15 +31,10 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.ConcurrencyModel
 
         public virtual Chassis Chassis { get; set; }
 
-        public virtual ICollection<Driver> Drivers
-        {
-            get { return _drivers; }
-        }
+        public virtual ICollection<Driver> Drivers => _drivers;
 
-        public virtual ICollection<Sponsor> Sponsors
-        {
-            get { return _sponsors; }
-        }
+        [NotMapped]
+        public virtual ICollection<Sponsor> Sponsors => _sponsors;
 
         public int? GearboxId { get; set; }
         public virtual Gearbox Gearbox { get; set; } // Uni-directional

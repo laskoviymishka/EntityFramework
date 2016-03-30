@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using Microsoft.Data.Entity.FunctionalTests.TestModels.Northwind;
@@ -25,6 +25,8 @@ namespace Microsoft.Data.Entity.FunctionalTests
                     e.Ignore(em => em.PostalCode);
                     e.Ignore(em => em.Region);
                     e.Ignore(em => em.TitleOfCourtesy);
+
+                    e.HasOne(e1 => e1.Manager).WithMany().HasForeignKey(e1 => e1.ReportsTo);
                 });
 
             modelBuilder.Entity<Product>(e =>
@@ -38,7 +40,6 @@ namespace Microsoft.Data.Entity.FunctionalTests
 
             modelBuilder.Entity<Order>(e =>
                 {
-                    e.Ignore(o => o.EmployeeID);
                     e.Ignore(o => o.Freight);
                     e.Ignore(o => o.RequiredDate);
                     e.Ignore(o => o.ShipAddress);
@@ -51,7 +52,7 @@ namespace Microsoft.Data.Entity.FunctionalTests
                     e.Ignore(o => o.ShippedDate);
                 });
 
-            modelBuilder.Entity<OrderDetail>(e => { e.Key(od => new { od.OrderID, od.ProductID }); });
+            modelBuilder.Entity<OrderDetail>(e => { e.HasKey(od => new { od.OrderID, od.ProductID }); });
         }
 
         public abstract NorthwindContext CreateContext();

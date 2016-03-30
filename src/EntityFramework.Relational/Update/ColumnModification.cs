@@ -1,17 +1,14 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Diagnostics;
 using JetBrains.Annotations;
 using Microsoft.Data.Entity.ChangeTracking.Internal;
-using Microsoft.Data.Entity.Infrastructure;
 using Microsoft.Data.Entity.Internal;
 using Microsoft.Data.Entity.Metadata;
-using Microsoft.Data.Entity.Relational.Metadata;
+using Microsoft.Data.Entity.Storage;
 using Microsoft.Data.Entity.Utilities;
 
-namespace Microsoft.Data.Entity.Relational.Update
+namespace Microsoft.Data.Entity.Update
 {
     public class ColumnModification
     {
@@ -19,21 +16,11 @@ namespace Microsoft.Data.Entity.Relational.Update
         private readonly LazyRef<string> _originalParameterName;
         private readonly LazyRef<string> _outputParameterName;
 
-        /// <summary>
-        ///     This constructor is intended only for use when creating test doubles that will override members
-        ///     with mocked or faked behavior. Use of this constructor for other purposes may result in unexpected
-        ///     behavior including but not limited to throwing <see cref="NullReferenceException" />.
-        /// </summary>
-        protected ColumnModification()
-        {
-        }
-
         public ColumnModification(
-            [NotNull] InternalEntityEntry entry,
+            [NotNull] IUpdateEntry entry,
             [NotNull] IProperty property,
-            [NotNull] IRelationalPropertyExtensions propertyExtensions,
+            [NotNull] IRelationalPropertyAnnotations propertyAnnotations,
             [NotNull] ParameterNameGenerator parameterNameGenerator,
-            [CanBeNull] IBoxedValueReader boxedValueReader,
             bool isRead,
             bool isWrite,
             bool isKey,
@@ -41,14 +28,12 @@ namespace Microsoft.Data.Entity.Relational.Update
         {
             Check.NotNull(entry, nameof(entry));
             Check.NotNull(property, nameof(property));
-            Check.NotNull(propertyExtensions, nameof(propertyExtensions));
+            Check.NotNull(propertyAnnotations, nameof(propertyAnnotations));
             Check.NotNull(parameterNameGenerator, nameof(parameterNameGenerator));
-
-            Debug.Assert(!isRead || boxedValueReader != null);
 
             Entry = entry;
             Property = property;
-            ColumnName = propertyExtensions.Column;
+            ColumnName = propertyAnnotations.ColumnName;
 
             _parameterName = isWrite
                 ? new LazyRef<string>(parameterNameGenerator.GenerateNext)
@@ -60,15 +45,13 @@ namespace Microsoft.Data.Entity.Relational.Update
                 ? new LazyRef<string>(parameterNameGenerator.GenerateNext)
                 : new LazyRef<string>((string)null);
 
-            BoxedValueReader = boxedValueReader;
-
             IsRead = isRead;
             IsWrite = isWrite;
             IsKey = isKey;
             IsCondition = isCondition;
         }
 
-        public virtual InternalEntityEntry Entry { get; }
+        public virtual IUpdateEntry Entry { get; }
 
         public virtual IProperty Property { get; }
 
@@ -91,15 +74,12 @@ namespace Microsoft.Data.Entity.Relational.Update
 
         public virtual string ColumnName { get; }
 
-        public virtual object OriginalValue
-            => Entry.OriginalValues.CanStoreValue(Property) ? Entry.OriginalValues[Property] : Value;
+        public virtual object OriginalValue => Entry.GetOriginalValue(Property);
 
         public virtual object Value
         {
             get { return Entry[Property]; }
             [param: CanBeNull] set { Entry[Property] = value; }
         }
-
-        public virtual IBoxedValueReader BoxedValueReader { get; }
     }
 }

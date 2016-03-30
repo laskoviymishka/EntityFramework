@@ -1,20 +1,60 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
+using System.Collections.Generic;
 using JetBrains.Annotations;
+using Microsoft.Data.Entity.Internal;
 using Microsoft.Data.Entity.Metadata;
-using Microsoft.Data.Entity.Relational.Migrations.Builders;
+using Microsoft.Data.Entity.Metadata.Conventions;
+using Microsoft.Data.Entity.Migrations.Operations;
 
-namespace Microsoft.Data.Entity.Relational.Migrations
+namespace Microsoft.Data.Entity.Migrations
 {
     public abstract class Migration
     {
-        // TODO: Hide?
-        public abstract string Id { get; }
-        public virtual string ProductVersion => null;
-        public virtual IModel Target => null;
+        public const string InitialDatabase = "0";
 
-        public abstract void Up([NotNull] MigrationBuilder migrationBuilder);
-        public abstract void Down([NotNull] MigrationBuilder migrationBuilder);
+        private readonly LazyRef<IModel> _targetModel;
+        private readonly LazyRef<List<MigrationOperation>> _upOperations;
+        private readonly LazyRef<List<MigrationOperation>> _downOperations;
+
+        protected Migration()
+        {
+            _targetModel = new LazyRef<IModel>(
+                () =>
+                {
+                    var modelBuilder = new ModelBuilder(new ConventionSet());
+                    BuildTargetModel(modelBuilder);
+
+                    return modelBuilder.Model;
+                });
+            _upOperations = new LazyRef<List<MigrationOperation>>(() => BuildOperations(Up));
+            _downOperations = new LazyRef<List<MigrationOperation>>(() => BuildOperations(Down));
+        }
+
+        public virtual IModel TargetModel => _targetModel.Value;
+        public virtual IReadOnlyList<MigrationOperation> UpOperations => _upOperations.Value;
+        public virtual IReadOnlyList<MigrationOperation> DownOperations => _downOperations.Value;
+        public virtual string ActiveProvider { get;[param: NotNull] set; }
+
+        protected virtual void BuildTargetModel([NotNull] ModelBuilder modelBuilder)
+        {
+        }
+
+        protected abstract void Up([NotNull] MigrationBuilder migrationBuilder);
+
+        protected virtual void Down([NotNull] MigrationBuilder migrationBuilder)
+        {
+            throw new NotImplementedException();
+        }
+
+        private List<MigrationOperation> BuildOperations(Action<MigrationBuilder> buildAction)
+        {
+            var migrationBuilder = new MigrationBuilder(ActiveProvider);
+            buildAction(migrationBuilder);
+
+            return migrationBuilder.Operations;
+        }
     }
 }

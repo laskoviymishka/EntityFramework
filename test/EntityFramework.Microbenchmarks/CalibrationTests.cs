@@ -1,49 +1,55 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Threading;
 using EntityFramework.Microbenchmarks.Core;
-using Xunit;
 
 namespace EntityFramework.Microbenchmarks
 {
     public class CalibrationTests
     {
-        [Fact]
-        public void Calibration_100ms()
+        [Benchmark]
+        public void Calibration_100ms(IMetricCollector collector)
         {
-            new TestDefinition
-                {
-                    TestName = "Calibration_100ms",
-                    IterationCount = 100,
-                    WarmupCount = 5,
-                    Run = harness =>
-                        {
-                            using (harness.StartCollection())
-                            {
-                                Thread.Sleep(100);
-                            }
-                        }
-                }.RunTest();
+            using (collector.StartCollection())
+            {
+                Thread.Sleep(100);
+            }
         }
 
-        [Fact]
-        public void Calibration_100ms_controlled()
+        [Benchmark]
+        public void Calibration_100ms_controlled(IMetricCollector collector)
         {
-            new TestDefinition
-                {
-                    TestName = "Calibration_100ms_controlled",
-                    IterationCount = 100,
-                    WarmupCount = 5,
-                    Run = harness =>
-                        {
-                            Thread.Sleep(100);
-                            using (harness.StartCollection())
-                            {
-                                Thread.Sleep(100);
-                            }
-                        }
-                }.RunTest();
+
+            Thread.Sleep(100);
+            using (collector.StartCollection())
+            {
+                Thread.Sleep(100);
+            }
         }
+
+#if !DNXCORE50 && !DNX451
+        [Benchmark]
+        public void ColdStartSandbox_100ms(IMetricCollector collector)
+        {
+            using (var sandbox = new ColdStartSandbox())
+            {
+                var testClass = sandbox.CreateInstance<ColdStartEnabledTests>();
+                testClass.Sleep100ms(collector);
+            }
+        }
+
+        private partial class ColdStartEnabledTests : MarshalByRefObject
+        {
+            public void Sleep100ms(IMetricCollector collector)
+            {
+                using (collector.StartCollection())
+                {
+                    Thread.Sleep(100);
+                }
+            }
+        }
+#endif
     }
 }

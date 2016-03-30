@@ -1,13 +1,15 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using Microsoft.Data.Entity.ChangeTracking.Internal;
 using Microsoft.Data.Entity.Metadata;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Data.Entity.Metadata.Internal;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
@@ -296,49 +298,33 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
             var model = new Model();
 
             var entityType = model.AddEntityType(typeof(Banana));
-            var pkProperty = entityType.GetOrAddProperty("Id", typeof(int));
-            var fkProperty = entityType.GetOrAddProperty("Fk", typeof(int));
+            var pkProperty = entityType.AddProperty("Id", typeof(int));
+            pkProperty.IsShadowProperty = false;
+            var fkProperty = entityType.AddProperty("Fk", typeof(int));
+            fkProperty.IsShadowProperty = false;
 
             entityType.GetOrSetPrimaryKey(pkProperty);
-            var fk = entityType.GetOrAddForeignKey(fkProperty, entityType.GetPrimaryKey());
+            var fk = entityType.GetOrAddForeignKey(fkProperty, entityType.FindPrimaryKey(), entityType);
 
-            entityType.GetOrAddProperty("Name", typeof(string));
+            entityType.AddProperty("Name", typeof(string)).IsShadowProperty = false;
 
-            entityType.AddNavigation("LesserBananas", fk, pointsToPrincipal: false);
-            entityType.AddNavigation("TopBanana", fk, pointsToPrincipal: true);
+            fk.HasPrincipalToDependent("LesserBananas");
+            fk.HasDependentToPrincipal("TopBanana");
 
             return model;
         }
 
-        protected IProperty IdProperty
-        {
-            get { return _model.GetEntityType(typeof(Banana)).GetProperty("Id"); }
-        }
+        protected IProperty IdProperty => _model.FindEntityType(typeof(Banana)).FindProperty("Id");
 
-        protected IProperty FkProperty
-        {
-            get { return _model.GetEntityType(typeof(Banana)).GetProperty("Fk"); }
-        }
+        protected IProperty FkProperty => _model.FindEntityType(typeof(Banana)).FindProperty("Fk");
 
-        protected IProperty NameProperty
-        {
-            get { return _model.GetEntityType(typeof(Banana)).GetProperty("Name"); }
-        }
+        protected IProperty NameProperty => _model.FindEntityType(typeof(Banana)).FindProperty("Name");
 
-        protected INavigation CollectionNavigation
-        {
-            get { return _model.GetNavigations(ForeignKey).Single(n => n.Name == "LesserBananas"); }
-        }
+        protected INavigation CollectionNavigation => ForeignKey.GetNavigations().Single(n => n.Name == "LesserBananas");
 
-        protected INavigation ReferenceNavigation
-        {
-            get { return _model.GetNavigations(ForeignKey).Single(n => n.Name == "TopBanana"); }
-        }
+        protected INavigation ReferenceNavigation => ForeignKey.GetNavigations().Single(n => n.Name == "TopBanana");
 
-        private ForeignKey ForeignKey
-        {
-            get { return _model.GetEntityType(typeof(Banana)).ForeignKeys.Single(); }
-        }
+        private ForeignKey ForeignKey => _model.FindEntityType(typeof(Banana)).GetForeignKeys().Single();
 
         protected class Banana : INotifyPropertyChanged, INotifyPropertyChanging
         {

@@ -1,33 +1,60 @@
 {
-    "version": "7.0.0-beta4",
-    "description":  "Shared Design-time Entity Framework components for relational data stores.",
-    "compilationOptions": {
-        "warningsAsErrors": true
-    },
-    "dependencies": {
-        "EntityFramework.Core": "7.0.0-beta4",
-        "EntityFramework.Relational": "7.0.0-beta4"
-    },
-    "compile": "..\\Shared\\*.cs",
-    "frameworks": {
-        "net451": {
-            "frameworkAssemblies": {
-                "System.Data": ""
-            }
+  "version": "7.0.0-rc1-final",
+  "description": "Shared Design-time Entity Framework components for relational data stores.",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/aspnet/entityframework"
+  },
+  "compilationOptions": {
+    "warningsAsErrors": true,
+    "keyFile": "../../tools/Key.snk"
+  },
+  "dependencies": {
+    "EntityFramework.Relational": "7.0.0-rc1-final"
+  },
+  "compile": "..\\Shared\\*.cs",
+  "namedResource": {
+    "EntityFramework.Relational.Design.RelationalDesignStrings": "Properties/RelationalDesignStrings.resx"
+  },
+  "frameworks": {
+    "net451": {
+      "frameworkAssemblies": {
+        "System.ComponentModel.DataAnnotations": "4.0.0.0",
+        "System.IO": {
+          "version": "4.0.0.0",
+          "type": "build"
         },
-        "dnx451": {
-            "frameworkAssemblies": {
-                "System.Data": ""
-            }
+        "System.Text.Encoding": {
+          "version": "4.0.0.0",
+          "type": "build"
         },
-        "dnxcore50": {
-            "dependencies": {
-                "Microsoft.CSharp": "4.0.0-beta-22816",
-                "System.Data.Common": "4.0.0-beta-22816",
-                "System.Data.SqlClient": "4.0.0-beta-22816",
-                "System.Reflection.Extensions": "4.0.0-beta-22816",
-                "System.Text.RegularExpressions": "4.0.10-beta-22816"
-            }
+        "System.Threading.Tasks": {
+          "version": "4.0.0.0",
+          "type": "build"
         }
+      }
+    },
+    "dnx451": {
+      "frameworkAssemblies": {
+        "System.ComponentModel.DataAnnotations": "4.0.0.0",
+        "System.IO": "4.0.0.0",
+        "System.Text.Encoding": "4.0.0.0",
+        "System.Threading.Tasks": "4.0.0.0"
+      }
+    },
+    "dnxcore50": {
+      "dependencies": {
+        "System.ComponentModel.Annotations": "4.0.11-beta-23516"
+      }
+    },
+    "netcore50": {
+      "bin": {
+        "assembly": "lib\\netcore50\\_._"
+      }
     }
+  },
+  "packInclude": {
+    "build/": "build/**",
+    "lib/": "lib/**"
+  }
 }

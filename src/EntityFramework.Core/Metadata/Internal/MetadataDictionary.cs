@@ -1,10 +1,9 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
 using JetBrains.Annotations;
-using Microsoft.Data.Entity.Utilities;
 
 namespace Microsoft.Data.Entity.Metadata.Internal
 {
@@ -22,9 +21,7 @@ namespace Microsoft.Data.Entity.Metadata.Internal
             [NotNull] Func<TKey> createKey,
             [NotNull] Func<TKey, TValue> createValue,
             ConfigurationSource configurationSource)
-        {
-            return GetOrAdd(getKey, createKey, createValue, null, configurationSource);
-        }
+            => GetOrAdd(getKey, createKey, createValue, null, configurationSource);
 
         public virtual TValue GetOrAdd(
             [NotNull] Func<TKey> getKey,
@@ -33,10 +30,6 @@ namespace Microsoft.Data.Entity.Metadata.Internal
             [CanBeNull] Func<TValue, TValue> onNewKeyAdded,
             ConfigurationSource configurationSource)
         {
-            Check.NotNull(getKey, nameof(getKey));
-            Check.NotNull(createKey, nameof(createKey));
-            Check.NotNull(createValue, nameof(createValue));
-
             var isNewKey = false;
             TValue value;
             var key = getKey();
@@ -56,7 +49,6 @@ namespace Microsoft.Data.Entity.Metadata.Internal
             }
 
             value = createValue(key);
-
             Add(key, value, configurationSource);
 
             if (isNewKey
@@ -69,14 +61,10 @@ namespace Microsoft.Data.Entity.Metadata.Internal
         }
 
         public virtual TValue TryGetValue([NotNull] TKey key, ConfigurationSource configurationSource)
-        {
-            return GetTuple(key, configurationSource).Item1;
-        }
+            => GetTuple(key, configurationSource).Item1;
 
         public virtual ConfigurationSource UpdateConfigurationSource([NotNull] TKey key, ConfigurationSource configurationSource)
-        {
-            return GetTuple(key, configurationSource).Item2;
-        }
+            => GetTuple(key, configurationSource).Item2;
 
         private Tuple<TValue, ConfigurationSource> GetTuple([NotNull] TKey key, ConfigurationSource configurationSource)
         {
@@ -100,42 +88,36 @@ namespace Microsoft.Data.Entity.Metadata.Internal
         public virtual ConfigurationSource GetConfigurationSource([NotNull] TKey key)
         {
             Tuple<TValue, ConfigurationSource> tuple;
-            if (_values.TryGetValue(key, out tuple))
-            {
-                return tuple.Item2;
-            }
-
-            return DefaultConfigurationSource;
+            return _values.TryGetValue(key, out tuple)
+                ? tuple.Item2
+                : DefaultConfigurationSource;
         }
 
         public virtual void Add([NotNull] TKey key, [NotNull] TValue value, ConfigurationSource configurationSource)
-        {
-            Check.NotNull(key, nameof(key));
-            Check.NotNull(value, nameof(value));
+            => _values.Add(key, new Tuple<TValue, ConfigurationSource>(value, configurationSource));
 
-            _values.Add(key, new Tuple<TValue, ConfigurationSource>(value, configurationSource));
+        public virtual bool CanRemove([NotNull] TKey key, ConfigurationSource configurationSource, bool canOverrideSameSource)
+        {
+            var currentConfigurationSource = GetConfigurationSource(key);
+            return configurationSource.Overrides(currentConfigurationSource)
+                   && (canOverrideSameSource || configurationSource != currentConfigurationSource);
         }
 
         public virtual ConfigurationSource? Remove([NotNull] TKey key, ConfigurationSource configurationSource, bool canOverrideSameSource = true)
         {
-            Check.NotNull(key, nameof(key));
+            if (!CanRemove(key, configurationSource, canOverrideSameSource))
+            {
+                return null;
+            }
 
             Tuple<TValue, ConfigurationSource> tuple;
             if (_values.TryGetValue(key, out tuple))
             {
-                if (configurationSource.Overrides(tuple.Item2)
-                    && (tuple.Item2 != configurationSource || canOverrideSameSource))
-                {
-                    _values.Remove(key);
-                    return tuple.Item2;
-                }
-                return null;
+                _values.Remove(key);
+                return tuple.Item2;
             }
 
-            return configurationSource.Overrides(DefaultConfigurationSource)
-                   && (DefaultConfigurationSource != configurationSource || canOverrideSameSource)
-                ? DefaultConfigurationSource
-                : (ConfigurationSource?)null;
+            return DefaultConfigurationSource;
         }
     }
 }

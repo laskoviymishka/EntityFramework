@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections.Generic;
@@ -9,9 +9,7 @@ namespace System.Text
     {
         public static StringBuilder AppendJoin(
             this StringBuilder stringBuilder, IEnumerable<string> values, string separator = ", ")
-        {
-            return stringBuilder.AppendJoin(values, (sb, value) => sb.Append(value), separator);
-        }
+            => stringBuilder.AppendJoin(values, (sb, value) => sb.Append(value), separator);
 
         public static StringBuilder AppendJoin<T>(
             this StringBuilder stringBuilder, IEnumerable<T> values, Action<StringBuilder, T> joinAction,

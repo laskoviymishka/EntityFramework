@@ -1,182 +1,299 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using JetBrains.Annotations;
-using Microsoft.Data.Entity.Metadata;
+using Microsoft.Data.Entity.Internal;
+using Microsoft.Data.Entity.Metadata.Internal;
 using Microsoft.Data.Entity.Utilities;
 
-namespace Microsoft.Data.Entity.Relational.Metadata
+namespace Microsoft.Data.Entity.Metadata
 {
     public class Sequence : ISequence
     {
-        public const string DefaultName = "DefaultSequence";
-        public const int DefaultIncrement = 10;
-        public const long DefaultStartValue = 1;
-        public static readonly Type DefaultType = typeof(long);
-
-        private IModel _model;
+        private readonly IModel _model;
+        private readonly string _annotationName;
 
         public Sequence(
+            [NotNull] IMutableModel model,
+            [NotNull] string annotationPrefix,
             [NotNull] string name,
-            [CanBeNull] string schema = null,
-            long startValue = DefaultStartValue,
-            int incrementBy = DefaultIncrement,
-            [CanBeNull] long? minValue = null,
-            [CanBeNull] long? maxValue = null,
-            [CanBeNull] Type type = null,
-            bool cycle = false)
+            [CanBeNull] string schema = null)
         {
+            Check.NotNull(model, nameof(model));
+            Check.NotEmpty(annotationPrefix, nameof(annotationPrefix));
             Check.NotEmpty(name, nameof(name));
-            Check.NullButNotEmpty(schema, "schema");
+            Check.NullButNotEmpty(schema, nameof(schema));
 
-            type = type ?? DefaultType;
+            _model = model;
+            _annotationName = BuildAnnotationName(annotationPrefix, name, schema);
 
-            if (type != typeof(byte)
-                && type != typeof(long)
-                && type != typeof(int)
-                && type != typeof(short))
+            if (model[_annotationName] == null)
             {
-                // See Issue #242 for supporting all types
-                throw new ArgumentException(Strings.BadSequenceType);
+                SetData(new SequenceData
+                {
+                    Name = name,
+                    Schema = schema,
+                    ClrType = typeof(long),
+                    IncrementBy = 1,
+                    StartValue = 1
+                });
             }
-
-            Name = name;
-            Schema = schema;
-            StartValue = startValue;
-            IncrementBy = incrementBy;
-            MinValue = minValue;
-            MaxValue = maxValue;
-            Type = type;
-            Cycle = cycle;
+        }
+        
+        private Sequence(IModel model, string annotationName)
+        {
+            _model = model;
+            _annotationName = annotationName;
         }
 
-        public virtual string Name { get; }
+        private static string BuildAnnotationName(string annotationPrefix, string name, string schema)
+            => annotationPrefix + RelationalAnnotationNames.Sequence + schema + "." + name;
 
-        public virtual string Schema { get; }
-
-        public virtual long StartValue { get; }
-
-        public virtual int IncrementBy { get; }
-
-        public virtual long? MinValue { get; }
-
-        public virtual long? MaxValue { get; }
-
-        public virtual Type Type { get; }
-
-        public virtual bool Cycle { get; }
-
-        public virtual IModel Model
+        public static ISequence FindSequence(
+            [NotNull] IModel model,
+            [NotNull] string annotationPrefix,
+            [NotNull] string name, 
+            [CanBeNull] string schema = null)
         {
-            get { return _model; }
+            Check.NotNull(model, nameof(model));
+            Check.NotEmpty(name, nameof(name));
+            Check.NullButNotEmpty(schema, nameof(schema));
+
+            var annotationName = BuildAnnotationName(annotationPrefix, name, schema);
+
+            return model[annotationName] == null ? null : new Sequence(model, annotationName);
+        }
+
+        public static IEnumerable<ISequence> GetSequences([NotNull] IModel model, [NotNull] string annotationPrefix)
+        {
+            Check.NotNull(model, nameof(model));
+            Check.NotEmpty(annotationPrefix, nameof(annotationPrefix));
+
+            var startsWith = annotationPrefix + RelationalAnnotationNames.Sequence;
+
+            return model.GetAnnotations()
+                .Where(a => a.Name.StartsWith(startsWith))
+                .Select(a => new Sequence(model, a.Name));
+        }
+
+        public virtual Model Model => (Model)_model;
+
+        public virtual string Name => GetData().Name;
+
+        public virtual string Schema => GetData().Schema ?? Model.Relational().DefaultSchema;
+
+        public virtual long StartValue
+        {
+            get { return GetData().StartValue; }
+            set
+            {
+                var data = GetData();
+                data.StartValue = value;
+                SetData(data);
+            }
+        }
+
+        public virtual int IncrementBy
+        {
+            get { return GetData().IncrementBy; }
+            set
+            {
+                var data = GetData();
+                data.IncrementBy = value;
+                SetData(data);
+            }
+        }
+
+        public virtual long? MinValue
+        {
+            get { return GetData().MinValue; }
+            set
+            {
+                var data = GetData();
+                data.MinValue = value;
+                SetData(data);
+            }
+        }
+
+        public virtual long? MaxValue
+        {
+            get { return GetData().MaxValue; }
+            set
+            {
+                var data = GetData();
+                data.MaxValue = value;
+                SetData(data);
+            }
+        }
+
+        public virtual Type ClrType
+        {
+            get { return GetData().ClrType; }
             [param: NotNull]
             set
             {
-                Check.NotNull(value, nameof(value));
+                if (value != typeof(byte)
+                    && value != typeof(long)
+                    && value != typeof(int)
+                    && value != typeof(short))
+                {
+                    throw new ArgumentException(RelationalStrings.BadSequenceType);
+                }
 
-                _model = value;
+                var data = GetData();
+                data.ClrType = value;
+                SetData(data);
             }
         }
 
-        public virtual string Serialize()
+        public virtual bool IsCyclic
         {
-            var builder = new StringBuilder();
-
-            EscapeAndQuote(builder, Name);
-            builder.Append(", ");
-            EscapeAndQuote(builder, Schema);
-            builder.Append(", ");
-            EscapeAndQuote(builder, StartValue);
-            builder.Append(", ");
-            EscapeAndQuote(builder, IncrementBy);
-            builder.Append(", ");
-            EscapeAndQuote(builder, MinValue);
-            builder.Append(", ");
-            EscapeAndQuote(builder, MaxValue);
-            builder.Append(", ");
-            EscapeAndQuote(builder, Type.Name);
-            builder.Append(", ");
-            EscapeAndQuote(builder, Cycle);
-
-            return builder.ToString();
-        }
-
-        public static Sequence Deserialize([NotNull] string value)
-        {
-            Check.NotEmpty(value, nameof(value));
-
-            try
+            get { return GetData().IsCyclic; }
+            set
             {
-                var position = 0;
-                var name = ExtractValue(value, ref position);
-                var schema = ExtractValue(value, ref position);
-                var startValue = AsLong(ExtractValue(value, ref position));
-                var incrementBy = AsLong(ExtractValue(value, ref position));
-                var minValue = AsLong(ExtractValue(value, ref position));
-                var maxValue = AsLong(ExtractValue(value, ref position));
-                var type = AsType(ExtractValue(value, ref position));
-                var cycle = AsBool(ExtractValue(value, ref position));
-
-                return new Sequence(name, schema, (long)startValue, (int)incrementBy, minValue, maxValue, type, cycle);
+                var data = GetData();
+                data.IsCyclic = value;
+                SetData(data);
             }
-            catch (Exception ex)
+        }
+
+        private SequenceData GetData() => SequenceData.Deserialize((string)Model[_annotationName]);
+
+        private void SetData(SequenceData data)
+        {
+            Model[_annotationName] = data.Serialize();
+        }
+
+        IModel ISequence.Model => _model;
+
+        long ISequence.StartValue => StartValue;
+
+        int ISequence.IncrementBy => IncrementBy;
+
+        long? ISequence.MinValue => MinValue;
+
+        long? ISequence.MaxValue => MaxValue;
+
+        Type ISequence.ClrType => ClrType;
+
+        bool ISequence.IsCyclic => IsCyclic;
+
+        private class SequenceData
+        {
+            public string Name { get; set; }
+
+            public string Schema { get; set; }
+
+            public long StartValue { get; set; }
+
+            public int IncrementBy { get; set; }
+
+            public long? MinValue { get; set; }
+
+            public long? MaxValue { get; set; }
+
+            public Type ClrType { get; set; }
+
+            public bool IsCyclic { get; set; }
+
+            public string Serialize()
             {
-                throw new ArgumentException(Strings.BadSequenceString, ex);
+                var builder = new StringBuilder();
+
+                EscapeAndQuote(builder, Name);
+                builder.Append(", ");
+                EscapeAndQuote(builder, Schema);
+                builder.Append(", ");
+                EscapeAndQuote(builder, StartValue);
+                builder.Append(", ");
+                EscapeAndQuote(builder, IncrementBy);
+                builder.Append(", ");
+                EscapeAndQuote(builder, MinValue);
+                builder.Append(", ");
+                EscapeAndQuote(builder, MaxValue);
+                builder.Append(", ");
+                EscapeAndQuote(builder, ClrType.Name);
+                builder.Append(", ");
+                EscapeAndQuote(builder, IsCyclic);
+
+                return builder.ToString();
             }
-        }
 
-        private static string ExtractValue(string value, ref int position)
-        {
-            position = value.IndexOf('\'', position) + 1;
-
-            var end = value.IndexOf('\'', position);
-
-            while (end + 1 < value.Length
-                   && value[end + 1] == '\'')
+            public static SequenceData Deserialize([NotNull] string value)
             {
-                end = value.IndexOf('\'', end + 2);
+                Check.NotEmpty(value, nameof(value));
+
+                try
+                {
+                    var data = new SequenceData();
+
+                    var position = 0;
+                    data.Name = ExtractValue(value, ref position);
+                    data.Schema = ExtractValue(value, ref position);
+                    data.StartValue = (long)AsLong(ExtractValue(value, ref position));
+                    data.IncrementBy = (int)AsLong(ExtractValue(value, ref position));
+                    data.MinValue = AsLong(ExtractValue(value, ref position));
+                    data.MaxValue = AsLong(ExtractValue(value, ref position));
+                    data.ClrType = AsType(ExtractValue(value, ref position));
+                    data.IsCyclic = AsBool(ExtractValue(value, ref position));
+
+                    return data;
+                }
+                catch (Exception ex)
+                {
+                    throw new ArgumentException(RelationalStrings.BadSequenceString, ex);
+                }
             }
 
-            var extracted = value.Substring(position, end - position).Replace("''", "'");
-            position = end + 1;
-
-            return extracted.Length == 0 ? null : extracted;
-        }
-
-        private static long? AsLong(string value)
-        {
-            return value == null ? null : (long?)long.Parse(value, CultureInfo.InvariantCulture);
-        }
-
-        private static Type AsType(string value)
-        {
-            return value == typeof(long).Name
-                ? typeof(long)
-                : value == typeof(int).Name
-                    ? typeof(int)
-                    : value == typeof(short).Name
-                        ? typeof(short)
-                        : typeof(byte);
-        }
-
-        private static bool AsBool(string value)
-        {
-            return value != null && bool.Parse(value);
-        }
-
-        private static void EscapeAndQuote(StringBuilder builder, object value)
-        {
-            builder.Append("'");
-
-            if (value != null)
+            private static string ExtractValue(string value, ref int position)
             {
-                builder.Append(value.ToString().Replace("'", "''"));
+                position = value.IndexOf('\'', position) + 1;
+
+                var end = value.IndexOf('\'', position);
+
+                while (end + 1 < value.Length
+                       && value[end + 1] == '\'')
+                {
+                    end = value.IndexOf('\'', end + 2);
+                }
+
+                var extracted = value.Substring(position, end - position).Replace("''", "'");
+                position = end + 1;
+
+                return extracted.Length == 0 ? null : extracted;
             }
 
-            builder.Append("'");
+            private static long? AsLong(string value)
+                => value == null ? null : (long?)long.Parse(value, CultureInfo.InvariantCulture);
+
+            private static Type AsType(string value)
+                => value == typeof(long).Name
+                    ? typeof(long)
+                    : value == typeof(int).Name
+                        ? typeof(int)
+                        : value == typeof(short).Name
+                            ? typeof(short)
+                            : typeof(byte);
+
+            private static bool AsBool(string value)
+                => value != null && bool.Parse(value);
+
+            private static void EscapeAndQuote(StringBuilder builder, object value)
+            {
+                builder.Append("'");
+
+                if (value != null)
+                {
+                    builder.Append(value.ToString().Replace("'", "''"));
+                }
+
+                builder.Append("'");
+            }
         }
     }
 }

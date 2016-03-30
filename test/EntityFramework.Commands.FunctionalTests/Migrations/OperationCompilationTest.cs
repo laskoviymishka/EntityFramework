@@ -1,13 +1,14 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Linq;
+using System.Reflection;
 using Microsoft.Data.Entity.Commands.TestUtilities;
-using Microsoft.Data.Entity.Commands.Utilities;
-using Microsoft.Data.Entity.Relational.Migrations.Builders;
-using Microsoft.Data.Entity.Relational.Migrations.Operations;
-using Microsoft.Data.Entity.Utilities;
+using Microsoft.Data.Entity.Internal;
+using Microsoft.Data.Entity.Migrations;
+using Microsoft.Data.Entity.Migrations.Design;
+using Microsoft.Data.Entity.Migrations.Operations;
 using Xunit;
 
 namespace Microsoft.Data.Entity.Commands.Migrations
@@ -24,18 +25,17 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 {
                     Name = "Id",
                     Table = "Post",
-                    Type = "int",
+                    ClrType = typeof(int),
                 },
-                "mb.AddColumn(" + EOL +
+                "mb.AddColumn<int>(" + EOL +
                 "    name: \"Id\"," + EOL +
                 "    table: \"Post\"," + EOL +
-                "    type: \"int\"," + EOL +
                 "    nullable: false);" + EOL,
                 o =>
                 {
                     Assert.Equal("Id", o.Name);
                     Assert.Equal("Post", o.Table);
-                    Assert.Equal("int", o.Type);
+                    Assert.Equal(typeof(int), o.ClrType);
                 });
         }
 
@@ -48,11 +48,12 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Name = "Id",
                     Schema = "dbo",
                     Table = "Post",
-                    Type = "int",
+                    ClrType = typeof(int),
+                    ColumnType = "int",
                     IsNullable = true,
                     DefaultValue = 1
                 },
-                "mb.AddColumn(" + EOL +
+                "mb.AddColumn<int>(" + EOL +
                 "    name: \"Id\"," + EOL +
                 "    schema: \"dbo\"," + EOL +
                 "    table: \"Post\"," + EOL +
@@ -64,35 +65,60 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Assert.Equal("Id", o.Name);
                     Assert.Equal("dbo", o.Schema);
                     Assert.Equal("Post", o.Table);
-                    Assert.Equal("int", o.Type);
+                    Assert.Equal(typeof(int), o.ClrType);
+                    Assert.Equal("int", o.ColumnType);
                     Assert.True(o.IsNullable);
                     Assert.Equal(1, o.DefaultValue);
                 });
         }
 
         [Fact]
-        public void AddColumnOperation_DefaultExpression()
+        public void AddColumnOperation_DefaultValueSql()
         {
             Test(
                 new AddColumnOperation
                 {
                     Name = "Id",
                     Table = "Post",
-                    Type = "int",
-                    DefaultExpression = "1"
+                    ClrType = typeof(int),
+                    DefaultValueSql = "1"
                 },
-                "mb.AddColumn(" + EOL +
+                "mb.AddColumn<int>(" + EOL +
                 "    name: \"Id\"," + EOL +
                 "    table: \"Post\"," + EOL +
-                "    type: \"int\"," + EOL +
                 "    nullable: false," + EOL +
-                "    defaultExpression: \"1\");" + EOL,
+                "    defaultValueSql: \"1\");" + EOL,
                 o =>
                 {
                     Assert.Equal("Id", o.Name);
                     Assert.Equal("Post", o.Table);
-                    Assert.Equal("int", o.Type);
-                    Assert.Equal("1", o.DefaultExpression);
+                    Assert.Equal(typeof(int), o.ClrType);
+                    Assert.Equal("1", o.DefaultValueSql);
+                });
+        }
+
+        [Fact]
+        public void AddColumnOperation_ComutedExpression()
+        {
+            Test(
+                new AddColumnOperation
+                {
+                    Name = "Id",
+                    Table = "Post",
+                    ClrType = typeof(int),
+                    ComputedColumnSql = "1"
+                },
+                "mb.AddColumn<int>(" + EOL +
+                "    name: \"Id\"," + EOL +
+                "    table: \"Post\"," + EOL +
+                "    nullable: false," + EOL +
+                "    computedColumnSql: \"1\");" + EOL,
+                o =>
+                {
+                    Assert.Equal("Id", o.Name);
+                    Assert.Equal("Post", o.Table);
+                    Assert.Equal(typeof(int), o.ClrType);
+                    Assert.Equal("1", o.ComputedColumnSql);
                 });
         }
 
@@ -105,19 +131,21 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Table = "Post",
                     Name = "FK_Post_Blog_BlogId",
                     Columns = new[] { "BlogId" },
-                    ReferencedTable = "Blog",
+                    PrincipalTable = "Blog",
+                    PrincipalColumns = new[] { "Id" }
                 },
                 "mb.AddForeignKey(" + EOL +
                 "    name: \"FK_Post_Blog_BlogId\"," + EOL +
                 "    table: \"Post\"," + EOL +
                 "    column: \"BlogId\"," + EOL +
-                "    referencedTable: \"Blog\");" + EOL,
+                "    principalTable: \"Blog\"," + EOL +
+                "    principalColumn: \"Id\");" + EOL,
                 o =>
                 {
                     Assert.Equal("Post", o.Table);
                     Assert.Equal("FK_Post_Blog_BlogId", o.Name);
                     Assert.Equal(new[] { "BlogId" }, o.Columns);
-                    Assert.Equal("Blog", o.ReferencedTable);
+                    Assert.Equal("Blog", o.PrincipalTable);
                 });
         }
 
@@ -131,9 +159,9 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Table = "Post",
                     Name = "FK_Post_Blog_BlogId",
                     Columns = new[] { "BlogId" },
-                    ReferencedSchema = "my",
-                    ReferencedTable = "Blog",
-                    ReferencedColumns = new[] { "Id" },
+                    PrincipalSchema = "my",
+                    PrincipalTable = "Blog",
+                    PrincipalColumns = new[] { "Id" },
                     OnUpdate = ReferentialAction.Restrict,
                     OnDelete = ReferentialAction.Cascade
                 },
@@ -142,9 +170,9 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 "    schema: \"dbo\"," + EOL +
                 "    table: \"Post\"," + EOL +
                 "    column: \"BlogId\"," + EOL +
-                "    referencedSchema: \"my\"," + EOL +
-                "    referencedTable: \"Blog\"," + EOL +
-                "    referencedColumn: \"Id\"," + EOL +
+                "    principalSchema: \"my\"," + EOL +
+                "    principalTable: \"Blog\"," + EOL +
+                "    principalColumn: \"Id\"," + EOL +
                 "    onUpdate: ReferentialAction.Restrict," + EOL +
                 "    onDelete: ReferentialAction.Cascade);" + EOL,
                 o =>
@@ -153,9 +181,9 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Assert.Equal("dbo", o.Schema);
                     Assert.Equal("FK_Post_Blog_BlogId", o.Name);
                     Assert.Equal(new[] { "BlogId" }, o.Columns);
-                    Assert.Equal("Blog", o.ReferencedTable);
-                    Assert.Equal("my", o.ReferencedSchema);
-                    Assert.Equal(new[] { "Id" }, o.ReferencedColumns);
+                    Assert.Equal("Blog", o.PrincipalTable);
+                    Assert.Equal("my", o.PrincipalSchema);
+                    Assert.Equal(new[] { "Id" }, o.PrincipalColumns);
                     Assert.Equal(ReferentialAction.Cascade, o.OnDelete);
                 });
         }
@@ -169,22 +197,22 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Name = "FK_Post_Blog_BlogId1_BlogId2",
                     Table = "Post",
                     Columns = new[] { "BlogId1", "BlogId2" },
-                    ReferencedTable = "Blog",
-                    ReferencedColumns = new[] { "Id1", "Id2" }
+                    PrincipalTable = "Blog",
+                    PrincipalColumns = new[] { "Id1", "Id2" }
                 },
                 "mb.AddForeignKey(" + EOL +
                 "    name: \"FK_Post_Blog_BlogId1_BlogId2\"," + EOL +
                 "    table: \"Post\"," + EOL +
                 "    columns: new[] { \"BlogId1\", \"BlogId2\" }," + EOL +
-                "    referencedTable: \"Blog\"," + EOL +
-                "    referencedColumns: new[] { \"Id1\", \"Id2\" });" + EOL,
+                "    principalTable: \"Blog\"," + EOL +
+                "    principalColumns: new[] { \"Id1\", \"Id2\" });" + EOL,
                 o =>
                 {
                     Assert.Equal("FK_Post_Blog_BlogId1_BlogId2", o.Name);
                     Assert.Equal("Post", o.Table);
                     Assert.Equal(new[] { "BlogId1", "BlogId2" }, o.Columns);
-                    Assert.Equal("Blog", o.ReferencedTable);
-                    Assert.Equal(new[] { "Id1", "Id2" }, o.ReferencedColumns);
+                    Assert.Equal("Blog", o.PrincipalTable);
+                    Assert.Equal(new[] { "Id1", "Id2" }, o.PrincipalColumns);
                 });
         }
 
@@ -334,18 +362,17 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 {
                     Name = "Id",
                     Table = "Post",
-                    Type = "int"
+                    ClrType = typeof(int)
                 },
-                "mb.AlterColumn(" + EOL +
+                "mb.AlterColumn<int>(" + EOL +
                 "    name: \"Id\"," + EOL +
                 "    table: \"Post\"," + EOL +
-                "    type: \"int\"," + EOL +
                 "    nullable: false);" + EOL,
                 o =>
                 {
                     Assert.Equal("Id", o.Name);
                     Assert.Equal("Post", o.Table);
-                    Assert.Equal("int", o.Type);
+                    Assert.Equal(typeof(int), o.ClrType);
                 });
         }
 
@@ -358,11 +385,12 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Name = "Id",
                     Schema = "dbo",
                     Table = "Post",
-                    Type = "int",
+                    ClrType = typeof(int),
+                    ColumnType = "int",
                     IsNullable = true,
                     DefaultValue = 1
                 },
-                "mb.AlterColumn(" + EOL +
+                "mb.AlterColumn<int>(" + EOL +
                 "    name: \"Id\"," + EOL +
                 "    schema: \"dbo\"," + EOL +
                 "    table: \"Post\"," + EOL +
@@ -374,34 +402,58 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Assert.Equal("Id", o.Name);
                     Assert.Equal("dbo", o.Schema);
                     Assert.Equal("Post", o.Table);
-                    Assert.Equal("int", o.Type);
+                    Assert.Equal(typeof(int), o.ClrType);
+                    Assert.Equal("int", o.ColumnType);
                     Assert.True(o.IsNullable);
                     Assert.Equal(1, o.DefaultValue);
                 });
         }
 
         [Fact]
-        public void AlterColumnOperation_DefaultExpression()
+        public void AlterColumnOperation_DefaultValueSql()
         {
             Test(
                 new AlterColumnOperation
                 {
                     Name = "Id",
                     Table = "Post",
-                    Type = "int",
-                    DefaultExpression = "1"
+                    ClrType = typeof(int),
+                    DefaultValueSql = "1"
                 },
-                "mb.AlterColumn(" + EOL +
+                "mb.AlterColumn<int>(" + EOL +
                 "    name: \"Id\"," + EOL +
                 "    table: \"Post\"," + EOL +
-                "    type: \"int\"," + EOL +
                 "    nullable: false," + EOL +
-                "    defaultExpression: \"1\");" + EOL,
+                "    defaultValueSql: \"1\");" + EOL,
                 o =>
                 {
                     Assert.Equal("Id", o.Name);
                     Assert.Equal("Post", o.Table);
-                    Assert.Equal("1", o.DefaultExpression);
+                    Assert.Equal("1", o.DefaultValueSql);
+                });
+        }
+
+        [Fact]
+        public void AlterColumnOperation_computedColumnSql()
+        {
+            Test(
+                new AlterColumnOperation
+                {
+                    Name = "Id",
+                    Table = "Post",
+                    ClrType = typeof(int),
+                    ComputedColumnSql = "1"
+                },
+                "mb.AlterColumn<int>(" + EOL +
+                "    name: \"Id\"," + EOL +
+                "    table: \"Post\"," + EOL +
+                "    nullable: false," + EOL +
+                "    computedColumnSql: \"1\");" + EOL,
+                o =>
+                {
+                    Assert.Equal("Id", o.Name);
+                    Assert.Equal("Post", o.Table);
+                    Assert.Equal("1", o.ComputedColumnSql);
                 });
         }
 
@@ -409,10 +461,10 @@ namespace Microsoft.Data.Entity.Commands.Migrations
         public void AlterSequenceOperation_required_args()
         {
             Test(
-                new AlterSequenceOperation { Name = "DefaultSequence" },
+                new AlterSequenceOperation { Name = "EntityFrameworkHiLoSequence" },
                 "mb.AlterSequence(" + EOL +
-                "    name: \"DefaultSequence\");" + EOL,
-                o => Assert.Equal("DefaultSequence", o.Name));
+                "    name: \"EntityFrameworkHiLoSequence\");" + EOL,
+                o => Assert.Equal("EntityFrameworkHiLoSequence", o.Name));
         }
 
         [Fact]
@@ -421,28 +473,28 @@ namespace Microsoft.Data.Entity.Commands.Migrations
             Test(
                 new AlterSequenceOperation
                 {
-                    Name = "DefaultSequence",
+                    Name = "EntityFrameworkHiLoSequence",
                     Schema = "dbo",
-                    IncrementBy = 1,
+                    IncrementBy = 3,
                     MinValue = 2,
                     MaxValue = 4,
-                    Cycle = true
+                    IsCyclic = true
                 },
                 "mb.AlterSequence(" + EOL +
-                "    name: \"DefaultSequence\"," + EOL +
+                "    name: \"EntityFrameworkHiLoSequence\"," + EOL +
                 "    schema: \"dbo\"," + EOL +
-                "    incrementBy: 1," + EOL +
+                "    incrementBy: 3," + EOL +
                 "    minValue: 2L," + EOL +
                 "    maxValue: 4L," + EOL +
-                "    cycle: true);" + EOL,
+                "    cyclic: true);" + EOL,
                 o =>
                 {
-                    Assert.Equal("DefaultSequence", o.Name);
+                    Assert.Equal("EntityFrameworkHiLoSequence", o.Name);
                     Assert.Equal("dbo", o.Schema);
-                    Assert.Equal(1, o.IncrementBy);
+                    Assert.Equal(3, o.IncrementBy);
                     Assert.Equal(2, o.MinValue);
                     Assert.Equal(4, o.MaxValue);
-                    Assert.True(o.Cycle);
+                    Assert.True(o.IsCyclic);
                 });
         }
 
@@ -522,8 +574,8 @@ namespace Microsoft.Data.Entity.Commands.Migrations
         public void CreateSchemaOperation_required_args()
         {
             Test(
-                new CreateSchemaOperation { Name = "my" },
-                "mb.CreateSchema(\"my\");" + EOL,
+                new EnsureSchemaOperation { Name = "my" },
+                "mb.EnsureSchema(\"my\");" + EOL,
                 o => Assert.Equal("my", o.Name));
         }
 
@@ -531,10 +583,36 @@ namespace Microsoft.Data.Entity.Commands.Migrations
         public void CreateSequenceOperation_required_args()
         {
             Test(
-                new CreateSequenceOperation { Name = "DefaultSequence" },
+                new CreateSequenceOperation
+                {
+                    Name = "EntityFrameworkHiLoSequence",
+                    ClrType = typeof(long)
+                },
                 "mb.CreateSequence(" + EOL +
-                "    name: \"DefaultSequence\");" + EOL,
-                o => Assert.Equal("DefaultSequence", o.Name));
+                "    name: \"EntityFrameworkHiLoSequence\");" + EOL,
+                o =>
+                {
+                    Assert.Equal("EntityFrameworkHiLoSequence", o.Name);
+                    Assert.Equal(typeof(long), o.ClrType);
+                });
+        }
+
+        [Fact]
+        public void CreateSequenceOperation_required_args_not_long()
+        {
+            Test(
+                new CreateSequenceOperation
+                {
+                    Name = "EntityFrameworkHiLoSequence",
+                    ClrType = typeof(int)
+                },
+                "mb.CreateSequence<int>(" + EOL +
+                "    name: \"EntityFrameworkHiLoSequence\");" + EOL,
+                o =>
+                {
+                    Assert.Equal("EntityFrameworkHiLoSequence", o.Name);
+                    Assert.Equal(typeof(int), o.ClrType);
+                });
         }
 
         [Fact]
@@ -543,34 +621,69 @@ namespace Microsoft.Data.Entity.Commands.Migrations
             Test(
                 new CreateSequenceOperation
                 {
-                    Name = "DefaultSequence",
+                    Name = "EntityFrameworkHiLoSequence",
                     Schema = "dbo",
-                    Type = "bigint",
-                    StartWith = 3,
-                    IncrementBy = 1,
+                    ClrType = typeof(long),
+                    StartValue = 3,
+                    IncrementBy = 5,
                     MinValue = 2,
                     MaxValue = 4,
-                    Cycle = true
+                    IsCyclic = true
                 },
                 "mb.CreateSequence(" + EOL +
-                "    name: \"DefaultSequence\"," + EOL +
+                "    name: \"EntityFrameworkHiLoSequence\"," + EOL +
                 "    schema: \"dbo\"," + EOL +
-                "    type: \"bigint\"," + EOL +
-                "    startWith: 3L," + EOL +
-                "    incrementBy: 1," + EOL +
+                "    startValue: 3L," + EOL +
+                "    incrementBy: 5," + EOL +
                 "    minValue: 2L," + EOL +
                 "    maxValue: 4L," + EOL +
-                "    cycle: true);" + EOL,
+                "    cyclic: true);" + EOL,
                 o =>
                 {
-                    Assert.Equal("DefaultSequence", o.Name);
+                    Assert.Equal("EntityFrameworkHiLoSequence", o.Name);
                     Assert.Equal("dbo", o.Schema);
-                    Assert.Equal("bigint", o.Type);
-                    Assert.Equal(3, o.StartWith);
-                    Assert.Equal(1, o.IncrementBy);
+                    Assert.Equal(typeof(long), o.ClrType);
+                    Assert.Equal(3, o.StartValue);
+                    Assert.Equal(5, o.IncrementBy);
                     Assert.Equal(2, o.MinValue);
                     Assert.Equal(4, o.MaxValue);
-                    Assert.True(o.Cycle);
+                    Assert.True(o.IsCyclic);
+                });
+        }
+
+        [Fact]
+        public void CreateSequenceOperation_all_args_not_long()
+        {
+            Test(
+                new CreateSequenceOperation
+                {
+                    Name = "EntityFrameworkHiLoSequence",
+                    Schema = "dbo",
+                    ClrType = typeof(int),
+                    StartValue = 3,
+                    IncrementBy = 5,
+                    MinValue = 2,
+                    MaxValue = 4,
+                    IsCyclic = true
+                },
+                "mb.CreateSequence<int>(" + EOL +
+                "    name: \"EntityFrameworkHiLoSequence\"," + EOL +
+                "    schema: \"dbo\"," + EOL +
+                "    startValue: 3L," + EOL +
+                "    incrementBy: 5," + EOL +
+                "    minValue: 2L," + EOL +
+                "    maxValue: 4L," + EOL +
+                "    cyclic: true);" + EOL,
+                o =>
+                {
+                    Assert.Equal("EntityFrameworkHiLoSequence", o.Name);
+                    Assert.Equal("dbo", o.Schema);
+                    Assert.Equal(typeof(int), o.ClrType);
+                    Assert.Equal(3, o.StartValue);
+                    Assert.Equal(5, o.IncrementBy);
+                    Assert.Equal(2, o.MinValue);
+                    Assert.Equal(4, o.MaxValue);
+                    Assert.True(o.IsCyclic);
                 });
         }
 
@@ -587,7 +700,7 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                         {
                             Name = "Id",
                             Table = "Post",
-                            Type = "int"
+                            ClrType= typeof(int)
                         }
                     }
                 },
@@ -595,7 +708,7 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 "    name: \"Post\"," + EOL +
                 "    columns: table => new" + EOL +
                 "    {" + EOL +
-                "        Id = table.Column(type: \"int\", nullable: false)" + EOL +
+                "        Id = table.Column<int>(nullable: false)" + EOL +
                 "    }," + EOL +
                 "    constraints: table =>" + EOL +
                 "    {" + EOL +
@@ -607,7 +720,7 @@ namespace Microsoft.Data.Entity.Commands.Migrations
 
                     Assert.Equal("Id", o.Columns[0].Name);
                     Assert.Equal("Post", o.Columns[0].Table);
-                    Assert.Equal("int", o.Columns[0].Type);
+                    Assert.Equal(typeof(int), o.Columns[0].ClrType);
                 });
         }
 
@@ -626,7 +739,8 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                             Name = "Post Id",
                             Schema = "dbo",
                             Table = "Post",
-                            Type = "int",
+                            ClrType= typeof(int),
+                            ColumnType = "int",
                             IsNullable = true,
                             DefaultValue = 1
                         }
@@ -637,7 +751,7 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 "    schema: \"dbo\"," + EOL +
                 "    columns: table => new" + EOL +
                 "    {" + EOL +
-                "        PostId = table.Column(name: \"Post Id\", type: \"int\", nullable: true, defaultValue: 1)" + EOL +
+                "        PostId = table.Column<int>(name: \"Post Id\", type: \"int\", nullable: true, defaultValue: 1)" + EOL +
                 "    }," + EOL +
                 "    constraints: table =>" + EOL +
                 "    {" + EOL +
@@ -651,14 +765,15 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Assert.Equal("Post Id", o.Columns[0].Name);
                     Assert.Equal("dbo", o.Columns[0].Schema);
                     Assert.Equal("Post", o.Columns[0].Table);
-                    Assert.Equal("int", o.Columns[0].Type);
+                    Assert.Equal(typeof(int), o.Columns[0].ClrType);
+                    Assert.Equal("int", o.Columns[0].ColumnType);
                     Assert.True(o.Columns[0].IsNullable);
                     Assert.Equal(1, o.Columns[0].DefaultValue);
                 });
         }
 
         [Fact]
-        public void CreateTableOperation_Columns_DefaultExpression()
+        public void CreateTableOperation_Columns_DefaultValueSql()
         {
             Test(
                 new CreateTableOperation
@@ -670,8 +785,8 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                         {
                             Name = "Id",
                             Table = "Post",
-                            Type = "int",
-                            DefaultExpression = "1"
+                            ClrType = typeof(int),
+                            DefaultValueSql = "1"
                         }
                     }
                 },
@@ -679,7 +794,7 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 "    name: \"Post\"," + EOL +
                 "    columns: table => new" + EOL +
                 "    {" + EOL +
-                "        Id = table.Column(type: \"int\", nullable: false, defaultExpression: \"1\")" + EOL +
+                "        Id = table.Column<int>(nullable: false, defaultValueSql: \"1\")" + EOL +
                 "    }," + EOL +
                 "    constraints: table =>" + EOL +
                 "    {" + EOL +
@@ -690,8 +805,46 @@ namespace Microsoft.Data.Entity.Commands.Migrations
 
                     Assert.Equal("Id", o.Columns[0].Name);
                     Assert.Equal("Post", o.Columns[0].Table);
-                    Assert.Equal("int", o.Columns[0].Type);
-                    Assert.Equal("1", o.Columns[0].DefaultExpression);
+                    Assert.Equal(typeof(int), o.Columns[0].ClrType);
+                    Assert.Equal("1", o.Columns[0].DefaultValueSql);
+                });
+        }
+
+        [Fact]
+        public void CreateTableOperation_Columns_computedColumnSql()
+        {
+            Test(
+                new CreateTableOperation
+                {
+                    Name = "Post",
+                    Columns =
+                    {
+                        new AddColumnOperation
+                        {
+                            Name = "Id",
+                            Table = "Post",
+                            ClrType = typeof(int),
+                            ComputedColumnSql = "1"
+                        }
+                    }
+                },
+                "mb.CreateTable(" + EOL +
+                "    name: \"Post\"," + EOL +
+                "    columns: table => new" + EOL +
+                "    {" + EOL +
+                "        Id = table.Column<int>(nullable: false, computedColumnSql: \"1\")" + EOL +
+                "    }," + EOL +
+                "    constraints: table =>" + EOL +
+                "    {" + EOL +
+                "    });" + EOL,
+                o =>
+                {
+                    Assert.Equal(1, o.Columns.Count);
+
+                    Assert.Equal("Id", o.Columns[0].Name);
+                    Assert.Equal("Post", o.Columns[0].Table);
+                    Assert.Equal(typeof(int), o.Columns[0].ClrType);
+                    Assert.Equal("1", o.Columns[0].ComputedColumnSql);
                 });
         }
 
@@ -704,7 +857,7 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Name = "Post",
                     Columns =
                     {
-                        new AddColumnOperation { Name = "BlogId", Type = "int" }
+                        new AddColumnOperation { Name = "BlogId", ClrType = typeof(int) }
                     },
                     ForeignKeys =
                     {
@@ -713,7 +866,8 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                             Name = "FK_Post_Blog_BlogId",
                             Table = "Post",
                             Columns = new[] { "BlogId" },
-                            ReferencedTable = "Blog"
+                            PrincipalTable = "Blog",
+                            PrincipalColumns = new[] { "Id" }
                         }
                     }
                 },
@@ -721,14 +875,15 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 "    name: \"Post\"," + EOL +
                 "    columns: table => new" + EOL +
                 "    {" + EOL +
-                "        BlogId = table.Column(type: \"int\", nullable: false)" + EOL +
+                "        BlogId = table.Column<int>(nullable: false)" + EOL +
                 "    }," + EOL +
                 "    constraints: table =>" + EOL +
                 "    {" + EOL +
                 "        table.ForeignKey(" + EOL +
                 "            name: \"FK_Post_Blog_BlogId\"," + EOL +
-                "            columns: x => x.BlogId," + EOL +
-                "            referencedTable: \"Blog\");" + EOL +
+                "            column: x => x.BlogId," + EOL +
+                "            principalTable: \"Blog\"," + EOL +
+                "            principalColumn: \"Id\");" + EOL +
                 "    });" + EOL,
                 o =>
                 {
@@ -738,7 +893,7 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Assert.Equal("FK_Post_Blog_BlogId", fk.Name);
                     Assert.Equal("Post", fk.Table);
                     Assert.Equal(new[] { "BlogId" }, fk.Columns.ToArray());
-                    Assert.Equal("Blog", fk.ReferencedTable);
+                    Assert.Equal("Blog", fk.PrincipalTable);
                 });
         }
 
@@ -752,7 +907,7 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Name = "Post",
                     Columns =
                     {
-                        new AddColumnOperation { Name = "BlogId", Type = "int" }
+                        new AddColumnOperation { Name = "BlogId", ClrType = typeof(int) }
                     },
                     ForeignKeys =
                     {
@@ -762,9 +917,9 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                             Table = "Post",
                             Name = "FK_Post_Blog_BlogId",
                             Columns = new[] { "BlogId" },
-                            ReferencedTable = "Blog",
-                            ReferencedSchema = "my",
-                            ReferencedColumns = new[] { "Id" },
+                            PrincipalTable = "Blog",
+                            PrincipalSchema = "my",
+                            PrincipalColumns = new[] { "Id" },
                             OnUpdate = ReferentialAction.SetNull,
                             OnDelete = ReferentialAction.SetDefault
                         }
@@ -775,16 +930,16 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 "    schema: \"dbo\"," + EOL +
                 "    columns: table => new" + EOL +
                 "    {" + EOL +
-                "        BlogId = table.Column(type: \"int\", nullable: false)" + EOL +
+                "        BlogId = table.Column<int>(nullable: false)" + EOL +
                 "    }," + EOL +
                 "    constraints: table =>" + EOL +
                 "    {" + EOL +
                 "        table.ForeignKey(" + EOL +
                 "            name: \"FK_Post_Blog_BlogId\"," + EOL +
-                "            columns: x => x.BlogId," + EOL +
-                "            referencedSchema: \"my\"," + EOL +
-                "            referencedTable: \"Blog\"," + EOL +
-                "            referencedColumn: \"Id\"," + EOL +
+                "            column: x => x.BlogId," + EOL +
+                "            principalSchema: \"my\"," + EOL +
+                "            principalTable: \"Blog\"," + EOL +
+                "            principalColumn: \"Id\"," + EOL +
                 "            onUpdate: ReferentialAction.SetNull," + EOL +
                 "            onDelete: ReferentialAction.SetDefault);" + EOL +
                 "    });" + EOL,
@@ -797,9 +952,9 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Assert.Equal("dbo", fk.Schema);
                     Assert.Equal("FK_Post_Blog_BlogId", fk.Name);
                     Assert.Equal(new[] { "BlogId" }, fk.Columns.ToArray());
-                    Assert.Equal("Blog", fk.ReferencedTable);
-                    Assert.Equal("my", fk.ReferencedSchema);
-                    Assert.Equal(new[] { "Id" }, fk.ReferencedColumns);
+                    Assert.Equal("Blog", fk.PrincipalTable);
+                    Assert.Equal("my", fk.PrincipalSchema);
+                    Assert.Equal(new[] { "Id" }, fk.PrincipalColumns);
                     Assert.Equal(ReferentialAction.SetNull, fk.OnUpdate);
                     Assert.Equal(ReferentialAction.SetDefault, fk.OnDelete);
                 });
@@ -814,8 +969,8 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Name = "Post",
                     Columns =
                     {
-                        new AddColumnOperation { Name = "BlogId1", Type = "int" },
-                        new AddColumnOperation { Name = "BlogId2", Type = "int" }
+                        new AddColumnOperation { Name = "BlogId1", ClrType = typeof(int) },
+                        new AddColumnOperation { Name = "BlogId2", ClrType = typeof(int) }
                     },
                     ForeignKeys =
                     {
@@ -824,8 +979,8 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                             Name = "FK_Post_Blog_BlogId1_BlogId2",
                             Table = "Post",
                             Columns = new[] { "BlogId1", "BlogId2" },
-                            ReferencedTable = "Blog",
-                            ReferencedColumns = new[] { "Id1", "Id2" }
+                            PrincipalTable = "Blog",
+                            PrincipalColumns = new[] { "Id1", "Id2" }
                         }
                     }
                 },
@@ -833,16 +988,16 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 "    name: \"Post\"," + EOL +
                 "    columns: table => new" + EOL +
                 "    {" + EOL +
-                "        BlogId1 = table.Column(type: \"int\", nullable: false)," + EOL +
-                "        BlogId2 = table.Column(type: \"int\", nullable: false)" + EOL +
+                "        BlogId1 = table.Column<int>(nullable: false)," + EOL +
+                "        BlogId2 = table.Column<int>(nullable: false)" + EOL +
                 "    }," + EOL +
                 "    constraints: table =>" + EOL +
                 "    {" + EOL +
                 "        table.ForeignKey(" + EOL +
                 "            name: \"FK_Post_Blog_BlogId1_BlogId2\"," + EOL +
                 "            columns: x => new { x.BlogId1, x.BlogId2 }," + EOL +
-                "            referencedTable: \"Blog\"," + EOL +
-                "            referencedColumns: new[] { \"Id1\", \"Id2\" });" + EOL +
+                "            principalTable: \"Blog\"," + EOL +
+                "            principalColumns: new[] { \"Id1\", \"Id2\" });" + EOL +
                 "    });" + EOL,
                 o =>
                 {
@@ -851,8 +1006,8 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     var fk = o.ForeignKeys.First();
                     Assert.Equal("Post", fk.Table);
                     Assert.Equal(new[] { "BlogId1", "BlogId2" }, fk.Columns.ToArray());
-                    Assert.Equal("Blog", fk.ReferencedTable);
-                    Assert.Equal(new[] { "Id1", "Id2" }, fk.ReferencedColumns);
+                    Assert.Equal("Blog", fk.PrincipalTable);
+                    Assert.Equal(new[] { "Id1", "Id2" }, fk.PrincipalColumns);
                 });
         }
 
@@ -865,7 +1020,7 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Name = "Post",
                     Columns =
                     {
-                        new AddColumnOperation { Name = "Id", Type = "int" }
+                        new AddColumnOperation { Name = "Id", ClrType = typeof(int) }
                     },
                     PrimaryKey = new AddPrimaryKeyOperation
                     {
@@ -878,7 +1033,7 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 "    name: \"Post\"," + EOL +
                 "    columns: table => new" + EOL +
                 "    {" + EOL +
-                "        Id = table.Column(type: \"int\", nullable: false)" + EOL +
+                "        Id = table.Column<int>(nullable: false)" + EOL +
                 "    }," + EOL +
                 "    constraints: table =>" + EOL +
                 "    {" + EOL +
@@ -904,7 +1059,7 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Schema = "dbo",
                     Columns =
                     {
-                        new AddColumnOperation { Name = "Id", Type = "int" }
+                        new AddColumnOperation { Name = "Id", ClrType = typeof(int) }
                     },
                     PrimaryKey = new AddPrimaryKeyOperation
                     {
@@ -919,7 +1074,7 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 "    schema: \"dbo\"," + EOL +
                 "    columns: table => new" + EOL +
                 "    {" + EOL +
-                "        Id = table.Column(type: \"int\", nullable: false)" + EOL +
+                "        Id = table.Column<int>(nullable: false)" + EOL +
                 "    }," + EOL +
                 "    constraints: table =>" + EOL +
                 "    {" + EOL +
@@ -945,8 +1100,8 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Name = "Post",
                     Columns =
                     {
-                        new AddColumnOperation { Name = "Id1", Type = "int" },
-                        new AddColumnOperation { Name = "Id2", Type = "int" }
+                        new AddColumnOperation { Name = "Id1", ClrType = typeof(int) },
+                        new AddColumnOperation { Name = "Id2", ClrType = typeof(int) }
                     },
                     PrimaryKey = new AddPrimaryKeyOperation
                     {
@@ -959,8 +1114,8 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 "    name: \"Post\"," + EOL +
                 "    columns: table => new" + EOL +
                 "    {" + EOL +
-                "        Id1 = table.Column(type: \"int\", nullable: false)," + EOL +
-                "        Id2 = table.Column(type: \"int\", nullable: false)" + EOL +
+                "        Id1 = table.Column<int>(nullable: false)," + EOL +
+                "        Id2 = table.Column<int>(nullable: false)" + EOL +
                 "    }," + EOL +
                 "    constraints: table =>" + EOL +
                 "    {" + EOL +
@@ -985,7 +1140,7 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Name = "Post",
                     Columns =
                     {
-                        new AddColumnOperation { Name = "AltId", Type = "int" }
+                        new AddColumnOperation { Name = "AltId", ClrType = typeof(int) }
                     },
                     UniqueConstraints =
                     {
@@ -1001,11 +1156,11 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 "    name: \"Post\"," + EOL +
                 "    columns: table => new" + EOL +
                 "    {" + EOL +
-                "        AltId = table.Column(type: \"int\", nullable: false)" + EOL +
+                "        AltId = table.Column<int>(nullable: false)" + EOL +
                 "    }," + EOL +
                 "    constraints: table =>" + EOL +
                 "    {" + EOL +
-                "        table.Unique(\"AK_Post_AltId\", x => x.AltId);" + EOL +
+                "        table.UniqueConstraint(\"AK_Post_AltId\", x => x.AltId);" + EOL +
                 "    });" + EOL,
                 o =>
                 {
@@ -1027,7 +1182,7 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Schema = "dbo",
                     Columns =
                     {
-                        new AddColumnOperation { Name = "AltId", Type = "int" }
+                        new AddColumnOperation { Name = "AltId", ClrType = typeof(int) }
                     },
                     UniqueConstraints =
                     {
@@ -1045,11 +1200,11 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 "    schema: \"dbo\"," + EOL +
                 "    columns: table => new" + EOL +
                 "    {" + EOL +
-                "        AltId = table.Column(type: \"int\", nullable: false)" + EOL +
+                "        AltId = table.Column<int>(nullable: false)" + EOL +
                 "    }," + EOL +
                 "    constraints: table =>" + EOL +
                 "    {" + EOL +
-                "        table.Unique(\"AK_Post_AltId\", x => x.AltId);" + EOL +
+                "        table.UniqueConstraint(\"AK_Post_AltId\", x => x.AltId);" + EOL +
                 "    });" + EOL,
                 o =>
                 {
@@ -1071,8 +1226,8 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                     Name = "Post",
                     Columns =
                     {
-                        new AddColumnOperation { Name = "AltId1", Type = "int" },
-                        new AddColumnOperation { Name = "AltId2", Type = "int" }
+                        new AddColumnOperation { Name = "AltId1", ClrType = typeof(int) },
+                        new AddColumnOperation { Name = "AltId2", ClrType = typeof(int) }
                     },
                     UniqueConstraints =
                     {
@@ -1088,12 +1243,12 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                 "    name: \"Post\"," + EOL +
                 "    columns: table => new" + EOL +
                 "    {" + EOL +
-                "        AltId1 = table.Column(type: \"int\", nullable: false)," + EOL +
-                "        AltId2 = table.Column(type: \"int\", nullable: false)" + EOL +
+                "        AltId1 = table.Column<int>(nullable: false)," + EOL +
+                "        AltId2 = table.Column<int>(nullable: false)" + EOL +
                 "    }," + EOL +
                 "    constraints: table =>" + EOL +
                 "    {" + EOL +
-                "        table.Unique(\"AK_Post_AltId1_AltId2\", x => new { x.AltId1, x.AltId2 });" + EOL +
+                "        table.UniqueConstraint(\"AK_Post_AltId1_AltId2\", x => new { x.AltId1, x.AltId2 });" + EOL +
                 "    });" + EOL,
                 o =>
                 {
@@ -1262,9 +1417,9 @@ namespace Microsoft.Data.Entity.Commands.Migrations
         public void DropSequenceOperation_required_args()
         {
             Test(
-                new DropSequenceOperation { Name = "DefaultSequence" },
-                "mb.DropSequence(\"DefaultSequence\");" + EOL,
-                o => Assert.Equal("DefaultSequence", o.Name));
+                new DropSequenceOperation { Name = "EntityFrameworkHiLoSequence" },
+                "mb.DropSequence(\"EntityFrameworkHiLoSequence\");" + EOL,
+                o => Assert.Equal("EntityFrameworkHiLoSequence", o.Name));
         }
 
         [Fact]
@@ -1273,13 +1428,13 @@ namespace Microsoft.Data.Entity.Commands.Migrations
             Test(
                 new DropSequenceOperation
                 {
-                    Name = "DefaultSequence",
+                    Name = "EntityFrameworkHiLoSequence",
                     Schema = "dbo"
                 },
-                "mb.DropSequence(name: \"DefaultSequence\", schema: \"dbo\");" + EOL,
+                "mb.DropSequence(name: \"EntityFrameworkHiLoSequence\", schema: \"dbo\");" + EOL,
                 o =>
                 {
-                    Assert.Equal("DefaultSequence", o.Name);
+                    Assert.Equal("EntityFrameworkHiLoSequence", o.Name);
                     Assert.Equal("dbo", o.Schema);
                 });
         }
@@ -1444,10 +1599,10 @@ namespace Microsoft.Data.Entity.Commands.Migrations
         public void RenameSequenceOperation_required_args()
         {
             Test(
-                new RenameSequenceOperation { Name = "DefaultSequence" },
+                new RenameSequenceOperation { Name = "EntityFrameworkHiLoSequence" },
                 "mb.RenameSequence(" + EOL +
-                "    name: \"DefaultSequence\");" + EOL,
-                o => Assert.Equal("DefaultSequence", o.Name));
+                "    name: \"EntityFrameworkHiLoSequence\");" + EOL,
+                o => Assert.Equal("EntityFrameworkHiLoSequence", o.Name));
         }
 
         [Fact]
@@ -1456,19 +1611,19 @@ namespace Microsoft.Data.Entity.Commands.Migrations
             Test(
                 new RenameSequenceOperation
                 {
-                    Name = "DefaultSequence",
+                    Name = "EntityFrameworkHiLoSequence",
                     Schema = "dbo",
                     NewName = "MySequence",
                     NewSchema = "my"
                 },
                 "mb.RenameSequence(" + EOL +
-                "    name: \"DefaultSequence\"," + EOL +
+                "    name: \"EntityFrameworkHiLoSequence\"," + EOL +
                 "    schema: \"dbo\"," + EOL +
                 "    newName: \"MySequence\"," + EOL +
                 "    newSchema: \"my\");" + EOL,
                 o =>
                 {
-                    Assert.Equal("DefaultSequence", o.Name);
+                    Assert.Equal("EntityFrameworkHiLoSequence", o.Name);
                     Assert.Equal("dbo", o.Schema);
                     Assert.Equal("MySequence", o.NewName);
                     Assert.Equal("my", o.NewSchema);
@@ -1516,16 +1671,16 @@ namespace Microsoft.Data.Entity.Commands.Migrations
             Test(
                 new RestartSequenceOperation
                 {
-                    Name = "DefaultSequence",
-                    RestartWith = 1
+                    Name = "EntityFrameworkHiLoSequence",
+                    StartValue = 1
                 },
                 "mb.RestartSequence(" + EOL +
-                "    name: \"DefaultSequence\"," + EOL +
-                "    with: 1L);" + EOL,
+                "    name: \"EntityFrameworkHiLoSequence\"," + EOL +
+                "    startValue: 1L);" + EOL,
                 o =>
                 {
-                    Assert.Equal("DefaultSequence", o.Name);
-                    Assert.Equal(1, o.RestartWith);
+                    Assert.Equal("EntityFrameworkHiLoSequence", o.Name);
+                    Assert.Equal(1, o.StartValue);
                 });
         }
 
@@ -1535,19 +1690,19 @@ namespace Microsoft.Data.Entity.Commands.Migrations
             Test(
                 new RestartSequenceOperation
                 {
-                    Name = "DefaultSequence",
+                    Name = "EntityFrameworkHiLoSequence",
                     Schema = "dbo",
-                    RestartWith = 1
+                    StartValue = 1
                 },
                 "mb.RestartSequence(" + EOL +
-                "    name: \"DefaultSequence\"," + EOL +
+                "    name: \"EntityFrameworkHiLoSequence\"," + EOL +
                 "    schema: \"dbo\"," + EOL +
-                "    with: 1L);" + EOL,
+                "    startValue: 1L);" + EOL,
                 o =>
                 {
-                    Assert.Equal("DefaultSequence", o.Name);
+                    Assert.Equal("EntityFrameworkHiLoSequence", o.Name);
                     Assert.Equal("dbo", o.Schema);
-                    Assert.Equal(1, o.RestartWith);
+                    Assert.Equal(1, o.StartValue);
                 });
         }
 
@@ -1556,28 +1711,8 @@ namespace Microsoft.Data.Entity.Commands.Migrations
         {
             Test(
                 new SqlOperation { Sql = "-- I <3 DDL" },
-                "mb.Sql(" + EOL +
-                "    \"-- I <3 DDL\");" + EOL,
+                "mb.Sql(\"-- I <3 DDL\");" + EOL,
                 o => Assert.Equal("-- I <3 DDL", o.Sql));
-        }
-
-        [Fact]
-        public void SqlOperation_all_args()
-        {
-            Test(
-                new SqlOperation
-                {
-                    Sql = "-- I <3 DDL",
-                    SuppressTransaction = true
-                },
-                "mb.Sql(" + EOL +
-                "    sql: \"-- I <3 DDL\"," + EOL +
-                "    suppressTransaction: true);" + EOL,
-                o =>
-                {
-                    Assert.Equal("-- I <3 DDL", o.Sql);
-                    Assert.True(o.SuppressTransaction);
-                });
         }
 
         private void Test<T>(T operation, string expectedCode, Action<T> assert)
@@ -1595,16 +1730,20 @@ namespace Microsoft.Data.Entity.Commands.Migrations
             {
                 References =
                 {
+#if DNXCORE50
+                    BuildReference.ByName("System.Collections"),
+                    BuildReference.ByName("System.Linq.Expressions"),
+                    BuildReference.ByName("System.Reflection"),
+#else
                     BuildReference.ByName("System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
                     BuildReference.ByName("System.Linq.Expressions, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a"),
                     BuildReference.ByName("System.Runtime, Version=4.0.10.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a"),
+#endif
                     BuildReference.ByName("EntityFramework.Relational"),
                     BuildReference.ByName("EntityFramework.Relational.Design")
                 },
-                Source = @"
-                    using System.Collections.Generic;
-                    using Microsoft.Data.Entity.Relational.Migrations.Builders;
-                    using Microsoft.Data.Entity.Relational.Migrations.Operations;
+                Sources = { @"
+                    using Microsoft.Data.Entity.Migrations;
 
                     public static class OperationsFactory
                     {
@@ -1613,13 +1752,13 @@ namespace Microsoft.Data.Entity.Commands.Migrations
                             " + code + @"
                         }
                     }
-                "
+                " }
             };
 
             var assembly = build.BuildInMemory();
             var factoryType = assembly.GetType("OperationsFactory");
-            var createMethod = factoryType.GetMethod("Create");
-            var mb = new MigrationBuilder();
+            var createMethod = factoryType.GetTypeInfo().GetDeclaredMethod("Create");
+            var mb = new MigrationBuilder(activeProvider: null);
             createMethod.Invoke(null, new[] { mb });
             var result = mb.Operations.Cast<T>().Single();
 

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -6,7 +6,8 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Data.Entity.FunctionalTests;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Data.Entity.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Microsoft.Data.Entity.InMemory.FunctionalTests
@@ -18,8 +19,8 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
         {
             var serviceProvider = new ServiceCollection()
                 .AddEntityFramework()
-                .AddInMemoryStore()
-                .ServiceCollection()
+                .AddInMemoryDatabase()
+                .GetInfrastructure()
                 .BuildServiceProvider();
 
             var ticks = DateTime.UtcNow.Ticks;
@@ -61,7 +62,7 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
         {
             var serviceProvider = new ServiceCollection()
                 .AddEntityFramework()
-                .AddInMemoryStore()
+                .AddInMemoryDatabase()
                 .ServiceCollection()
                 .BuildServiceProvider();
 
@@ -118,7 +119,7 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
         {
             var serviceProvider = new ServiceCollection()
                 .AddEntityFramework()
-                .AddInMemoryStore()
+                .AddInMemoryDatabase()
                 .ServiceCollection()
                 .BuildServiceProvider();
 
@@ -182,13 +183,35 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
             public DbSet<Unicorn> Unicorns { get; set; }
             public DbSet<EarthPony> EarthPonies { get; set; }
 
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+                => optionsBuilder.UseInMemoryDatabase();
+
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<Pegasus>().Key(e => new { e.Id1, e.Id2 });
+                modelBuilder.Entity<Pegasus>().HasKey(e => new { e.Id1, e.Id2 });
+                modelBuilder
+                    .Entity<Pegasus>(b =>
+                    {
+                        b.HasKey(e => new { e.Id1, e.Id2 });
+                        b.Property(e => e.Id1).ValueGeneratedOnAdd();
+                        b.Property(e => e.Id2).ValueGeneratedOnAdd();
+                    });
 
-                modelBuilder.Entity<Unicorn>().Key(e => new { e.Id1, e.Id2, e.Id3 });
+                modelBuilder.Entity<Unicorn>().HasKey(e => new { e.Id1, e.Id2, e.Id3 });
+                modelBuilder.Entity<Unicorn>(b =>
+                {
+                    b.HasKey(e => new { e.Id1, e.Id2, e.Id3 });
+                    b.Property(e => e.Id1).ValueGeneratedOnAdd();
+                    b.Property(e => e.Id3).ValueGeneratedOnAdd();
+                });
 
-                modelBuilder.Entity<EarthPony>().Key(e => new { e.Id1, e.Id2 });
+                modelBuilder.Entity<EarthPony>().HasKey(e => new { e.Id1, e.Id2 });
+                modelBuilder.Entity<EarthPony>(b =>
+                {
+                    b.HasKey(e => new { e.Id1, e.Id2 });
+                    b.Property(e => e.Id1).ValueGeneratedOnAdd();
+                    b.Property(e => e.Id2).ValueGeneratedOnAdd();
+                });
             }
         }
 

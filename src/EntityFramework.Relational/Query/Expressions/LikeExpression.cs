@@ -1,68 +1,55 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Linq.Expressions;
 using JetBrains.Annotations;
-using Microsoft.Data.Entity.Relational.Query.Sql;
+using Microsoft.Data.Entity.Query.Sql;
 using Microsoft.Data.Entity.Utilities;
-using Remotion.Linq.Clauses.Expressions;
-using Remotion.Linq.Parsing;
 
-namespace Microsoft.Data.Entity.Relational.Query.Expressions
+namespace Microsoft.Data.Entity.Query.Expressions
 {
-    public class LikeExpression : ExtensionExpression
+    public class LikeExpression : Expression
     {
-        private readonly Expression _match;
-        private readonly Expression _pattern;
-
         public LikeExpression([NotNull] Expression match, [NotNull] Expression pattern)
-            : base(typeof(bool))
         {
             Check.NotNull(match, nameof(match));
             Check.NotNull(pattern, nameof(pattern));
 
-            _match = match;
-            _pattern = pattern;
+            Match = match;
+            Pattern = pattern;
         }
 
-        public virtual Expression Match
-        {
-            get { return _match; }
-        }
+        public virtual Expression Match { get; }
 
-        public virtual Expression Pattern
-        {
-            get { return _pattern; }
-        }
+        public virtual Expression Pattern { get; }
 
-        public override Expression Accept([NotNull] ExpressionTreeVisitor visitor)
+        public override ExpressionType NodeType => ExpressionType.Extension;
+
+        public override Type Type => typeof(bool);
+
+        protected override Expression Accept([NotNull] ExpressionVisitor visitor)
         {
             Check.NotNull(visitor, nameof(visitor));
 
             var specificVisitor = visitor as ISqlExpressionVisitor;
 
-            if (specificVisitor != null)
-            {
-                return specificVisitor.VisitLikeExpression(this);
-            }
-
-            return base.Accept(visitor);
+            return specificVisitor != null
+                ? specificVisitor.VisitLike(this)
+                : base.Accept(visitor);
         }
 
-        protected override Expression VisitChildren(ExpressionTreeVisitor visitor)
+        protected override Expression VisitChildren(ExpressionVisitor visitor)
         {
-            var newMatchExpression = visitor.VisitExpression(_match);
-            var newPatternExpression = visitor.VisitExpression(_pattern);
+            var newMatchExpression = visitor.Visit(Match);
+            var newPatternExpression = visitor.Visit(Pattern);
 
-            return newMatchExpression != _match
-                   || newPatternExpression != _pattern
+            return newMatchExpression != Match
+                   || newPatternExpression != Pattern
                 ? new LikeExpression(newMatchExpression, newPatternExpression)
                 : this;
         }
 
-        public override string ToString()
-        {
-            return _match + " LIKE " + _pattern;
-        }
+        public override string ToString() => Match + " LIKE " + Pattern;
     }
 }

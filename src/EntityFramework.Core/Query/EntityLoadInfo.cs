@@ -1,31 +1,29 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Diagnostics;
 using JetBrains.Annotations;
-using Microsoft.Data.Entity.Metadata;
 using Microsoft.Data.Entity.Storage;
 
 namespace Microsoft.Data.Entity.Query
 {
     public struct EntityLoadInfo
     {
-        private readonly Func<IValueReader, object> _materializer;
+        private readonly Func<ValueBuffer, object> _materializer;
 
         public EntityLoadInfo(
-            [NotNull] IValueReader valueReader, [NotNull] Func<IValueReader, object> materializer)
+            ValueBuffer valueBuffer, [NotNull] Func<ValueBuffer, object> materializer)
         {
             // hot path
-            Debug.Assert(valueReader != null);
             Debug.Assert(materializer != null);
 
-            ValueReader = valueReader;
+            ValueBuffer = valueBuffer;
             _materializer = materializer;
         }
 
-        public IValueReader ValueReader { get; }
+        public ValueBuffer ValueBuffer { get; }
 
-        public object Materialize() => _materializer(ValueReader);
+        public object Materialize() => _materializer(ValueBuffer);
     }
 }

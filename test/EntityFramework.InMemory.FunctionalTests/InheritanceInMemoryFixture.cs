@@ -1,10 +1,10 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using Microsoft.Data.Entity.FunctionalTests;
 using Microsoft.Data.Entity.FunctionalTests.TestModels.Inheritance;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Data.Entity.InMemory.FunctionalTests
 {
@@ -18,12 +18,12 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
             _serviceProvider
                 = new ServiceCollection()
                     .AddEntityFramework()
-                    .AddInMemoryStore()
+                    .AddInMemoryDatabase()
                     .ServiceCollection()
                     .AddSingleton(TestInMemoryModelSource.GetFactory(OnModelCreating))
                     .BuildServiceProvider();
 
-            _optionsBuilder.UseInMemoryStore();
+            _optionsBuilder.UseInMemoryDatabase();
 
             using (var context = CreateContext())
             {
@@ -31,9 +31,9 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
             }
         }
 
-        public override AnimalContext CreateContext()
+        public override InheritanceContext CreateContext()
         {
-            return new AnimalContext(_serviceProvider, _optionsBuilder.Options);
+            return new InheritanceContext(_serviceProvider, _optionsBuilder.Options);
         }
     }
 }

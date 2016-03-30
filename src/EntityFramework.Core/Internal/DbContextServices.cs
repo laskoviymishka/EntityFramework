@@ -1,28 +1,28 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Diagnostics;
 using Microsoft.Data.Entity.Infrastructure;
 using Microsoft.Data.Entity.Metadata;
 using Microsoft.Data.Entity.Storage;
 using Microsoft.Data.Entity.Utilities;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Data.Entity.Internal
 {
     public class DbContextServices : IDbContextServices
     {
-
         private IServiceProvider _provider;
         private IDbContextOptions _contextOptions;
         private DbContext _context;
         private LazyRef<IModel> _modelFromSource;
-        private LazyRef<IDataStoreServices> _dataStoreServices;
+        private LazyRef<IDatabaseProviderServices> _providerServices;
         private bool _inOnModelCreating;
 
         public virtual IDbContextServices Initialize(
-            IServiceProvider scopedProvider, 
-            IDbContextOptions contextOptions, 
+            IServiceProvider scopedProvider,
+            IDbContextOptions contextOptions,
             DbContext context,
             ServiceProviderSource serviceProviderSource)
         {
@@ -35,8 +35,8 @@ namespace Microsoft.Data.Entity.Internal
             _contextOptions = contextOptions;
             _context = context;
 
-            _dataStoreServices = new LazyRef<IDataStoreServices>(() =>
-                _provider.GetRequiredService<IDataStoreSelector>().SelectDataStore(serviceProviderSource));
+            _providerServices = new LazyRef<IDatabaseProviderServices>(() =>
+                _provider.GetRequiredService<IDatabaseProviderSelector>().SelectServices(serviceProviderSource));
 
             _modelFromSource = new LazyRef<IModel>(CreateModel);
 
@@ -47,13 +47,17 @@ namespace Microsoft.Data.Entity.Internal
         {
             if (_inOnModelCreating)
             {
-                throw new InvalidOperationException(Strings.RecursiveOnModelCreating);
+                throw new InvalidOperationException(CoreStrings.RecursiveOnModelCreating);
             }
 
             try
             {
                 _inOnModelCreating = true;
-                return _dataStoreServices.Value.ModelSource.GetModel(_context, _dataStoreServices.Value.ModelBuilderFactory);
+
+                return _providerServices.Value.ModelSource.GetModel(
+                    _context,
+                    _providerServices.Value.ConventionSetBuilder,
+                    _providerServices.Value.ModelValidator);
             }
             finally
             {
@@ -67,10 +71,18 @@ namespace Microsoft.Data.Entity.Internal
 
         public virtual IDbContextOptions ContextOptions => _contextOptions;
 
-        public virtual IDataStoreServices DataStoreServices => _dataStoreServices.Value;
+        public virtual IDatabaseProviderServices DatabaseProviderServices
+        {
+            get
+            {
+                Debug.Assert(
+                    _providerServices != null,
+                    "DbContextServices not initialized. This may mean a service is registered as Singleton when it needs to be Scoped because it depends on other Scoped services.");
+
+                return _providerServices.Value;
+            }
+        }
 
         public virtual IServiceProvider ServiceProvider => _provider;
-
-        public virtual void Dispose() => (_provider as IDisposable)?.Dispose();
     }
 }

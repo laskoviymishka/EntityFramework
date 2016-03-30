@@ -1,22 +1,20 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Linq.Expressions;
 using JetBrains.Annotations;
 using Microsoft.Data.Entity.Utilities;
 using Remotion.Linq.Clauses;
-using Remotion.Linq.Clauses.Expressions;
-using Remotion.Linq.Parsing;
 
-namespace Microsoft.Data.Entity.Relational.Query.Expressions
+namespace Microsoft.Data.Entity.Query.Expressions
 {
-    public class DiscriminatorPredicateExpression : ExtensionExpression
+    public class DiscriminatorPredicateExpression : Expression
     {
         private readonly Expression _predicate;
 
         public DiscriminatorPredicateExpression(
             [NotNull] Expression predicate, [CanBeNull] IQuerySource querySource)
-            : base(predicate.Type)
         {
             Check.NotNull(predicate, nameof(predicate));
 
@@ -27,21 +25,19 @@ namespace Microsoft.Data.Entity.Relational.Query.Expressions
 
         public virtual IQuerySource QuerySource { get; }
 
+        public override ExpressionType NodeType => ExpressionType.Extension;
+
+        public override Type Type => _predicate.Type;
+
         public override bool CanReduce => true;
 
-        public override Expression Reduce()
-        {
-            return _predicate;
-        }
+        public override Expression Reduce() => _predicate;
 
-        public override string ToString()
-        {
-            return _predicate.ToString();
-        }
+        public override string ToString() => _predicate.ToString();
 
-        protected override Expression VisitChildren(ExpressionTreeVisitor visitor)
+        protected override Expression VisitChildren(ExpressionVisitor visitor)
         {
-            var newPredicate = visitor.VisitExpression(_predicate);
+            var newPredicate = visitor.Visit(_predicate);
 
             return _predicate != newPredicate
                 ? new DiscriminatorPredicateExpression(newPredicate, QuerySource)

@@ -1,9 +1,11 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Diagnostics;
 using JetBrains.Annotations;
+using Microsoft.Data.Entity.Internal;
 using Microsoft.Data.Entity.Metadata;
+using Microsoft.Data.Entity.Metadata.Internal;
 using Microsoft.Data.Entity.ValueGeneration;
 
 namespace Microsoft.Data.Entity.ChangeTracking.Internal
@@ -25,10 +27,10 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
         {
             foreach (var property in entry.EntityType.GetProperties())
             {
-                var isForeignKey = property.IsForeignKey();
+                var isForeignKey = property.IsForeignKey(entry.EntityType);
 
-                if ((property.IsValueGeneratedOnAdd || isForeignKey)
-                    && property.IsSentinelValue(entry[property]))
+                if ((property.RequiresValueGenerator || isForeignKey)
+                    && property.ClrType.IsDefaultValue(entry[property]))
                 {
                     if (isForeignKey)
                     {
@@ -36,19 +38,21 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
                     }
                     else
                     {
-                        var valueGenerator = _valueGeneratorSelector.Select(property);
+                        var valueGenerator = _valueGeneratorSelector.Select(property, property.IsKey()
+                            ? property.DeclaringEntityType
+                            : entry.EntityType);
+
                         Debug.Assert(valueGenerator != null);
 
-                        var generatedValue = valueGenerator.Next();
-                        SetGeneratedValue(entry, property, generatedValue, valueGenerator.GeneratesTemporaryValues);
+                        SetGeneratedValue(entry, property, valueGenerator.Next(), valueGenerator.GeneratesTemporaryValues);
                     }
                 }
             }
         }
 
-        public virtual bool MayGetTemporaryValue(IProperty property)
-            => property.IsValueGeneratedOnAdd 
-                && _valueGeneratorSelector.Select(property).GeneratesTemporaryValues;
+        public virtual bool MayGetTemporaryValue(IProperty property, IEntityType entityType)
+            => property.RequiresValueGenerator
+               && _valueGeneratorSelector.Select(property, entityType).GeneratesTemporaryValues;
 
         private static void SetGeneratedValue(InternalEntityEntry entry, IProperty property, object generatedValue, bool isTemporary)
         {

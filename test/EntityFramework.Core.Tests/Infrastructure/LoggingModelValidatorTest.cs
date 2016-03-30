@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using Microsoft.Data.Entity.Internal;
 using Microsoft.Data.Entity.Metadata;
 using Microsoft.Data.Entity.Tests.TestUtilities;
-using Microsoft.Framework.Logging;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Microsoft.Data.Entity.Tests.Infrastructure
@@ -32,6 +32,8 @@ namespace Microsoft.Data.Entity.Tests.Infrastructure
             => Assert.Equal(expectedMessage, Assert.Throws<InvalidOperationException>(() => Validate(model)).Message);
 
         protected override ModelValidator CreateModelValidator() 
-            => new LoggingModelValidator(new ListLoggerFactory(Log, l => l == typeof(ModelValidator).FullName));
+            => new LoggingModelValidator(
+                new Logger<LoggingModelValidator>(
+                    new ListLoggerFactory(Log, l => l == typeof(LoggingModelValidator).FullName)));
     }
 }

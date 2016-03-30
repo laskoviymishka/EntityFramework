@@ -1,8 +1,9 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Linq;
 using Microsoft.Data.Entity.ChangeTracking.Internal;
+using Microsoft.Data.Entity.Metadata;
 using Xunit;
 
 namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
@@ -28,7 +29,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
         protected override Sidecar CreateSidecar(InternalEntityEntry entry = null)
         {
             entry = entry ?? CreateInternalEntry();
-            var properties = entry.EntityType.GetPrimaryKey().Properties
+            var properties = entry.EntityType.FindPrimaryKey().Properties
                 .Concat(entry.EntityType.GetForeignKeys().SelectMany(fk => fk.Properties))
                 .ToList();
 

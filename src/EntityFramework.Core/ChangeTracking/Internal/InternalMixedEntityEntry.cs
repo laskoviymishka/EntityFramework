@@ -1,10 +1,10 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Linq;
 using JetBrains.Annotations;
 using Microsoft.Data.Entity.Metadata;
+using Microsoft.Data.Entity.Metadata.Internal;
 using Microsoft.Data.Entity.Storage;
 
 namespace Microsoft.Data.Entity.ChangeTracking.Internal
@@ -12,15 +12,6 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
     public class InternalMixedEntityEntry : InternalEntityEntry
     {
         private readonly object[] _shadowValues;
-
-        /// <summary>
-        ///     This constructor is intended only for use when creating test doubles that will override members
-        ///     with mocked or faked behavior. Use of this constructor for other purposes may result in unexpected
-        ///     behavior including but not limited to throwing <see cref="NullReferenceException" />.
-        /// </summary>
-        protected InternalMixedEntityEntry()
-        {
-        }
 
         public InternalMixedEntityEntry(
             [NotNull] IStateManager stateManager,
@@ -38,14 +29,13 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
             [NotNull] IEntityType entityType,
             [NotNull] IEntityEntryMetadataServices metadataServices,
             [NotNull] object entity,
-            [NotNull] IValueReader valueReader)
+            ValueBuffer valueBuffer)
             : base(stateManager, entityType, metadataServices)
         {
             Entity = entity;
-            _shadowValues = ExtractShadowValues(valueReader);
+            _shadowValues = ExtractShadowValues(valueBuffer);
         }
 
-        [NotNull]
         public override object Entity { get; }
 
         protected override object ReadPropertyValue(IPropertyBase propertyBase)
@@ -72,13 +62,13 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
             }
         }
 
-        private object[] ExtractShadowValues(IValueReader valueReader)
+        private object[] ExtractShadowValues(ValueBuffer valueBuffer)
         {
             var shadowValues = new object[EntityType.ShadowPropertyCount()];
 
             foreach (var property in EntityType.GetProperties().Where(property => property.IsShadowProperty))
             {
-                shadowValues[property.GetShadowIndex()] = MetadataServices.ReadValueFromReader(valueReader, property);
+                shadowValues[property.GetShadowIndex()] = valueBuffer[property.GetIndex()];
             }
 
             return shadowValues;

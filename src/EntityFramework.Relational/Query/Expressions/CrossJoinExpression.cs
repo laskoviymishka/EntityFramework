@@ -1,13 +1,12 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Linq.Expressions;
 using JetBrains.Annotations;
-using Microsoft.Data.Entity.Relational.Query.Sql;
+using Microsoft.Data.Entity.Query.Sql;
 using Microsoft.Data.Entity.Utilities;
-using Remotion.Linq.Parsing;
 
-namespace Microsoft.Data.Entity.Relational.Query.Expressions
+namespace Microsoft.Data.Entity.Query.Expressions
 {
     public class CrossJoinExpression : TableExpressionBase
     {
@@ -21,28 +20,26 @@ namespace Microsoft.Data.Entity.Relational.Query.Expressions
             _tableExpression = tableExpression;
         }
 
-        public virtual TableExpressionBase TableExpression
-        {
-            get { return _tableExpression; }
-        }
+        public virtual TableExpressionBase TableExpression => _tableExpression;
 
-        public override Expression Accept([NotNull] ExpressionTreeVisitor visitor)
+        protected override Expression Accept(ExpressionVisitor visitor)
         {
             Check.NotNull(visitor, nameof(visitor));
 
             var specificVisitor = visitor as ISqlExpressionVisitor;
 
-            if (specificVisitor != null)
-            {
-                return specificVisitor.VisitCrossJoinExpression(this);
-            }
-
-            return base.Accept(visitor);
+            return specificVisitor != null
+                ? specificVisitor.VisitCrossJoin(this)
+                : base.Accept(visitor);
         }
 
-        public override string ToString()
+        public override string ToString() => "CROSS JOIN " + _tableExpression;
+
+        protected override Expression VisitChildren(ExpressionVisitor visitor)
         {
-            return "CROSS JOIN " + _tableExpression;
+            visitor.Visit(_tableExpression);
+
+            return this;
         }
     }
 }

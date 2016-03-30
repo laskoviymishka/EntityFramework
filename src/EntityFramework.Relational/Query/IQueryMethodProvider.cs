@@ -1,13 +1,15 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Reflection;
 
-namespace Microsoft.Data.Entity.Relational.Query
+namespace Microsoft.Data.Entity.Query
 {
     public interface IQueryMethodProvider
     {
+        MethodInfo GroupJoinMethod { get; }
+        MethodInfo ShapedQueryMethod { get; }
         MethodInfo QueryMethod { get; }
         MethodInfo GetResultMethod { get; }
         MethodInfo IncludeMethod { get; }

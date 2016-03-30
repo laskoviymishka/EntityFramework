@@ -1,17 +1,16 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Linq.Expressions;
 using JetBrains.Annotations;
 using Microsoft.Data.Entity.Metadata;
-using Microsoft.Data.Entity.Relational.Query.Sql;
+using Microsoft.Data.Entity.Query.Sql;
 using Microsoft.Data.Entity.Utilities;
-using Remotion.Linq.Clauses.Expressions;
-using Remotion.Linq.Parsing;
 
-namespace Microsoft.Data.Entity.Relational.Query.Expressions
+namespace Microsoft.Data.Entity.Query.Expressions
 {
-    public class ColumnExpression : ExtensionExpression
+    public class ColumnExpression : Expression
     {
         private readonly IProperty _property;
         private readonly TableExpressionBase _tableExpression;
@@ -20,13 +19,22 @@ namespace Microsoft.Data.Entity.Relational.Query.Expressions
             [NotNull] string name,
             [NotNull] IProperty property,
             [NotNull] TableExpressionBase tableExpression)
-            : base(Check.NotNull(property, nameof(property)).ClrType)
+            : this(name, Check.NotNull(property, nameof(property)).ClrType, tableExpression)
+        {
+            _property = property;
+        }
+
+        public ColumnExpression(
+            [NotNull] string name,
+            [NotNull] Type type,
+            [NotNull] TableExpressionBase tableExpression)
         {
             Check.NotEmpty(name, nameof(name));
+            Check.NotNull(type, nameof(type));
             Check.NotNull(tableExpression, nameof(tableExpression));
 
             Name = name;
-            _property = property;
+            Type = type;
             _tableExpression = tableExpression;
         }
 
@@ -40,29 +48,26 @@ namespace Microsoft.Data.Entity.Relational.Query.Expressions
 
         public virtual string Name { get; }
 
-        public virtual string Alias { get; [param: CanBeNull] set; }
+        public override ExpressionType NodeType => ExpressionType.Extension;
 
-        public override Expression Accept([NotNull] ExpressionTreeVisitor visitor)
+        public override Type Type { get; }
+
+        protected override Expression Accept(ExpressionVisitor visitor)
         {
             Check.NotNull(visitor, nameof(visitor));
 
             var specificVisitor = visitor as ISqlExpressionVisitor;
 
             return specificVisitor != null
-                ? specificVisitor.VisitColumnExpression(this)
+                ? specificVisitor.VisitColumn(this)
                 : base.Accept(visitor);
         }
 
-        protected override Expression VisitChildren(ExpressionTreeVisitor visitor)
-        {
-            return this;
-        }
+        protected override Expression VisitChildren(ExpressionVisitor visitor) => this;
 
-        protected bool Equals(ColumnExpression other)
-        {
-            return _property.Equals(other._property)
-                   && _tableExpression.Equals(other._tableExpression);
-        }
+        protected virtual bool Equals([NotNull] ColumnExpression other)
+            => _property.Equals(other._property)
+               && _tableExpression.Equals(other._tableExpression);
 
         public override bool Equals([CanBeNull] object obj)
         {
@@ -89,18 +94,6 @@ namespace Microsoft.Data.Entity.Relational.Query.Expressions
             }
         }
 
-        public override string ToString()
-        {
-            // TODO: Get provider-specific name
-            // Issue #871 
-            var s = _tableExpression.Alias + "." + Name;
-
-            if (Alias != null)
-            {
-                s += " " + Alias;
-            }
-
-            return s;
-        }
+        public override string ToString() => _tableExpression.Alias + "." + Name;
     }
 }

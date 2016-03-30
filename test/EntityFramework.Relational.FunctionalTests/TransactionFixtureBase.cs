@@ -1,11 +1,12 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections.Generic;
 using System.Data.Common;
 using Microsoft.Data.Entity.FunctionalTests;
+using Microsoft.Data.Entity.Metadata;
 
-namespace Microsoft.Data.Entity.Relational.FunctionalTests
+namespace Microsoft.Data.Entity.FunctionalTests
 {
     public abstract class TransactionFixtureBase<TTestStore>
         where TTestStore : TestStore
@@ -20,8 +21,8 @@ namespace Microsoft.Data.Entity.Relational.FunctionalTests
         {
             modelBuilder.Entity<TransactionCustomer>(ps =>
                 {
-                    ps.Property(c => c.Id).GenerateValueOnAdd(generateValue: false);
-                    ps.ForRelational().Table("Customers");
+                    ps.Property(c => c.Id).ValueGeneratedNever();
+                    ps.ToTable("Customers");
                 });
         }
 
@@ -38,18 +39,18 @@ namespace Microsoft.Data.Entity.Relational.FunctionalTests
         }
 
         public readonly IReadOnlyList<TransactionCustomer> Customers = new List<TransactionCustomer>
+        {
+            new TransactionCustomer
             {
-                new TransactionCustomer
-                    {
-                        Id = 1,
-                        Name = "Bob"
-                    },
-                new TransactionCustomer
-                    {
-                        Id = 2,
-                        Name = "Dave"
-                    }
-            };
+                Id = 1,
+                Name = "Bob"
+            },
+            new TransactionCustomer
+            {
+                Id = 2,
+                Name = "Dave"
+            }
+        };
     }
 
     public class TransactionCustomer
@@ -69,14 +70,8 @@ namespace Microsoft.Data.Entity.Relational.FunctionalTests
                    && Name == otherCustomer.Name;
         }
 
-        public override string ToString()
-        {
-            return "Id = " + Id + ", Name = " + Name;
-        }
+        public override string ToString() => "Id = " + Id + ", Name = " + Name;
 
-        public override int GetHashCode()
-        {
-            return base.GetHashCode();
-        }
+        public override int GetHashCode() => Id.GetHashCode() * 397 ^ Name.GetHashCode();
     }
 }

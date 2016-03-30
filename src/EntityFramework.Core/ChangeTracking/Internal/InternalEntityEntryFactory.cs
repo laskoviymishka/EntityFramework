@@ -1,9 +1,10 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Diagnostics;
 using JetBrains.Annotations;
 using Microsoft.Data.Entity.Metadata;
+using Microsoft.Data.Entity.Metadata.Internal;
 using Microsoft.Data.Entity.Storage;
 
 namespace Microsoft.Data.Entity.ChangeTracking.Internal
@@ -20,8 +21,8 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
         public virtual InternalEntityEntry Create(IStateManager stateManager, IEntityType entityType, object entity)
             => NewInternalEntityEntry(stateManager, entityType, entity);
 
-        public virtual InternalEntityEntry Create(IStateManager stateManager, IEntityType entityType, object entity, IValueReader valueReader)
-            => NewInternalEntityEntry(stateManager, entityType, entity, valueReader);
+        public virtual InternalEntityEntry Create(IStateManager stateManager, IEntityType entityType, object entity, ValueBuffer valueBuffer)
+            => NewInternalEntityEntry(stateManager, entityType, entity, valueBuffer);
 
         private InternalEntityEntry NewInternalEntityEntry(IStateManager stateManager, IEntityType entityType, object entity)
         {
@@ -37,15 +38,19 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
                 : new InternalClrEntityEntry(stateManager, entityType, _metadataServices, entity);
         }
 
-        private InternalEntityEntry NewInternalEntityEntry(IStateManager stateManager, IEntityType entityType, object entity, IValueReader valueReader)
+        private InternalEntityEntry NewInternalEntityEntry(
+            IStateManager stateManager,
+            IEntityType entityType,
+            object entity,
+            ValueBuffer valueBuffer)
         {
             if (!entityType.HasClrType())
             {
-                return new InternalShadowEntityEntry(stateManager, entityType, _metadataServices, valueReader);
+                return new InternalShadowEntityEntry(stateManager, entityType, _metadataServices, valueBuffer);
             }
 
             return entityType.ShadowPropertyCount() > 0
-                ? (InternalEntityEntry)new InternalMixedEntityEntry(stateManager, entityType, _metadataServices, entity, valueReader)
+                ? (InternalEntityEntry)new InternalMixedEntityEntry(stateManager, entityType, _metadataServices, entity, valueBuffer)
                 : new InternalClrEntityEntry(stateManager, entityType, _metadataServices, entity);
         }
     }

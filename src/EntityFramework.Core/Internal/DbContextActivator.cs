@@ -1,9 +1,9 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using JetBrains.Annotations;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Data.Entity.Internal
 {
@@ -26,6 +26,20 @@ namespace Microsoft.Data.Entity.Internal
                 _serviceProvider = serviceProvider;
 
                 return (TContext)ActivatorUtilities.CreateInstance(serviceProvider, typeof(TContext));
+            }
+            finally
+            {
+                _serviceProvider = null;
+            }
+        }
+
+        public static TContext CreateInstance<TContext>([NotNull] IServiceProvider serviceProvider, [NotNull] params object[] parameters)
+        {
+            try
+            {
+                _serviceProvider = serviceProvider;
+
+                return (TContext)ActivatorUtilities.CreateInstance(serviceProvider, typeof(TContext), parameters);
             }
             finally
             {

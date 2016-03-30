@@ -1,9 +1,8 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using JetBrains.Annotations;
 using Microsoft.Data.Entity.Metadata.Internal;
-using Microsoft.Data.Entity.ValueGeneration;
 
 namespace Microsoft.Data.Entity.Metadata.Builders
 {
@@ -41,18 +40,18 @@ namespace Microsoft.Data.Entity.Metadata.Builders
         /// <param name="annotation"> The key of the annotation to be added or updated. </param>
         /// <param name="value"> The value to be stored in the annotation. </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
-        public new virtual PropertyBuilder<TProperty> Annotation([NotNull] string annotation, [NotNull] object value)
-            => (PropertyBuilder<TProperty>)base.Annotation(annotation, value);
+        public new virtual PropertyBuilder<TProperty> HasAnnotation([NotNull] string annotation, [NotNull] object value)
+            => (PropertyBuilder<TProperty>)base.HasAnnotation(annotation, value);
 
         /// <summary>
         ///     Configures whether this property must have a value assigned or whether null is a valid value.
         ///     A property can only be configured as non-required if it is based on a CLR type that can be
         ///     assigned null.
         /// </summary>
-        /// <param name="isRequired"> A value indicating whether the property is required. </param>
+        /// <param name="required"> A value indicating whether the property is required. </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
-        public new virtual PropertyBuilder<TProperty> Required(bool isRequired = true)
-            => (PropertyBuilder<TProperty>)base.Required(isRequired);
+        public new virtual PropertyBuilder<TProperty> IsRequired(bool required = true)
+            => (PropertyBuilder<TProperty>)base.IsRequired(required);
 
         /// <summary>
         ///     Configures the maximum length of data that can be stored in this property.
@@ -60,50 +59,50 @@ namespace Microsoft.Data.Entity.Metadata.Builders
         /// </summary>
         /// <param name="maxLength"> The maximum length of data allowed in the property. </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
-        public new virtual PropertyBuilder<TProperty> MaxLength(int maxLength)
-            => (PropertyBuilder<TProperty>)base.MaxLength(maxLength);
+        public new virtual PropertyBuilder<TProperty> HasMaxLength(int maxLength)
+            => (PropertyBuilder<TProperty>)base.HasMaxLength(maxLength);
 
         /// <summary>
         ///     Configures whether this property should be used as a concurrency token. When a property is configured
-        ///     as a concurrency token the value in the data store will be checked when an instance of this entity type
-        ///     is updated or deleted during <see cref="DbContext.SaveChanges" /> to ensure it has not changed since
-        ///     the instance was retrieved from the data store. If it has changed, an exception will be thrown and the
-        ///     changes will not be applied to the data store.
+        ///     as a concurrency token the value in the database will be checked when an instance of this entity type
+        ///     is updated or deleted during <see cref="DbContext.SaveChanges()" /> to ensure it has not changed since
+        ///     the instance was retrieved from the database. If it has changed, an exception will be thrown and the
+        ///     changes will not be applied to the database.
         /// </summary>
-        /// <param name="isConcurrencyToken"> A value indicating whether this property is a concurrency token. </param>
+        /// <param name="concurrencyToken"> A value indicating whether this property is a concurrency token. </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
-        public new virtual PropertyBuilder<TProperty> ConcurrencyToken(bool isConcurrencyToken = true)
-            => (PropertyBuilder<TProperty>)base.ConcurrencyToken(isConcurrencyToken);
+        public new virtual PropertyBuilder<TProperty> IsConcurrencyToken(bool concurrencyToken = true)
+            => (PropertyBuilder<TProperty>)base.IsConcurrencyToken(concurrencyToken);
 
         /// <summary>
-        ///     Configures whether a value is generated for this property when a new instance of the entity type
-        ///     is added to a context. Data stores will typically register an appropriate
-        ///     <see cref="ValueGenerator" /> to handle generating values. This functionality is typically
-        ///     used for key values and is switched on by convention.
+        ///     Configures a property to never have a value generated when an instance of this
+        ///     entity type is saved.
         /// </summary>
-        /// <param name="generateValue"> A value indicating whether a value should be generated. </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
-        public new virtual PropertyBuilder<TProperty> GenerateValueOnAdd(bool generateValue = true)
-            => (PropertyBuilder<TProperty>)base.GenerateValueOnAdd(generateValue);
+        /// <remarks>
+        ///     Note that temporary values may still be generated for use internally before a
+        ///     new entity is saved.
+        /// </remarks>
+        public new virtual PropertyBuilder<TProperty> ValueGeneratedNever()
+            => (PropertyBuilder<TProperty>)base.ValueGeneratedNever();
 
         /// <summary>
-        ///     Configures whether a value is generated for this property by the data store every time an
-        ///     instance of this entity type is saved (initial add and any subsequent updates).
+        ///     Configures a property to have a value generated only when saving a new entity, unless a non-null,
+        ///     non-temporary value has been set, in which case the set value will be saved instead. The value
+        ///     may be generated by a client-side value generator or may be generated by the database as part
+        ///     of saving the entity.
         /// </summary>
-        /// <param name="computed"> A value indicating whether a value is generated by the data store. </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
-        public new virtual PropertyBuilder<TProperty> StoreComputed(bool computed = true)
-            => (PropertyBuilder<TProperty>)base.StoreComputed(computed);
+        public new virtual PropertyBuilder<TProperty> ValueGeneratedOnAdd()
+            => (PropertyBuilder<TProperty>)base.ValueGeneratedOnAdd();
 
         /// <summary>
-        ///     Configures whether a default value is generated for this property by the store when an instance
-        ///     of this entity type is saved and no value has been set.
+        ///     Configures a property to have a value generated only when saving a new or existing entity, unless
+        ///     a non-null, non-temporary value has been set for a new entity, or the existing property value has
+        ///     been modified for an existing entity, in which case the set value will be saved instead.
         /// </summary>
-        /// <param name="useDefault">
-        ///     A value indicating whether a default value is generated by the data store when no value is set.
-        /// </param>
         /// <returns> The same builder instance so that multiple configuration calls can be chained. </returns>
-        public new virtual PropertyBuilder<TProperty> UseStoreDefault(bool useDefault = true)
-            => (PropertyBuilder<TProperty>)base.UseStoreDefault(useDefault);
+        public new virtual PropertyBuilder<TProperty> ValueGeneratedOnAddOrUpdate()
+            => (PropertyBuilder<TProperty>)base.ValueGeneratedOnAddOrUpdate();
     }
 }

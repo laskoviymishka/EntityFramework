@@ -1,15 +1,16 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Linq;
 using System.Reflection;
 using Microsoft.Data.Entity.Metadata;
+using Microsoft.Data.Entity.Metadata.Conventions;
+using Microsoft.Data.Entity.Metadata.Conventions.Internal;
 using Microsoft.Data.Entity.Metadata.Internal;
-using Microsoft.Data.Entity.Metadata.ModelConventions;
 using Xunit;
 
-namespace Microsoft.Data.Entity.Tests.Metadata.ModelConventions
+namespace Microsoft.Data.Entity.Tests.Metadata.Conventions
 {
     public class PropertyDiscoveryConventionTest
     {
@@ -20,11 +21,6 @@ namespace Microsoft.Data.Entity.Tests.Metadata.ModelConventions
             public int WriteOnly
             {
                 set { }
-            }
-
-            public int ReadOnly
-            {
-                get { return 0; }
             }
 
             public int this[int index]
@@ -41,7 +37,7 @@ namespace Microsoft.Data.Entity.Tests.Metadata.ModelConventions
 
             Assert.Same(entityBuilder, new PropertyDiscoveryConvention().Apply(entityBuilder));
 
-            Assert.Empty(entityBuilder.Metadata.Properties);
+            Assert.Empty(entityBuilder.Metadata.GetProperties());
         }
 
         private class EntityWithEveryPrimitive
@@ -107,7 +103,7 @@ namespace Microsoft.Data.Entity.Tests.Metadata.ModelConventions
                 typeof(EntityWithEveryPrimitive)
                     .GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
                     .Select(p => p.Name),
-                entityBuilder.Metadata.Properties.Select(p => p.Name));
+                entityBuilder.Metadata.GetProperties().Select(p => p.Name));
         }
 
         private class EntityWithNoPrimitives
@@ -122,7 +118,7 @@ namespace Microsoft.Data.Entity.Tests.Metadata.ModelConventions
 
             Assert.Same(entityBuilder, new PropertyDiscoveryConvention().Apply(entityBuilder));
 
-            Assert.Empty(entityBuilder.Metadata.Properties);
+            Assert.Empty(entityBuilder.Metadata.GetProperties());
         }
 
         private static InternalEntityTypeBuilder CreateInternalEntityBuilder<T>()

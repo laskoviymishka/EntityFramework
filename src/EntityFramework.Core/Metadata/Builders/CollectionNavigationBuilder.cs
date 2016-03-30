@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using JetBrains.Annotations;
@@ -18,10 +18,8 @@ namespace Microsoft.Data.Entity.Metadata.Builders
     ///         and it is not designed to be directly constructed in your application code.
     ///     </para>
     /// </summary>
-    public class CollectionNavigationBuilder : IAccessor<InternalRelationshipBuilder>
+    public class CollectionNavigationBuilder : IInfrastructure<InternalRelationshipBuilder>
     {
-        private readonly InternalRelationshipBuilder _builder;
-
         /// <summary>
         ///     <para>
         ///         Initializes a new instance of the <see cref="CollectionNavigationBuilder" /> class.
@@ -36,13 +34,21 @@ namespace Microsoft.Data.Entity.Metadata.Builders
         {
             Check.NotNull(builder, nameof(builder));
 
-            _builder = builder;
+            Builder = builder;
         }
 
+        private InternalRelationshipBuilder Builder { get; }
+
         /// <summary>
-        ///     Gets the internal builder being used to configure the relationship.
+        ///     <para>
+        ///         Gets the internal builder being used to configure the relationship.
+        ///     </para>
+        ///     <para>
+        ///         This property is intended for use by extension methods that need to make use of services
+        ///         not directly exposed in the public API surface.
+        ///     </para>
         /// </summary>
-        InternalRelationshipBuilder IAccessor<InternalRelationshipBuilder>.Service => _builder;
+        InternalRelationshipBuilder IInfrastructure<InternalRelationshipBuilder>.Instance => Builder;
 
         /// <summary>
         ///     Configures this as a one-to-many relationship.
@@ -52,23 +58,18 @@ namespace Microsoft.Data.Entity.Metadata.Builders
         ///     If null, there is no navigation property on the other end of the relationship.
         /// </param>
         /// <returns> An object to further configure the relationship. </returns>
-        public virtual ReferenceCollectionBuilder InverseReference([CanBeNull] string reference = null)
-            => new ReferenceCollectionBuilder(InverseReferenceBuilder(reference));
+        public virtual ReferenceCollectionBuilder WithOne([CanBeNull] string reference = null)
+            => new ReferenceCollectionBuilder(WithOneBuilder(reference));
 
         /// <summary>
-        ///     Returns the internal builder to be used when <see cref="InverseReference" /> is called.
+        ///     Returns the internal builder to be used when <see cref="WithOne" /> is called.
         /// </summary>
         /// <param name="reference">
         ///     The name of the reference navigation property on the other end of this relationship.
         ///     If null, there is no navigation property on the other end of the relationship.
         /// </param>
         /// <returns> The internal builder to further configure the relationship. </returns>
-        protected virtual InternalRelationshipBuilder InverseReferenceBuilder(string reference)
-            => Builder.NavigationToPrincipal(
-                reference,
-                ConfigurationSource.Explicit,
-                strictPreferExisting: true);
-
-        private InternalRelationshipBuilder Builder => ((IAccessor<InternalRelationshipBuilder>)this).Service;
+        protected virtual InternalRelationshipBuilder WithOneBuilder([CanBeNull] string reference)
+            => Builder.DependentToPrincipal(reference, ConfigurationSource.Explicit);
     }
 }

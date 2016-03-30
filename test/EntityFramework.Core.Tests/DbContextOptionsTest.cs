@@ -1,9 +1,11 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Linq;
 using Microsoft.Data.Entity.Infrastructure;
+using Microsoft.Data.Entity.Internal;
 using Microsoft.Data.Entity.Metadata;
+using Microsoft.Data.Entity.Metadata.Internal;
 using Xunit;
 
 namespace Microsoft.Data.Entity.Tests
@@ -21,6 +23,17 @@ namespace Microsoft.Data.Entity.Tests
         }
 
         [Fact]
+        public void Sensitive_data_logging_can_be_set_explicitly_in_options()
+        {
+            var model = new Model();
+
+            var optionsBuilder = new DbContextOptionsBuilder().UseModel(model).EnableSensitiveDataLogging();
+
+            Assert.Same(model, optionsBuilder.Options.FindExtension<CoreOptionsExtension>().Model);
+            Assert.True(optionsBuilder.Options.FindExtension<CoreOptionsExtension>().IsSensitiveDataLoggingEnabled);
+        }
+
+        [Fact]
         public void Extensions_can_be_added_to_options()
         {
             var optionsBuilder = new DbContextOptionsBuilder();
@@ -31,8 +44,8 @@ namespace Microsoft.Data.Entity.Tests
             var extension1 = new FakeDbContextOptionsExtension1();
             var extension2 = new FakeDbContextOptionsExtension2();
 
-            ((IOptionsBuilderExtender)optionsBuilder).AddOrUpdateExtension(extension1);
-            ((IOptionsBuilderExtender)optionsBuilder).AddOrUpdateExtension(extension2);
+            ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension1);
+            ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension2);
 
             Assert.Equal(2, optionsBuilder.Options.Extensions.Count());
             Assert.Contains(extension1, optionsBuilder.Options.Extensions);
@@ -50,8 +63,8 @@ namespace Microsoft.Data.Entity.Tests
             var extension1 = new FakeDbContextOptionsExtension1 { Something = "One " };
             var extension2 = new FakeDbContextOptionsExtension1 { Something = "Two " };
 
-            ((IOptionsBuilderExtender)optionsBuilder).AddOrUpdateExtension(extension1);
-            ((IOptionsBuilderExtender)optionsBuilder).AddOrUpdateExtension(extension2);
+            ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension1);
+            ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension2);
 
             Assert.Equal(1, optionsBuilder.Options.Extensions.Count());
             Assert.DoesNotContain(extension1, optionsBuilder.Options.Extensions);
@@ -67,7 +80,7 @@ namespace Microsoft.Data.Entity.Tests
 
             Assert.False(optionsBuilder.IsConfigured);
 
-            ((IOptionsBuilderExtender)optionsBuilder).AddOrUpdateExtension(new FakeDbContextOptionsExtension2());
+            ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(new FakeDbContextOptionsExtension2());
 
             Assert.True(optionsBuilder.IsConfigured);
         }

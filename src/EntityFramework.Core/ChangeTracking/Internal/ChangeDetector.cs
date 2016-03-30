@@ -1,32 +1,23 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using JetBrains.Annotations;
+using Microsoft.Data.Entity.Internal;
 using Microsoft.Data.Entity.Metadata;
-using Microsoft.Data.Entity.Utilities;
+using Microsoft.Data.Entity.Metadata.Internal;
 
 namespace Microsoft.Data.Entity.ChangeTracking.Internal
 {
     public class ChangeDetector : IChangeDetector
     {
-        private readonly IModel _model;
+        private readonly IEntityGraphAttacher _attacher;
 
-        /// <summary>
-        ///     This constructor is intended only for use when creating test doubles that will override members
-        ///     with mocked or faked behavior. Use of this constructor for other purposes may result in unexpected
-        ///     behavior including but not limited to throwing <see cref="NullReferenceException" />.
-        /// </summary>
-        protected ChangeDetector()
+        public ChangeDetector([NotNull] IEntityGraphAttacher attacher)
         {
-        }
-
-        public ChangeDetector([NotNull] IModel model)
-        {
-            _model = model;
+            _attacher = attacher;
         }
 
         public virtual void PropertyChanged(InternalEntityEntry entry, IPropertyBase propertyBase)
@@ -67,7 +58,7 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
 
                 var navigation = propertyBase as INavigation;
                 if ((navigation != null && !navigation.IsCollection())
-                    || (property != null && (property.IsKey() || property.IsForeignKey())))
+                    || (property != null && (property.IsKey() || property.IsForeignKey(entry.EntityType))))
                 {
                     // TODO: Consider making snapshot temporary here since it is no longer required after PropertyChanged is called
                     // See issue #730
@@ -159,14 +150,11 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
                 return;
             }
 
-            // TODO: Perf: make it fast to check if a property is part of any key
-            var isPrimaryKey = property.IsPrimaryKey();
-            var isPrincipalKey = _model.GetReferencingForeignKeys(property).Any();
-            var isForeignKey = property.IsForeignKey();
+            var keys = property.FindContainingKeys().ToList();
+            var foreignKeys = property.FindContainingForeignKeys(entry.EntityType).ToList();
 
-            if (isPrimaryKey
-                || isPrincipalKey
-                || isForeignKey)
+            if (keys.Count > 0
+                || foreignKeys.Count > 0)
             {
                 var snapshotValue = snapshot[property];
                 var currentValue = entry[property];
@@ -175,19 +163,26 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
                 // of byte[] with the same content must be detected as equal.
                 if (!StructuralComparisons.StructuralEqualityComparer.Equals(currentValue, snapshotValue))
                 {
-                    if (isForeignKey)
+                    var stateManager = entry.StateManager;
+
+                    if (foreignKeys.Count > 0)
                     {
-                        entry.StateManager.Notify.ForeignKeyPropertyChanged(entry, property, snapshotValue, currentValue);
+                        stateManager.Notify.ForeignKeyPropertyChanged(entry, property, snapshotValue, currentValue);
+
+                        foreach (var foreignKey in foreignKeys)
+                        {
+                            stateManager.UpdateDependentMap(entry, snapshot.GetDependentKeyValue(foreignKey), foreignKey);
+                        }
                     }
 
-                    if (isPrimaryKey)
+                    if (keys.Count > 0)
                     {
-                        entry.StateManager.UpdateIdentityMap(entry, snapshot.GetPrimaryKeyValue());
-                    }
+                        foreach (var key in keys)
+                        {
+                            stateManager.UpdateIdentityMap(entry, snapshot.GetPrincipalKeyValue(key), key);
+                        }
 
-                    if (isPrincipalKey)
-                    {
-                        entry.StateManager.Notify.PrincipalKeyPropertyChanged(entry, property, snapshotValue, currentValue);
+                        stateManager.Notify.PrincipalKeyPropertyChanged(entry, property, snapshotValue, currentValue);
                     }
 
                     snapshot.TakeSnapshot(property);
@@ -253,7 +248,7 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
                 var addedEntry = stateManager.GetOrCreateEntry(addedEntity);
                 if (addedEntry.EntityState == EntityState.Detached)
                 {
-                    addedEntry.SetEntityState(EntityState.Added);
+                    _attacher.AttachGraph(addedEntry, EntityState.Added);
                 }
             }
         }

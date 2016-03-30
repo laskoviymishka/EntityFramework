@@ -1,36 +1,59 @@
 {
-    "version": "7.0.0-beta4",
-    "description": "Command line utilities for Entity Framework.",
-    "compilationOptions": {
-        "warningsAsErrors": true
-    },
-    "dependencies": {
-        "EntityFramework.Relational": "7.0.0-beta4",
-        "EntityFramework.Relational.Design": "7.0.0-beta4",
-        "EntityFramework.SqlServer.Design": "7.0.0-beta4",
-        "Microsoft.CodeAnalysis.CSharp": "1.0.0-rc2-*",
-        "Microsoft.Framework.DependencyInjection": "1.0.0-beta4"
-    },
-    "compile": "..\\Shared\\*.cs",
-    "exclude": "tools\\Handlers.cs",
-    "frameworks": {
-        "net451": { },
-        "dnx451": {
-            "dependencies": {
-                "Microsoft.AspNet.Hosting": "1.0.0-beta4",
-                "Microsoft.AspNet.Hosting.Interfaces": "1.0.0-beta4",
-                "Microsoft.Framework.CommandLineUtils": { "version": "1.0.0-beta4", "type": "build" }
-            }
+  "version": "7.0.0-rc1-final",
+  "description": "Command line utilities for Entity Framework.",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/aspnet/entityframework"
+  },
+  "compilationOptions": {
+    "warningsAsErrors": true,
+    "keyFile": "../../tools/Key.snk"
+  },
+  "compile": "..\\Shared\\*.cs",
+  "namedResource": {
+    "EntityFramework.Commands.CommandsStrings": "Properties/CommandsStrings.resx"
+  },
+  "dependencies": {
+    "EntityFramework.Relational.Design": "7.0.0-rc1-final"
+  },
+  "frameworks": {
+    "net451": {},
+    "dnx451": {
+      "dependencies": {
+        "Microsoft.AspNet.Hosting.Abstractions": "1.0.0-rc1-final",
+        "Microsoft.Extensions.CommandLineUtils.Sources": {
+          "version": "1.0.0-rc1-final",
+          "type": "build"
         },
-        "dnxcore50": {
-            "dependencies": {
-                "Microsoft.AspNet.Hosting": "1.0.0-beta4",
-                "Microsoft.AspNet.Hosting.Interfaces": "1.0.0-beta4",
-                "Microsoft.Framework.CommandLineUtils": { "version": "1.0.0-beta4", "type": "build" }
-            }
-        }
+        "Microsoft.Extensions.PlatformAbstractions": "1.0.0-rc1-final"
+      }
     },
-    "commands": {
-        "ef": "EntityFramework.Commands"
+    "dnxcore50": {
+      "dependencies": {
+        "Microsoft.AspNet.Hosting.Abstractions": "1.0.0-rc1-final",
+        "Microsoft.Extensions.CommandLineUtils.Sources": {
+          "version": "1.0.0-rc1-final",
+          "type": "build"
+        },
+        "Microsoft.Extensions.PlatformAbstractions": "1.0.0-rc1-final",
+        "System.Console": "4.0.0-beta-23516"
+      }
+    },
+    "netcore50": {
+      "bin": {
+        "assembly": "lib\\netcore50\\_._"
+      }
     }
+  },
+  "packInclude": {
+    "build/": "build/**",
+    "lib/": "lib/**",
+    "tools/": [
+      "tools/**",
+      "Design\\OperationHandlers.cs"
+    ]
+  },
+  "commands": {
+    "ef": "EntityFramework.Commands"
+  }
 }

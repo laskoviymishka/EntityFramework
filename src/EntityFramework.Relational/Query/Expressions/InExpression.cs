@@ -1,52 +1,61 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
-using Microsoft.Data.Entity.Relational.Query.Sql;
-using Microsoft.Data.Entity.Utilities;
 using JetBrains.Annotations;
-using Remotion.Linq.Clauses.Expressions;
-using Remotion.Linq.Parsing;
+using Microsoft.Data.Entity.Query.Sql;
+using Microsoft.Data.Entity.Utilities;
 
-namespace Microsoft.Data.Entity.Relational.Query.Expressions
+namespace Microsoft.Data.Entity.Query.Expressions
 {
-    public class InExpression : ExtensionExpression
+    public class InExpression : Expression
     {
         public InExpression(
-            [NotNull] ColumnExpression column,
+            [NotNull] AliasExpression operand,
             [NotNull] IReadOnlyList<Expression> values)
-            : base(typeof(bool))
         {
-            Check.NotNull(column, nameof(column));
+            Check.NotNull(operand, nameof(operand));
             Check.NotNull(values, nameof(values));
 
-            Column = column;
+            Operand = operand;
             Values = values;
         }
 
-        public virtual ColumnExpression Column { get; }
-        public virtual IReadOnlyList<Expression> Values { get; }
+        public InExpression(
+            [NotNull] AliasExpression operand,
+            [NotNull] SelectExpression subQuery)
+        {
+            Check.NotNull(operand, nameof(operand));
+            Check.NotNull(subQuery, nameof(subQuery));
 
-        public override Expression Accept([NotNull] ExpressionTreeVisitor visitor)
+            Operand = operand;
+            SubQuery = subQuery;
+        }
+
+        public virtual AliasExpression Operand { get; }
+        public virtual IReadOnlyList<Expression> Values { get; }
+        public virtual SelectExpression SubQuery { get; }
+
+        public override ExpressionType NodeType => ExpressionType.Extension;
+
+        public override Type Type => typeof(bool);
+
+        protected override Expression Accept(ExpressionVisitor visitor)
         {
             Check.NotNull(visitor, nameof(visitor));
 
             var specificVisitor = visitor as ISqlExpressionVisitor;
 
             return specificVisitor != null
-                ? specificVisitor.VisitInExpression(this)
+                ? specificVisitor.VisitIn(this)
                 : base.Accept(visitor);
         }
 
-        protected override Expression VisitChildren(ExpressionTreeVisitor visitor)
-        {
-            return this;
-        }
+        protected override Expression VisitChildren(ExpressionVisitor visitor) => this;
 
         public override string ToString()
-        {
-            return Column + " IN (" + string.Join(", ", Values) + ")";
-        }
+            => Operand.Expression + " IN (" + string.Join(", ", Values) + ")";
     }
 }

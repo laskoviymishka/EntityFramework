@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -28,7 +28,7 @@ namespace Microsoft.Data.Entity.Tests.Utilities
             Expression<Func<DateTime, int>> expression = d => 123;
 
             Assert.Contains(
-                Strings.InvalidPropertyExpression(expression),
+                CoreStrings.InvalidPropertyExpression(expression),
                 Assert.Throws<ArgumentException>(() => expression.GetPropertyAccess()).Message);
         }
 
@@ -39,7 +39,7 @@ namespace Microsoft.Data.Entity.Tests.Utilities
             Expression<Func<DateTime, int>> expression = d => closure.Hour;
 
             Assert.Contains(
-                Strings.InvalidPropertyExpression(expression),
+                CoreStrings.InvalidPropertyExpression(expression),
                 Assert.Throws<ArgumentException>(() => expression.GetPropertyAccess()).Message);
         }
 
@@ -70,6 +70,32 @@ namespace Microsoft.Data.Entity.Tests.Utilities
             Assert.Equal("Date", propertyInfos.First().Name);
             Assert.Equal("Day", propertyInfos.Last().Name);
         }
+        [Fact]
+        public void Get_property_access_should_handle_convert()
+        {
+            Expression<Func<DateTime, object>> expression = d => ((DateTime)d).Date;
+
+            var propertyInfos = expression.GetPropertyAccess();
+
+            Assert.NotNull(propertyInfos);
+        }
+
+        [Fact]
+        public void Get_property_access_list_should_handle_convert()
+        {
+            Expression<Func<DateTime, object>> expression = d => new
+            {
+                ((DateTime)d).Date,
+                d.Day
+            };
+
+            var propertyInfos = expression.GetPropertyAccessList();
+
+            Assert.NotNull(propertyInfos);
+            Assert.Equal(2, propertyInfos.Count);
+            Assert.Equal("Date", propertyInfos.First().Name);
+            Assert.Equal("Day", propertyInfos.Last().Name);
+        }
 
         [Fact]
         public void Get_property_access_list_should_throw_when_invalid_expression()
@@ -80,7 +106,7 @@ namespace Microsoft.Data.Entity.Tests.Utilities
                 };
 
             Assert.Contains(
-                Strings.InvalidPropertiesExpression(expression),
+                CoreStrings.InvalidPropertiesExpression(expression),
                 Assert.Throws<ArgumentException>(() => expression.GetPropertyAccessList()).Message);
         }
 
@@ -96,7 +122,7 @@ namespace Microsoft.Data.Entity.Tests.Utilities
                 };
 
             Assert.Contains(
-                Strings.InvalidPropertiesExpression(expression),
+                CoreStrings.InvalidPropertiesExpression(expression),
                 Assert.Throws<ArgumentException>(() => expression.GetPropertyAccessList()).Message);
         }
     }

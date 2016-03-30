@@ -1,14 +1,13 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Linq.Expressions;
 using JetBrains.Annotations;
-using Microsoft.Data.Entity.Relational.Query.Sql;
+using Microsoft.Data.Entity.Query.Sql;
 using Microsoft.Data.Entity.Utilities;
 using Remotion.Linq.Clauses;
-using Remotion.Linq.Parsing;
 
-namespace Microsoft.Data.Entity.Relational.Query.Expressions
+namespace Microsoft.Data.Entity.Query.Expressions
 {
     public class TableExpression : TableExpressionBase
     {
@@ -31,20 +30,17 @@ namespace Microsoft.Data.Entity.Relational.Query.Expressions
 
         public virtual string Schema { get; }
 
-        public override Expression Accept([NotNull] ExpressionTreeVisitor visitor)
+        protected override Expression Accept(ExpressionVisitor visitor)
         {
             Check.NotNull(visitor, nameof(visitor));
 
             var specificVisitor = visitor as ISqlExpressionVisitor;
 
             return specificVisitor != null
-                ? specificVisitor.VisitTableExpression(this)
+                ? specificVisitor.VisitTable(this)
                 : base.Accept(visitor);
         }
 
-        public override string ToString()
-        {
-            return Table + " " + Alias;
-        }
+        public override string ToString() => Table + " " + Alias;
     }
 }

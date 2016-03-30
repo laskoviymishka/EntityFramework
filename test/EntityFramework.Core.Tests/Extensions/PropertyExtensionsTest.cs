@@ -1,9 +1,11 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Data.Entity.Metadata;
+using Microsoft.Data.Entity.Metadata.Internal;
 using Xunit;
 
 namespace Microsoft.Data.Entity.Tests
@@ -16,7 +18,7 @@ namespace Microsoft.Data.Entity.Tests
             var model = new Model();
 
             var entityType = new EntityType("Entity", model);
-            var property = entityType.AddProperty("Property", typeof(int), true);
+            var property = entityType.AddProperty("Property", typeof(int));
 
             Assert.Null(property.GetGenerationProperty());
         }
@@ -27,9 +29,9 @@ namespace Microsoft.Data.Entity.Tests
             var model = new Model();
 
             var entityType = new EntityType("Entity", model);
-            var property = entityType.AddProperty("Property", typeof(int), true);
+            var property = entityType.AddProperty("Property", typeof(int));
 
-            property.GenerateValueOnAdd = true;
+            property.RequiresValueGenerator = true;
 
             Assert.Equal(property, property.GetGenerationProperty());
         }
@@ -40,19 +42,19 @@ namespace Microsoft.Data.Entity.Tests
             var model = new Model();
 
             var firstType = new EntityType("First", model);
-            var firstProperty = firstType.AddProperty("ID", typeof(int), true);
+            var firstProperty = firstType.AddProperty("ID", typeof(int));
             var firstKey = firstType.AddKey(firstProperty);
 
             var secondType = new EntityType("Second", model);
-            var secondProperty = secondType.AddProperty("ID", typeof(int), true);
+            var secondProperty = secondType.AddProperty("ID", typeof(int));
             var secondKey = secondType.AddKey(secondProperty);
-            var secondForeignKey = secondType.AddForeignKey(secondProperty, firstKey);
+            secondType.AddForeignKey(secondProperty, firstKey, firstType);
 
             var thirdType = new EntityType("Third", model);
-            var thirdProperty = thirdType.AddProperty("ID", typeof(int), true);
-            var thirdForeignKey = thirdType.AddForeignKey(thirdProperty, secondKey);
+            var thirdProperty = thirdType.AddProperty("ID", typeof(int));
+            thirdType.AddForeignKey(thirdProperty, secondKey, secondType);
 
-            firstProperty.GenerateValueOnAdd = true;
+            firstProperty.RequiresValueGenerator = true;
 
             Assert.Equal(firstProperty, thirdProperty.GetGenerationProperty());
         }
@@ -63,27 +65,27 @@ namespace Microsoft.Data.Entity.Tests
             var model = new Model();
 
             var leftType = new EntityType("Left", model);
-            var leftId = leftType.AddProperty("Id", typeof(int), true);
+            var leftId = leftType.AddProperty("Id", typeof(int));
             var leftKey = leftType.AddKey(leftId);
 
             var rightType = new EntityType("Right", model);
-            var rightId1 = rightType.AddProperty("Id1", typeof(int), true);
-            var rightId2 = rightType.AddProperty("Id2", typeof(int), true);
+            var rightId1 = rightType.AddProperty("Id1", typeof(int));
+            var rightId2 = rightType.AddProperty("Id2", typeof(int));
             var rightKey = rightType.AddKey(new[] { rightId1, rightId2 });
 
             var middleType = new EntityType("Middle", model);
-            var middleProperty1 = middleType.AddProperty("FK1", typeof(int), true);
-            var middleProperty2 = middleType.AddProperty("FK2", typeof(int), true);
+            var middleProperty1 = middleType.AddProperty("FK1", typeof(int));
+            var middleProperty2 = middleType.AddProperty("FK2", typeof(int));
             var middleKey1 = middleType.AddKey(middleProperty1);
-            var middleFK1 = middleType.AddForeignKey(middleProperty1, leftKey);
-            var middleFK2 = middleType.AddForeignKey(new[] { middleProperty2, middleProperty1 }, rightKey);
+            middleType.AddForeignKey(middleProperty1, leftKey, leftType);
+            middleType.AddForeignKey(new[] { middleProperty2, middleProperty1 }, rightKey, rightType);
 
             var endType = new EntityType("End", model);
-            var endProperty = endType.AddProperty("FK", typeof(int), true);
+            var endProperty = endType.AddProperty("FK", typeof(int));
 
-            var endFK = endType.AddForeignKey(endProperty, middleKey1);
+            endType.AddForeignKey(endProperty, middleKey1, middleType);
 
-            rightId2.GenerateValueOnAdd = true;
+            rightId2.RequiresValueGenerator = true;
 
             Assert.Equal(rightId2, endProperty.GetGenerationProperty());
         }
@@ -94,26 +96,24 @@ namespace Microsoft.Data.Entity.Tests
             var model = new Model();
 
             var leafType = new EntityType("leaf", model);
-            var leafId1 = leafType.AddProperty("Id1", typeof(int), true);
-            var leafId2 = leafType.AddProperty("Id2", typeof(int), true);
+            var leafId1 = leafType.AddProperty("Id1", typeof(int));
+            var leafId2 = leafType.AddProperty("Id2", typeof(int));
             var leafKey = leafType.AddKey(new[] { leafId1, leafId2 });
 
             var firstType = new EntityType("First", model);
-            var firstId = firstType.AddProperty("Id", typeof(int), true);
+            var firstId = firstType.AddProperty("Id", typeof(int));
             var firstKey = firstType.AddKey(firstId);
-
-
-
+            
             var secondType = new EntityType("Second", model);
-            var secondId1 = secondType.AddProperty("Id1", typeof(int), true);
-            var secondId2 = secondType.AddProperty("Id2", typeof(int), true);
+            var secondId1 = secondType.AddProperty("Id1", typeof(int));
+            var secondId2 = secondType.AddProperty("Id2", typeof(int));
             var secondKey = secondType.AddKey(secondId1);
 
-            var firstForeignKey = firstType.AddForeignKey(firstId, secondKey);
-            var secondForeignKey1 = secondType.AddForeignKey(secondId1, firstKey);
-            var secondForeignKey2 = secondType.AddForeignKey(new[] { secondId1, secondId2 }, leafKey);
+            firstType.AddForeignKey(firstId, secondKey, secondType);
+            secondType.AddForeignKey(secondId1, firstKey, firstType);
+            secondType.AddForeignKey(new[] { secondId1, secondId2 }, leafKey, leafType);
 
-            leafId1.GenerateValueOnAdd = true;
+            leafId1.RequiresValueGenerator = true;
 
             Assert.Equal(leafId1, secondId1.GetGenerationProperty());
         }
@@ -124,20 +124,20 @@ namespace Microsoft.Data.Entity.Tests
             var model = BuildModel();
 
             Assert.Equal(
-                model.GetEntityType(typeof(Product)).GetProperty("Id"),
-                model.GetEntityType(typeof(ProductDetails)).GetForeignKeys().Single().Properties[0].GetGenerationProperty());
+                model.FindEntityType(typeof(Product)).FindProperty("Id"),
+                model.FindEntityType(typeof(ProductDetails)).GetForeignKeys().Single().Properties[0].GetGenerationProperty());
 
             Assert.Equal(
-                model.GetEntityType(typeof(Product)).GetProperty("Id"),
-                model.GetEntityType(typeof(ProductDetailsTag)).GetForeignKeys().Single().Properties[0].GetGenerationProperty());
+                model.FindEntityType(typeof(Product)).FindProperty("Id"),
+                model.FindEntityType(typeof(ProductDetailsTag)).GetForeignKeys().Single().Properties[0].GetGenerationProperty());
 
             Assert.Equal(
-                model.GetEntityType(typeof(ProductDetails)).GetProperty("Id2"),
-                model.GetEntityType(typeof(ProductDetailsTag)).GetForeignKeys().Single().Properties[1].GetGenerationProperty());
+                model.FindEntityType(typeof(ProductDetails)).FindProperty("Id2"),
+                model.FindEntityType(typeof(ProductDetailsTag)).GetForeignKeys().Single().Properties[1].GetGenerationProperty());
 
             Assert.Equal(
-                model.GetEntityType(typeof(ProductDetails)).GetProperty("Id2"),
-                model.GetEntityType(typeof(ProductDetailsTagDetails)).GetForeignKeys().Single().Properties[0].GetGenerationProperty());
+                model.FindEntityType(typeof(ProductDetails)).FindProperty("Id2"),
+                model.FindEntityType(typeof(ProductDetailsTagDetails)).GetForeignKeys().Single().Properties[0].GetGenerationProperty());
         }
 
         [Fact]
@@ -146,12 +146,12 @@ namespace Microsoft.Data.Entity.Tests
             var model = BuildModel();
 
             Assert.Equal(
-                model.GetEntityType(typeof(Order)).GetProperty("Id"),
-                model.GetEntityType(typeof(OrderDetails)).GetForeignKeys().Single(k => k.Properties.First().Name == "OrderId").Properties[0].GetGenerationProperty());
+                model.FindEntityType(typeof(Order)).FindProperty("Id"),
+                model.FindEntityType(typeof(OrderDetails)).GetForeignKeys().Single(k => k.Properties.First().Name == "OrderId").Properties[0].GetGenerationProperty());
 
             Assert.Equal(
-                model.GetEntityType(typeof(Product)).GetProperty("Id"),
-                model.GetEntityType(typeof(OrderDetails)).GetForeignKeys().Single(k => k.Properties.First().Name == "ProductId").Properties[0].GetGenerationProperty());
+                model.FindEntityType(typeof(Product)).FindProperty("Id"),
+                model.FindEntityType(typeof(OrderDetails)).GetForeignKeys().Single(k => k.Properties.First().Name == "ProductId").Properties[0].GetGenerationProperty());
         }
 
         private class Category
@@ -222,43 +222,44 @@ namespace Microsoft.Data.Entity.Tests
 
             modelBuilder
                 .Entity<Category>()
-                .Collection(e => e.Products)
-                .InverseReference(e => e.Category);
+                .HasMany(e => e.Products)
+                .WithOne(e => e.Category);
 
             modelBuilder
                 .Entity<ProductDetailsTag>(b =>
                 {
-                    b.Key(e => new { e.Id1, e.Id2 });
-                    b.Reference(e => e.TagDetails)
-                        .InverseReference(e => e.Tag)
-                        .PrincipalKey<ProductDetailsTag>(e => e.Id2)
-                        .ForeignKey<ProductDetailsTagDetails>(e => e.Id);
+                    b.HasKey(e => new { e.Id1, e.Id2 });
+                    b.HasOne(e => e.TagDetails)
+                        .WithOne(e => e.Tag)
+                        .HasPrincipalKey<ProductDetailsTag>(e => e.Id2)
+                        .HasForeignKey<ProductDetailsTagDetails>(e => e.Id);
                 });
 
             modelBuilder
                 .Entity<ProductDetails>(b =>
                 {
-                    b.Key(e => new { e.Id1, e.Id2 });
-                    b.Reference(e => e.Tag)
-                        .InverseReference(e => e.Details)
-                        .ForeignKey<ProductDetailsTag>(e => new { e.Id1, e.Id2 });
+                    b.HasKey(e => new { e.Id1, e.Id2 });
+                    b.Property(e => e.Id2).ValueGeneratedOnAdd();
+                    b.HasOne(e => e.Tag)
+                        .WithOne(e => e.Details)
+                        .HasForeignKey<ProductDetailsTag>(e => new { e.Id1, e.Id2 });
                 });
 
             modelBuilder
                 .Entity<Product>()
-                .Reference(e => e.Details)
-                .InverseReference(e => e.Product)
-                .ForeignKey<ProductDetails>(e => new { e.Id1 });
+                .HasOne(e => e.Details)
+                .WithOne(e => e.Product)
+                .HasForeignKey<ProductDetails>(e => new { e.Id1 });
 
             modelBuilder.Entity<OrderDetails>(b =>
             {
-                b.Key(e => new { e.OrderId, e.ProductId });
-                b.Reference(e => e.Order)
-                    .InverseCollection(e => e.OrderDetails)
-                    .ForeignKey(e => e.OrderId);
-                b.Reference(e => e.Product)
-                    .InverseCollection(e => e.OrderDetails)
-                    .ForeignKey(e => e.ProductId);
+                b.HasKey(e => new { e.OrderId, e.ProductId });
+                b.HasOne(e => e.Order)
+                    .WithMany(e => e.OrderDetails)
+                    .HasForeignKey(e => e.OrderId);
+                b.HasOne(e => e.Product)
+                    .WithMany(e => e.OrderDetails)
+                    .HasForeignKey(e => e.ProductId);
             });
 
             return modelBuilder.Model;

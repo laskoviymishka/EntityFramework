@@ -1,50 +1,50 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using Microsoft.Data.Entity.ChangeTracking.Internal;
 using Microsoft.Data.Entity.Infrastructure;
-using Microsoft.Data.Entity.Internal;
-using Microsoft.Data.Entity.Relational.Update;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Data.Entity.Storage;
+using Microsoft.Data.Entity.Update;
+using Microsoft.Data.Entity.Update.Internal;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace Microsoft.Data.Entity.Relational.Tests.Update
+namespace Microsoft.Data.Entity.Tests.Update
 {
     public class ModificationCommandComparerTest
     {
         [Fact]
         public void Compare_returns_0_only_for_commands_that_are_equal()
         {
-            var model = new Entity.Metadata.Model();
+            var model = new Entity.Metadata.Internal.Model();
             var entityType = model.AddEntityType(typeof(object));
 
             var optionsBuilder = new DbContextOptionsBuilder()
                 .UseModel(model);
-            optionsBuilder.UseInMemoryStore(persist: false);
+            optionsBuilder.UseInMemoryDatabase();
 
-            var contextServices = ((IAccessor<IServiceProvider>)new DbContext(optionsBuilder.Options)).Service;
+            var contextServices = new DbContext(optionsBuilder.Options).GetInfrastructure();
             var stateManager = contextServices.GetRequiredService<IStateManager>();
 
-            var key = entityType.GetOrAddProperty("Id", typeof(int), shadowProperty: true);
+            var key = entityType.AddProperty("Id", typeof(int));
             entityType.GetOrSetPrimaryKey(key);
 
             var entry1 = stateManager.GetOrCreateEntry(new object());
             entry1[key] = 1;
             entry1.SetEntityState(EntityState.Added);
-            var modificationCommandAdded = new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var modificationCommandAdded = new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.TestProvider());
             modificationCommandAdded.AddEntry(entry1);
 
             var entry2 = stateManager.GetOrCreateEntry(new object());
             entry2[key] = 2;
             entry2.SetEntityState(EntityState.Modified);
-            var modificationCommandModified = new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var modificationCommandModified = new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.TestProvider());
             modificationCommandModified.AddEntry(entry2);
 
             var entry3 = stateManager.GetOrCreateEntry(new object());
             entry3[key] = 3;
             entry3.SetEntityState(EntityState.Deleted);
-            var modificationCommandDeleted = new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var modificationCommandDeleted = new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.TestProvider());
             modificationCommandDeleted.AddEntry(entry3);
 
             var mCC = new ModificationCommandComparer();
@@ -52,32 +52,32 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.True(0 == mCC.Compare(modificationCommandAdded, modificationCommandAdded));
             Assert.True(0 == mCC.Compare(null, null));
             Assert.True(0 == mCC.Compare(
-                new ModificationCommand("A", "dbo", new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource()),
-                new ModificationCommand("A", "dbo", new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource())));
+                new ModificationCommand("A", "dbo", new ParameterNameGenerator(), p => p.TestProvider()),
+                new ModificationCommand("A", "dbo", new ParameterNameGenerator(), p => p.TestProvider())));
 
-            Assert.True(0 > mCC.Compare(null, new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource())));
-            Assert.True(0 < mCC.Compare(new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource()), null));
-
-            Assert.True(0 > mCC.Compare(
-                new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource()),
-                new ModificationCommand("A", "dbo", new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource())));
-            Assert.True(0 < mCC.Compare(
-                new ModificationCommand("A", "dbo", new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource()),
-                new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource())));
+            Assert.True(0 > mCC.Compare(null, new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.TestProvider())));
+            Assert.True(0 < mCC.Compare(new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.TestProvider()), null));
 
             Assert.True(0 > mCC.Compare(
-                new ModificationCommand("A", "dbo", new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource()),
-                new ModificationCommand("A", "foo", new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource())));
+                new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.TestProvider()),
+                new ModificationCommand("A", "dbo", new ParameterNameGenerator(), p => p.TestProvider())));
             Assert.True(0 < mCC.Compare(
-                new ModificationCommand("A", "foo", new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource()),
-                new ModificationCommand("A", "dbo", new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource())));
+                new ModificationCommand("A", "dbo", new ParameterNameGenerator(), p => p.TestProvider()),
+                new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.TestProvider())));
 
             Assert.True(0 > mCC.Compare(
-                new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource()),
-                new ModificationCommand("B", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource())));
+                new ModificationCommand("A", "dbo", new ParameterNameGenerator(), p => p.TestProvider()),
+                new ModificationCommand("A", "foo", new ParameterNameGenerator(), p => p.TestProvider())));
             Assert.True(0 < mCC.Compare(
-                new ModificationCommand("B", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource()),
-                new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource())));
+                new ModificationCommand("A", "foo", new ParameterNameGenerator(), p => p.TestProvider()),
+                new ModificationCommand("A", "dbo", new ParameterNameGenerator(), p => p.TestProvider())));
+
+            Assert.True(0 > mCC.Compare(
+                new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.TestProvider()),
+                new ModificationCommand("B", null, new ParameterNameGenerator(), p => p.TestProvider())));
+            Assert.True(0 < mCC.Compare(
+                new ModificationCommand("B", null, new ParameterNameGenerator(), p => p.TestProvider()),
+                new ModificationCommand("A", null, new ParameterNameGenerator(), p => p.TestProvider())));
 
             Assert.True(0 > mCC.Compare(modificationCommandModified, modificationCommandAdded));
             Assert.True(0 < mCC.Compare(modificationCommandAdded, modificationCommandModified));

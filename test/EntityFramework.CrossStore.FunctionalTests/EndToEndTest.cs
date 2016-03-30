@@ -1,13 +1,13 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Linq;
-using Microsoft.Data.Entity.ChangeTracking.Internal;
 using Microsoft.Data.Entity.FunctionalTests.TestModels;
 using Microsoft.Data.Entity.Infrastructure;
 using Microsoft.Data.Entity.InMemory.FunctionalTests;
-using Microsoft.Data.Entity.Query;
+using Microsoft.Data.Entity.Metadata;
+using Microsoft.Data.Entity.Sqlite.FunctionalTests;
 using Microsoft.Data.Entity.SqlServer.FunctionalTests;
 using Xunit;
 
@@ -20,21 +20,23 @@ namespace Microsoft.Data.Entity.FunctionalTests
         [Fact]
         public virtual void Can_save_changes_and_query()
         {
+            var secondId = -1;
             using (var context = CreateContext())
             {
-                var first = context.SimpleEntities.Add(new SimpleEntity { Id = 420, StringProperty = "Entity 1" }).Entity;
+                var first = context.SimpleEntities.Add(new SimpleEntity { StringProperty = "Entity 1" }).Entity;
                 SetPartitionId(first, context);
 
                 Assert.Equal(1, context.SaveChanges());
 
-                var second = context.SimpleEntities.Add(new SimpleEntity { Id = 42, StringProperty = "Entity 2" }).Entity;
+                var second = context.SimpleEntities.Add(new SimpleEntity { StringProperty = "Entity 2" }).Entity;
                 // TODO: Replace with
                 // context.ChangeTracker.Entry(entity).Property(SimpleEntity.ShadowPropertyName).CurrentValue = "shadow";
-                var property = context.Model.GetEntityType(typeof(SimpleEntity)).GetProperty(SimpleEntity.ShadowPropertyName);
-                ((IAccessor<InternalEntityEntry>)context.Entry(second)).Service[property] = "shadow";
+                var property = context.Model.FindEntityType(typeof(SimpleEntity)).FindProperty(SimpleEntity.ShadowPropertyName);
+                context.Entry(second).GetInfrastructure()[property] = "shadow";
                 SetPartitionId(second, context);
 
                 Assert.Equal(1, context.SaveChanges());
+                secondId = second.Id;
             }
 
             using (var context = CreateContext())
@@ -43,9 +45,10 @@ namespace Microsoft.Data.Entity.FunctionalTests
 
                 var firstEntity = context.SimpleEntities.Single(e => e.StringProperty == "Entity 1");
 
-                var secondEntity = context.SimpleEntities.Single(e => e.Id == 42);
+                var secondEntity = context.SimpleEntities.Single(e => e.Id == secondId);
                 Assert.Equal("Entity 2", secondEntity.StringProperty);
-                var thirdEntity = context.SimpleEntities.Single(e => e.Property<string>(SimpleEntity.ShadowPropertyName) == "shadow");
+
+                var thirdEntity = context.SimpleEntities.Single(e => EF.Property<string>(e, SimpleEntity.ShadowPropertyName) == "shadow");
                 Assert.Same(secondEntity, thirdEntity);
 
                 firstEntity.StringProperty = "first";
@@ -66,8 +69,8 @@ namespace Microsoft.Data.Entity.FunctionalTests
         // TODO: Use a value generator to handle this automatically
         private void SetPartitionId(SimpleEntity entity, CrossStoreContext context)
         {
-            var property = context.Model.GetEntityType(entity.GetType()).GetProperty(SimpleEntity.ShadowPartitionIdName);
-            ((IAccessor<InternalEntityEntry>)context.Entry(entity)).Service[property] = "Partition";
+            var property = context.Model.FindEntityType(entity.GetType()).FindProperty(SimpleEntity.ShadowPartitionIdName);
+            context.Entry(entity).GetInfrastructure()[property] = "Partition";
         }
 
         protected EndToEndTest(TFixture fixture)
@@ -102,6 +105,14 @@ namespace Microsoft.Data.Entity.FunctionalTests
     public class SqlServerEndToEndTest : EndToEndTest<SqlServerTestStore, SqlServerCrossStoreFixture>, IClassFixture<SqlServerCrossStoreFixture>
     {
         public SqlServerEndToEndTest(SqlServerCrossStoreFixture fixture)
+            : base(fixture)
+        {
+        }
+    }
+
+    public class SqliteEndToEndTest : EndToEndTest<SqliteTestStore, SqliteCrossStoreFixture>, IClassFixture<SqliteCrossStoreFixture>
+    {
+        public SqliteEndToEndTest(SqliteCrossStoreFixture fixture)
             : base(fixture)
         {
         }

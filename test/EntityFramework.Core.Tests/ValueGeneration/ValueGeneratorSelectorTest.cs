@@ -1,11 +1,12 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using Microsoft.Data.Entity.Internal;
 using Microsoft.Data.Entity.Metadata;
 using Microsoft.Data.Entity.ValueGeneration;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Data.Entity.ValueGeneration.Internal;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Microsoft.Data.Entity.Tests.ValueGeneration
@@ -16,54 +17,81 @@ namespace Microsoft.Data.Entity.Tests.ValueGeneration
         public void Returns_built_in_generators_for_types_setup_for_value_generation()
         {
             var model = BuildModel();
-            var entityType = model.GetEntityType(typeof(AnEntity));
+            var entityType = model.FindEntityType(typeof(AnEntity));
 
-            var contextServices = TestHelpers.Instance.CreateContextServices(new ServiceCollection().AddSingleton<ConcreteValueGeneratorSelector>(), model);
-            var selector = contextServices.GetRequiredService<ConcreteValueGeneratorSelector>();
+            var contextServices = TestHelpers.Instance.CreateContextServices(model);
+            var selector = contextServices.GetRequiredService<ValueGeneratorSelector>();
 
-            Assert.IsType<TemporaryIntegerValueGenerator<int>>(selector.Select(entityType.GetProperty("Id")));
-            Assert.IsType<TemporaryIntegerValueGenerator<long>>(selector.Select(entityType.GetProperty("Long")));
-            Assert.IsType<TemporaryIntegerValueGenerator<short>>(selector.Select(entityType.GetProperty("Short")));
-            Assert.IsType<TemporaryIntegerValueGenerator<byte>>(selector.Select(entityType.GetProperty("Byte")));
-            Assert.IsType<TemporaryIntegerValueGenerator<int>>(selector.Select(entityType.GetProperty("NullableInt")));
-            Assert.IsType<TemporaryIntegerValueGenerator<long>>(selector.Select(entityType.GetProperty("NullableLong")));
-            Assert.IsType<TemporaryIntegerValueGenerator<short>>(selector.Select(entityType.GetProperty("NullableShort")));
-            Assert.IsType<TemporaryIntegerValueGenerator<byte>>(selector.Select(entityType.GetProperty("NullableByte")));
-            Assert.IsType<TemporaryIntegerValueGenerator<uint>>(selector.Select(entityType.GetProperty("UInt")));
-            Assert.IsType<TemporaryIntegerValueGenerator<ulong>>(selector.Select(entityType.GetProperty("ULong")));
-            Assert.IsType<TemporaryIntegerValueGenerator<ushort>>(selector.Select(entityType.GetProperty("UShort")));
-            Assert.IsType<TemporaryIntegerValueGenerator<sbyte>>(selector.Select(entityType.GetProperty("SByte")));
-            Assert.IsType<TemporaryIntegerValueGenerator<uint>>(selector.Select(entityType.GetProperty("NullableUInt")));
-            Assert.IsType<TemporaryIntegerValueGenerator<ulong>>(selector.Select(entityType.GetProperty("NullableULong")));
-            Assert.IsType<TemporaryIntegerValueGenerator<ushort>>(selector.Select(entityType.GetProperty("NullableUShort")));
-            Assert.IsType<TemporaryIntegerValueGenerator<sbyte>>(selector.Select(entityType.GetProperty("NullableSByte")));
-            Assert.IsType<TemporaryStringValueGenerator>(selector.Select(entityType.GetProperty("String")));
-            Assert.IsType<GuidValueGenerator>(selector.Select(entityType.GetProperty("Guid")));
-            Assert.IsType<TemporaryBinaryValueGenerator>(selector.Select(entityType.GetProperty("Binary")));
+            Assert.IsType<TemporaryNumberValueGenerator<int>>(selector.Select(entityType.FindProperty("Id"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<long>>(selector.Select(entityType.FindProperty("Long"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<short>>(selector.Select(entityType.FindProperty("Short"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<byte>>(selector.Select(entityType.FindProperty("Byte"), entityType));
+
+            Assert.IsType<TemporaryNumberValueGenerator<int>>(selector.Select(entityType.FindProperty("NullableInt"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<long>>(selector.Select(entityType.FindProperty("NullableLong"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<short>>(selector.Select(entityType.FindProperty("NullableShort"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<byte>>(selector.Select(entityType.FindProperty("NullableByte"), entityType));
+
+            Assert.IsType<TemporaryNumberValueGenerator<uint>>(selector.Select(entityType.FindProperty("UInt"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<ulong>>(selector.Select(entityType.FindProperty("ULong"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<ushort>>(selector.Select(entityType.FindProperty("UShort"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<sbyte>>(selector.Select(entityType.FindProperty("SByte"), entityType));
+
+            Assert.IsType<TemporaryNumberValueGenerator<uint>>(selector.Select(entityType.FindProperty("NullableUInt"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<ulong>>(selector.Select(entityType.FindProperty("NullableULong"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<ushort>>(selector.Select(entityType.FindProperty("NullableUShort"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<sbyte>>(selector.Select(entityType.FindProperty("NullableSByte"), entityType));
+
+            Assert.IsType<TemporaryNumberValueGenerator<decimal>>(selector.Select(entityType.FindProperty("Decimal"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<decimal>>(selector.Select(entityType.FindProperty("NullableDecimal"), entityType));
+
+            Assert.IsType<TemporaryNumberValueGenerator<float>>(selector.Select(entityType.FindProperty("Float"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<float>>(selector.Select(entityType.FindProperty("NullableFloat"), entityType));
+
+            Assert.IsType<TemporaryNumberValueGenerator<double>>(selector.Select(entityType.FindProperty("Double"), entityType));
+            Assert.IsType<TemporaryNumberValueGenerator<double>>(selector.Select(entityType.FindProperty("NullableDouble"), entityType));
+
+            Assert.IsType<TemporaryDateTimeValueGenerator>(selector.Select(entityType.FindProperty("DateTime"), entityType));
+            Assert.IsType<TemporaryDateTimeValueGenerator>(selector.Select(entityType.FindProperty("NullableDateTime"), entityType));
+
+            Assert.IsType<TemporaryDateTimeOffsetValueGenerator>(selector.Select(entityType.FindProperty("DateTimeOffset"), entityType));
+            Assert.IsType<TemporaryDateTimeOffsetValueGenerator>(selector.Select(entityType.FindProperty("NullableDateTimeOffset"), entityType));
+
+            Assert.IsType<TemporaryStringValueGenerator>(selector.Select(entityType.FindProperty("String"), entityType));
+
+            Assert.IsType<GuidValueGenerator>(selector.Select(entityType.FindProperty("Guid"), entityType));
+            Assert.IsType<GuidValueGenerator>(selector.Select(entityType.FindProperty("NullableGuid"), entityType));
+
+            Assert.IsType<TemporaryBinaryValueGenerator>(selector.Select(entityType.FindProperty("Binary"), entityType));
         }
 
         [Fact]
         public void Throws_for_unsupported_combinations()
         {
             var model = BuildModel();
-            var entityType = model.GetEntityType(typeof(AnEntity));
+            var entityType = model.FindEntityType(typeof(AnEntity));
 
-            var contextServices = TestHelpers.Instance.CreateContextServices(new ServiceCollection().AddSingleton<ConcreteValueGeneratorSelector>(), model);
-            var selector = contextServices.GetRequiredService<ConcreteValueGeneratorSelector>();
+            var contextServices = TestHelpers.Instance.CreateContextServices(model);
+
+            var selector = contextServices.GetRequiredService<ValueGeneratorSelector>();
 
             Assert.Equal(
-                Strings.NoValueGenerator("Float", "AnEntity", typeof(float).Name),
-                Assert.Throws<NotSupportedException>(() => selector.Select(entityType.GetProperty("Float"))).Message);
+                CoreStrings.NoValueGenerator("Random", "AnEntity", typeof(Random).Name),
+                Assert.Throws<NotSupportedException>(() => selector.Select(entityType.FindProperty("Random"), entityType)).Message);
         }
 
-        private static Model BuildModel(bool generateValues = true)
+        private static IMutableModel BuildModel(bool generateValues = true)
         {
-            var model = TestHelpers.Instance.BuildModelFor<AnEntity>();
-            var entityType = model.GetEntityType(typeof(AnEntity));
+            var builder = TestHelpers.Instance.CreateConventionBuilder();
+            builder.Ignore<Random>();
+            builder.Entity<AnEntity>();
+            var model = builder.Model;
+            var entityType = model.FindEntityType(typeof(AnEntity));
+            entityType.AddProperty("Random", typeof(Random)).IsShadowProperty = false;
 
-            foreach (var property in entityType.Properties)
+            foreach (var property in entityType.GetProperties())
             {
-                property.GenerateValueOnAdd = generateValues;
+                property.RequiresValueGenerator = generateValues;
             }
 
             return model;
@@ -89,16 +117,19 @@ namespace Microsoft.Data.Entity.Tests.ValueGeneration
             public sbyte? NullableSByte { get; set; }
             public string String { get; set; }
             public Guid Guid { get; set; }
+            public Guid? NullableGuid { get; set; }
             public byte[] Binary { get; set; }
             public float Float { get; set; }
-        }
-
-        private class ConcreteValueGeneratorSelector : ValueGeneratorSelector
-        {
-            public override ValueGenerator Select(IProperty property)
-            {
-                return Create(property);
-            }
+            public float? NullableFloat { get; set; }
+            public double Double { get; set; }
+            public double? NullableDouble { get; set; }
+            public decimal Decimal { get; set; }
+            public decimal? NullableDecimal { get; set; }
+            public DateTime DateTime { get; set; }
+            public DateTime? NullableDateTime { get; set; }
+            public DateTimeOffset DateTimeOffset { get; set; }
+            public DateTimeOffset? NullableDateTimeOffset { get; set; }
+            public Random Random { get; set; }
         }
     }
 }

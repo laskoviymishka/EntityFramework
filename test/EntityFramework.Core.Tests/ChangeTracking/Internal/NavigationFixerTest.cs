@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -7,8 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Data.Entity.ChangeTracking.Internal;
 using Microsoft.Data.Entity.Metadata;
-using Microsoft.Data.Entity.Metadata.Builders;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
@@ -425,7 +424,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
 
             dependent.CategoryId = 11;
 
-            fixer.ForeignKeyPropertyChanged(dependentEntry, model.GetEntityType(typeof(Product)).GetProperty("CategoryId"), 12, 11);
+            fixer.ForeignKeyPropertyChanged(dependentEntry, model.FindEntityType(typeof(Product)).FindProperty("CategoryId"), 12, 11);
 
             Assert.Same(dependent.Category, principal1);
             Assert.Contains(dependent, principal1.Products);
@@ -457,7 +456,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
 
             dependent.CategoryId = 0;
 
-            fixer.ForeignKeyPropertyChanged(dependentEntry, model.GetEntityType(typeof(Product)).GetProperty("CategoryId"), 12, 11);
+            fixer.ForeignKeyPropertyChanged(dependentEntry, model.FindEntityType(typeof(Product)).FindProperty("CategoryId"), 12, 11);
 
             Assert.Null(dependent.Category);
             Assert.DoesNotContain(dependent, principal2.Products);
@@ -489,7 +488,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
 
             dependent.CategoryId = 11;
 
-            fixer.ForeignKeyPropertyChanged(dependentEntry, model.GetEntityType(typeof(Product)).GetProperty("CategoryId"), 12, 11);
+            fixer.ForeignKeyPropertyChanged(dependentEntry, model.FindEntityType(typeof(Product)).FindProperty("CategoryId"), 12, 11);
 
             Assert.Same(dependent.Category, principal1);
             Assert.Contains(dependent, principal1.Products);
@@ -521,7 +520,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
 
             dependent.Id = 22;
 
-            fixer.ForeignKeyPropertyChanged(dependentEntry, model.GetEntityType(typeof(ProductDetail)).GetProperty("Id"), 21, 22);
+            fixer.ForeignKeyPropertyChanged(dependentEntry, model.FindEntityType(typeof(ProductDetail)).FindProperty("Id"), 21, 22);
 
             Assert.Same(principal2, dependent.Product);
             Assert.Same(dependent, principal2.Detail);
@@ -550,7 +549,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
 
             dependent.Id = 0;
 
-            fixer.ForeignKeyPropertyChanged(dependentEntry, model.GetEntityType(typeof(ProductDetail)).GetProperty("Id"), 21, 0);
+            fixer.ForeignKeyPropertyChanged(dependentEntry, model.FindEntityType(typeof(ProductDetail)).FindProperty("Id"), 21, 0);
 
             Assert.Null(dependent.Product);
             Assert.Null(principal.Detail);
@@ -578,7 +577,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
 
             dependent.Id = 21;
 
-            fixer.ForeignKeyPropertyChanged(dependentEntry, model.GetEntityType(typeof(ProductDetail)).GetProperty("Id"), 7, 21);
+            fixer.ForeignKeyPropertyChanged(dependentEntry, model.FindEntityType(typeof(ProductDetail)).FindProperty("Id"), 7, 21);
 
             Assert.Same(principal, dependent.Product);
             Assert.Same(dependent, principal.Detail);
@@ -613,7 +612,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
 
             dependent1.Id = 22;
 
-            fixer.ForeignKeyPropertyChanged(dependentEntry1, model.GetEntityType(typeof(ProductDetail)).GetProperty("Id"), 21, 22);
+            fixer.ForeignKeyPropertyChanged(dependentEntry1, model.FindEntityType(typeof(ProductDetail)).FindProperty("Id"), 21, 22);
 
             Assert.Same(principal2, dependent1.Product);
             Assert.Same(dependent1, principal2.Detail);
@@ -653,7 +652,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
 
             entity1.AlternateProductId = 23;
 
-            fixer.ForeignKeyPropertyChanged(entry1, model.GetEntityType(typeof(Product)).GetProperty("AlternateProductId"), 22, 23);
+            fixer.ForeignKeyPropertyChanged(entry1, model.FindEntityType(typeof(Product)).FindProperty("AlternateProductId"), 22, 23);
 
             Assert.Same(entity3, entity1.AlternateProduct);
             Assert.Null(entity1.OriginalProduct);
@@ -697,7 +696,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
 
             entity1.AlternateProductId = 23;
 
-            fixer.ForeignKeyPropertyChanged(entry1, model.GetEntityType(typeof(Product)).GetProperty("AlternateProductId"), 22, 23);
+            fixer.ForeignKeyPropertyChanged(entry1, model.FindEntityType(typeof(Product)).FindProperty("AlternateProductId"), 22, 23);
 
             Assert.Same(entity3, entity1.AlternateProduct);
             Assert.Null(entity1.OriginalProduct);
@@ -807,7 +806,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
             // Changes both FK relationships
             tag1.ProductId = 2;
 
-            fixer.ForeignKeyPropertyChanged(tagEntry1, model.GetEntityType(typeof(ProductTag)).GetProperty("ProductId"), 1, 2);
+            fixer.ForeignKeyPropertyChanged(tagEntry1, model.FindEntityType(typeof(ProductTag)).FindProperty("ProductId"), 1, 2);
 
             Assert.Equal(new[] { tag2 }, photo1.ProductTags.OrderBy(t => t.Id).ToArray());
             Assert.Equal(new[] { tag3, tag4 }, photo2.ProductTags.OrderBy(t => t.Id).ToArray());
@@ -837,10 +836,236 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
             Assert.Same(review4, tag8.Review);
         }
 
-        private static IServiceProvider CreateContextServices(IModel model = null)
+        [Fact]
+        public void Removes_dependent_from_collection_after_deletion()
         {
-            return TestHelpers.Instance.CreateContextServices(model ?? BuildModel());
+            var contextServices = CreateContextServices();
+            var manager = contextServices.GetRequiredService<IStateManager>();
+
+            var principal1 = new Category { Id = 11 };
+            var principal2 = new Category { Id = 12 };
+            var dependent1 = new Product { Id = 21, CategoryId = 12 };
+            var dependent2 = new Product { Id = 22, CategoryId = 12 };
+            var dependent3 = new Product { Id = 23, CategoryId = 11 };
+
+            var principal1Entry = manager.StartTracking(manager.GetOrCreateEntry(principal1));
+            var principal2Entry = manager.StartTracking(manager.GetOrCreateEntry(principal2));
+
+            var dependent1Entry = manager.StartTracking(manager.GetOrCreateEntry(dependent1));
+            var dependent2Entry = manager.StartTracking(manager.GetOrCreateEntry(dependent2));
+            var dependent3Entry = manager.StartTracking(manager.GetOrCreateEntry(dependent3));
+
+            principal1Entry.SetEntityState(EntityState.Unchanged);
+            principal2Entry.SetEntityState(EntityState.Unchanged);
+            dependent1Entry.SetEntityState(EntityState.Unchanged);
+            dependent2Entry.SetEntityState(EntityState.Unchanged);
+            dependent3Entry.SetEntityState(EntityState.Unchanged);
+
+            Assert.Same(dependent1.Category, principal2);
+            Assert.Same(dependent2.Category, principal2);
+            Assert.Same(dependent3.Category, principal1);
+            Assert.Contains(dependent1, principal2.Products);
+            Assert.Contains(dependent2, principal2.Products);
+            Assert.Contains(dependent3, principal1.Products);
+            Assert.Equal(dependent1.CategoryId, principal2.Id);
+            Assert.Equal(dependent2.CategoryId, principal2.Id);
+            Assert.Equal(dependent3.CategoryId, principal1.Id);
+
+            dependent1Entry.SetEntityState(EntityState.Deleted);
+            dependent2Entry.SetEntityState(EntityState.Deleted);
+
+            Assert.Same(dependent1.Category, principal2);
+            Assert.Same(dependent2.Category, principal2);
+            Assert.Same(dependent3.Category, principal1);
+            Assert.Contains(dependent1, principal2.Products);
+            Assert.Contains(dependent2, principal2.Products);
+            Assert.Contains(dependent3, principal1.Products);
+            Assert.Equal(dependent1.CategoryId, principal2.Id);
+            Assert.Equal(dependent2.CategoryId, principal2.Id);
+            Assert.Equal(dependent3.CategoryId, principal1.Id);
+
+            dependent1Entry.SetEntityState(EntityState.Detached);
+
+            Assert.Same(dependent1.Category, principal2);
+            Assert.Same(dependent2.Category, principal2);
+            Assert.Same(dependent3.Category, principal1);
+            Assert.DoesNotContain(dependent1, principal2.Products);
+            Assert.Contains(dependent2, principal2.Products);
+            Assert.Contains(dependent3, principal1.Products);
+            Assert.Equal(dependent1.CategoryId, principal2.Id);
+            Assert.Equal(dependent2.CategoryId, principal2.Id);
+            Assert.Equal(dependent3.CategoryId, principal1.Id);
+
+            dependent2Entry.SetEntityState(EntityState.Detached);
+
+            Assert.Same(dependent1.Category, principal2);
+            Assert.Same(dependent2.Category, principal2);
+            Assert.Same(dependent3.Category, principal1);
+            Assert.Empty(principal2.Products);
+            Assert.Contains(dependent3, principal1.Products);
+            Assert.Equal(dependent1.CategoryId, principal2.Id);
+            Assert.Equal(dependent2.CategoryId, principal2.Id);
+            Assert.Equal(dependent3.CategoryId, principal1.Id);
         }
+
+        [Fact]
+        public void Nulls_navigation_to_principal_after_after_deletion()
+        {
+            var contextServices = CreateContextServices();
+            var manager = contextServices.GetRequiredService<IStateManager>();
+
+            var principal1 = new Category { Id = 11 };
+            var principal2 = new Category { Id = 12 };
+            var dependent1 = new Product { Id = 21, CategoryId = 12 };
+            var dependent2 = new Product { Id = 22, CategoryId = 12 };
+            var dependent3 = new Product { Id = 23, CategoryId = 11 };
+
+            var principal1Entry = manager.StartTracking(manager.GetOrCreateEntry(principal1));
+            var principal2Entry = manager.StartTracking(manager.GetOrCreateEntry(principal2));
+
+            var dependent1Entry = manager.StartTracking(manager.GetOrCreateEntry(dependent1));
+            var dependent2Entry = manager.StartTracking(manager.GetOrCreateEntry(dependent2));
+            var dependent3Entry = manager.StartTracking(manager.GetOrCreateEntry(dependent3));
+
+            principal1Entry.SetEntityState(EntityState.Unchanged);
+            principal2Entry.SetEntityState(EntityState.Unchanged);
+            dependent1Entry.SetEntityState(EntityState.Unchanged);
+            dependent2Entry.SetEntityState(EntityState.Unchanged);
+            dependent3Entry.SetEntityState(EntityState.Unchanged);
+
+            Assert.Same(dependent1.Category, principal2);
+            Assert.Same(dependent2.Category, principal2);
+            Assert.Same(dependent3.Category, principal1);
+            Assert.Contains(dependent1, principal2.Products);
+            Assert.Contains(dependent2, principal2.Products);
+            Assert.Contains(dependent3, principal1.Products);
+            Assert.Equal(dependent1.CategoryId, principal2.Id);
+            Assert.Equal(dependent2.CategoryId, principal2.Id);
+            Assert.Equal(dependent3.CategoryId, principal1.Id);
+
+            principal2Entry.SetEntityState(EntityState.Deleted);
+
+            Assert.Same(dependent1.Category, principal2);
+            Assert.Same(dependent2.Category, principal2);
+            Assert.Same(dependent3.Category, principal1);
+            Assert.Contains(dependent1, principal2.Products);
+            Assert.Contains(dependent2, principal2.Products);
+            Assert.Contains(dependent3, principal1.Products);
+            Assert.Equal(dependent1.CategoryId, principal2.Id);
+            Assert.Equal(dependent2.CategoryId, principal2.Id);
+            Assert.Equal(dependent3.CategoryId, principal1.Id);
+
+            principal2Entry.SetEntityState(EntityState.Detached);
+
+            Assert.Null(dependent1.Category);
+            Assert.Null(dependent2.Category);
+            Assert.Same(dependent3.Category, principal1);
+            Assert.Contains(dependent1, principal2.Products);
+            Assert.Contains(dependent2, principal2.Products);
+            Assert.Contains(dependent3, principal1.Products);
+            Assert.Equal(dependent1.CategoryId, principal2.Id);
+            Assert.Equal(dependent2.CategoryId, principal2.Id);
+            Assert.Equal(dependent3.CategoryId, principal1.Id);
+        }
+
+        [Fact]
+        public void Nulls_one_to_one_navigation_to_principal_after_after_deletion()
+        {
+            var model = BuildModel();
+            var contextServices = CreateContextServices(model);
+            var manager = contextServices.GetRequiredService<IStateManager>();
+
+            var principal1 = new Product { Id = 21 };
+            var principal2 = new Product { Id = 22 };
+            var dependent1 = new Product { Id = 23, AlternateProductId = 21 };
+            var dependent2 = new Product { Id = 24, AlternateProductId = 22 };
+
+            var principalEntry1 = manager.StartTracking(manager.GetOrCreateEntry(principal1));
+            var principalEntry2 = manager.StartTracking(manager.GetOrCreateEntry(principal2));
+            var dependentEntry1 = manager.StartTracking(manager.GetOrCreateEntry(dependent1));
+            var dependentEntry2 = manager.StartTracking(manager.GetOrCreateEntry(dependent2));
+
+            dependentEntry1.SetEntityState(EntityState.Unchanged);
+            dependentEntry2.SetEntityState(EntityState.Unchanged);
+            principalEntry1.SetEntityState(EntityState.Unchanged);
+            principalEntry2.SetEntityState(EntityState.Unchanged);
+
+            Assert.Same(principal1, dependent1.AlternateProduct);
+            Assert.Same(dependent1, principal1.OriginalProduct);
+            Assert.Same(principal2, dependent2.AlternateProduct);
+            Assert.Same(dependent2, principal2.OriginalProduct);
+            Assert.Equal(dependent1.AlternateProductId, principal1.Id);
+            Assert.Equal(dependent2.AlternateProductId, principal2.Id);
+
+            principalEntry1.SetEntityState(EntityState.Deleted);
+
+            Assert.Same(principal1, dependent1.AlternateProduct);
+            Assert.Same(dependent1, principal1.OriginalProduct);
+            Assert.Same(principal2, dependent2.AlternateProduct);
+            Assert.Same(dependent2, principal2.OriginalProduct);
+            Assert.Equal(dependent1.AlternateProductId, principal1.Id);
+            Assert.Equal(dependent2.AlternateProductId, principal2.Id);
+
+            principalEntry1.SetEntityState(EntityState.Detached);
+
+            Assert.Null(dependent1.AlternateProduct);
+            Assert.Same(dependent1, principal1.OriginalProduct);
+            Assert.Same(principal2, dependent2.AlternateProduct);
+            Assert.Same(dependent2, principal2.OriginalProduct);
+            Assert.Equal(dependent1.AlternateProductId, principal1.Id);
+            Assert.Equal(dependent2.AlternateProductId, principal2.Id);
+        }
+
+        [Fact]
+        public void Nulls_one_to_one_navigation_to_dependent_after_after_deletion()
+        {
+            var model = BuildModel();
+            var contextServices = CreateContextServices(model);
+            var manager = contextServices.GetRequiredService<IStateManager>();
+
+            var principal1 = new Product { Id = 21 };
+            var principal2 = new Product { Id = 22 };
+            var dependent1 = new Product { Id = 23, AlternateProductId = 21 };
+            var dependent2 = new Product { Id = 24, AlternateProductId = 22 };
+
+            var principalEntry1 = manager.StartTracking(manager.GetOrCreateEntry(principal1));
+            var principalEntry2 = manager.StartTracking(manager.GetOrCreateEntry(principal2));
+            var dependentEntry1 = manager.StartTracking(manager.GetOrCreateEntry(dependent1));
+            var dependentEntry2 = manager.StartTracking(manager.GetOrCreateEntry(dependent2));
+
+            dependentEntry1.SetEntityState(EntityState.Unchanged);
+            dependentEntry2.SetEntityState(EntityState.Unchanged);
+            principalEntry1.SetEntityState(EntityState.Unchanged);
+            principalEntry2.SetEntityState(EntityState.Unchanged);
+
+            Assert.Same(principal1, dependent1.AlternateProduct);
+            Assert.Same(dependent1, principal1.OriginalProduct);
+            Assert.Same(principal2, dependent2.AlternateProduct);
+            Assert.Same(dependent2, principal2.OriginalProduct);
+            Assert.Equal(dependent1.AlternateProductId, principal1.Id);
+            Assert.Equal(dependent2.AlternateProductId, principal2.Id);
+
+            dependentEntry1.SetEntityState(EntityState.Deleted);
+
+            Assert.Same(principal1, dependent1.AlternateProduct);
+            Assert.Same(dependent1, principal1.OriginalProduct);
+            Assert.Same(principal2, dependent2.AlternateProduct);
+            Assert.Same(dependent2, principal2.OriginalProduct);
+            Assert.Equal(dependent1.AlternateProductId, principal1.Id);
+            Assert.Equal(dependent2.AlternateProductId, principal2.Id);
+
+            dependentEntry1.SetEntityState(EntityState.Detached);
+
+            Assert.Same(principal1, dependent1.AlternateProduct);
+            Assert.Null(principal1.OriginalProduct);
+            Assert.Same(principal2, dependent2.AlternateProduct);
+            Assert.Same(dependent2, principal2.OriginalProduct);
+            Assert.Equal(dependent1.AlternateProductId, principal1.Id);
+            Assert.Equal(dependent2.AlternateProductId, principal2.Id);
+        }
+
+        private static IServiceProvider CreateContextServices(IModel model = null)
+            => TestHelpers.Instance.CreateContextServices(model ?? BuildModel());
 
         private class Category
         {
@@ -874,10 +1099,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
                 throw new NotImplementedException();
             }
 
-            IEnumerator IEnumerable.GetEnumerator()
-            {
-                return GetEnumerator();
-            }
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
         }
 
         private class ProductPhoto
@@ -910,33 +1132,33 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
 
         private static IModel BuildModel()
         {
-            var builder = new ModelBuilderFactory().CreateConventionBuilder();
+            var builder = TestHelpers.Instance.CreateConventionBuilder();
 
             builder.Entity<Product>(b =>
                 {
-                    b.Reference(e => e.AlternateProduct).InverseReference(e => e.OriginalProduct)
-                        .ForeignKey<Product>(e => e.AlternateProductId);
+                    b.HasOne(e => e.AlternateProduct).WithOne(e => e.OriginalProduct)
+                        .HasForeignKey<Product>(e => e.AlternateProductId);
 
-                    b.Reference(e => e.Detail).InverseReference(e => e.Product)
-                        .ForeignKey<ProductDetail>(e => e.Id);
+                    b.HasOne(e => e.Detail).WithOne(e => e.Product)
+                        .HasForeignKey<ProductDetail>(e => e.Id);
                 });
 
-            builder.Entity<Category>().Collection(e => e.Products).InverseReference(e => e.Category);
+            builder.Entity<Category>().HasMany(e => e.Products).WithOne(e => e.Category);
 
             builder.Entity<ProductDetail>();
 
             builder.Entity<ProductPhoto>(b =>
                 {
-                    b.Key(e => new { e.ProductId, e.PhotoId });
-                    b.Collection(e => e.ProductTags).InverseReference(e => e.Photo)
-                        .ForeignKey(e => new { e.ProductId, e.PhotoId });
+                    b.HasKey(e => new { e.ProductId, e.PhotoId });
+                    b.HasMany(e => e.ProductTags).WithOne(e => e.Photo)
+                        .HasForeignKey(e => new { e.ProductId, e.PhotoId });
                 });
 
             builder.Entity<ProductReview>(b =>
                 {
-                    b.Key(e => new { e.ProductId, e.ReviewId });
-                    b.Collection(e => e.ProductTags).InverseReference(e => e.Review)
-                        .ForeignKey(e => new { e.ProductId, e.ReviewId });
+                    b.HasKey(e => new { e.ProductId, e.ReviewId });
+                    b.HasMany(e => e.ProductTags).WithOne(e => e.Review)
+                        .HasForeignKey(e => new { e.ProductId, e.ReviewId });
                 });
 
             builder.Entity<ProductTag>();

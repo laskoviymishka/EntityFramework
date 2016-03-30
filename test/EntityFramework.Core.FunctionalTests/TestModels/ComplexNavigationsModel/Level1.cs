@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections.Generic;
@@ -18,9 +18,8 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.ComplexNavigationsMod
 
         public ICollection<Level2> OneToMany_Required { get; set; }
         public ICollection<Level2> OneToMany_Optional { get; set; }
-
-        // issue #1417
-        //public Level1 OneToOne_Optional_Self { get; set; }
+        
+        public Level1 OneToOne_Optional_Self { get; set; }
 
         public ICollection<Level1> OneToMany_Required_Self { get; set; }
         public ICollection<Level1> OneToMany_Optional_Self { get; set; }

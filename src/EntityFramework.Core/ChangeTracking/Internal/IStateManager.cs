@@ -1,10 +1,11 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
+using Microsoft.Data.Entity.Infrastructure;
 using Microsoft.Data.Entity.Metadata;
 using Microsoft.Data.Entity.Storage;
 
@@ -17,9 +18,12 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
         InternalEntityEntry GetOrCreateEntry([NotNull] object entity);
 
         InternalEntityEntry StartTracking(
-            [NotNull] IEntityType entityType, [NotNull] object entity, [NotNull] IValueReader valueReader);
+            [NotNull] IEntityType entityType,
+            [NotNull] IKeyValue keyValue,
+            [NotNull] object entity,
+            ValueBuffer valueBuffer);
 
-        InternalEntityEntry TryGetEntry([NotNull] EntityKey keyValue);
+        InternalEntityEntry TryGetEntry([NotNull] IKeyValue keyValueValue);
 
         InternalEntityEntry TryGetEntry([NotNull] object entity);
 
@@ -35,12 +39,18 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
 
         InternalEntityEntry GetPrincipal([NotNull] IPropertyAccessor dependentEntry, [NotNull] IForeignKey foreignKey);
 
-        void UpdateIdentityMap([NotNull] InternalEntityEntry entry, [NotNull] EntityKey oldKey);
+        void UpdateIdentityMap([NotNull] InternalEntityEntry entry, [NotNull] IKeyValue oldKeyValue, [NotNull] IKey principalKey);
+
+        void UpdateDependentMap([NotNull] InternalEntityEntry entry, [NotNull] IKeyValue oldKeyValue, [NotNull] IForeignKey foreignKey);
 
         IEnumerable<InternalEntityEntry> GetDependents([NotNull] InternalEntityEntry principalEntry, [NotNull] IForeignKey foreignKey);
 
-        int SaveChanges();
+        int SaveChanges(bool acceptAllChangesOnSuccess);
 
-        Task<int> SaveChangesAsync(CancellationToken cancellationToken = default(CancellationToken));
+        Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default(CancellationToken));
+
+        void AcceptAllChanges();
+
+        DbContext Context { get; }
     }
 }

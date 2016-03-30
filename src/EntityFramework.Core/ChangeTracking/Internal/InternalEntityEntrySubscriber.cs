@@ -1,10 +1,12 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.ComponentModel;
 using System.Linq;
 using JetBrains.Annotations;
 using Microsoft.Data.Entity.Metadata;
+using Microsoft.Data.Entity.Metadata.Internal;
+using Microsoft.Data.Entity.Storage;
 
 namespace Microsoft.Data.Entity.ChangeTracking.Internal
 {
@@ -17,13 +19,21 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
             _notifier = notifier;
         }
 
-        public virtual InternalEntityEntry SnapshotAndSubscribe(InternalEntityEntry entry)
+        public virtual InternalEntityEntry SnapshotAndSubscribe(InternalEntityEntry entry, ValueBuffer? values)
         {
             var entityType = entry.EntityType;
 
             if (entityType.UseEagerSnapshots())
             {
-                entry.OriginalValues.TakeSnapshot();
+                if (values != null)
+                {
+                    entry.OriginalValues = new ValueBufferOriginalValues(entry, values.Value);
+                }
+                else
+                {
+                    entry.OriginalValues.TakeSnapshot();
+                }
+
                 entry.RelationshipsSnapshot.TakeSnapshot();
             }
             else
@@ -63,10 +73,8 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
             return entry;
         }
 
-        // TODO: Consider optimizing/consolidating property/navigation lookup
-        // Issue #635
         private static IPropertyBase TryGetPropertyBase(IEntityType entityType, string propertyName)
             => (IPropertyBase)entityType.FindProperty(propertyName)
-               ?? entityType.GetNavigations().FirstOrDefault(n => n.Name == propertyName);
+               ?? entityType.FindNavigation(propertyName);
     }
 }

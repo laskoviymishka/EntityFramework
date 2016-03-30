@@ -1,9 +1,10 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Data.Entity.Metadata;
 using Xunit;
 
 namespace Microsoft.Data.Entity.FunctionalTests
@@ -184,23 +185,35 @@ namespace Microsoft.Data.Entity.FunctionalTests
             public virtual void OnModelCreating(ModelBuilder modelBuilder)
             {
                 modelBuilder.Entity<WithStringKey>()
-                    .Collection(e => e.Dependents).InverseReference(e => e.Principal)
-                    .ForeignKey(e => e.Fk);
+                    .HasMany(e => e.Dependents).WithOne(e => e.Principal)
+                    .HasForeignKey(e => e.Fk);
 
                 modelBuilder.Entity<WithStringFk>()
-                    .Reference<WithStringFk>()
-                    .InverseReference(e => e.Self)
-                    .ForeignKey<WithStringFk>(e => e.SelfFk);
+                    .HasOne<WithStringFk>()
+                    .WithOne(e => e.Self)
+                    .HasForeignKey<WithStringFk>(e => e.SelfFk);
 
-                modelBuilder.Entity<WithIntKey>()
-                    .Collection(e => e.Dependents)
-                    .InverseReference(e => e.Principal)
-                    .ForeignKey(e => e.Fk);
+                modelBuilder.Entity<WithIntKey>(b =>
+                    {
+                        b.Property(e => e.Id).ValueGeneratedNever();
+                        b.HasMany(e => e.Dependents)
+                            .WithOne(e => e.Principal)
+                            .HasForeignKey(e => e.Fk);
+                    });
 
-                modelBuilder.Entity<WithNullableIntKey>()
-                    .Collection(e => e.Dependents)
-                    .InverseReference(e => e.Principal)
-                    .ForeignKey(e => e.Fk);
+                modelBuilder.Entity<WithNullableIntKey>(b =>
+                    {
+                        b.Property(e => e.Id).ValueGeneratedNever();
+                        b.HasMany(e => e.Dependents)
+                            .WithOne(e => e.Principal)
+                            .HasForeignKey(e => e.Fk);
+                    });
+
+                modelBuilder.Entity<WithIntFk>()
+                    .Property(e => e.Id).ValueGeneratedNever();
+
+                modelBuilder.Entity<WithNullableIntFk>()
+                    .Property(e => e.Id).ValueGeneratedNever();
             }
 
             protected void EnsureCreated()

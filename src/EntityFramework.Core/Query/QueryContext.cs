@@ -1,40 +1,34 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using JetBrains.Annotations;
+using Microsoft.Data.Entity.Query.Internal;
 using Microsoft.Data.Entity.Utilities;
-using Microsoft.Framework.Logging;
 
 namespace Microsoft.Data.Entity.Query
 {
     public class QueryContext
     {
+        private readonly Func<IQueryBuffer> _queryBufferFactory;
+
         private IDictionary<string, object> _parameterValues;
+        private IQueryBuffer _queryBuffer;
 
-        public QueryContext(
-            [NotNull] ILogger logger,
-            [NotNull] IQueryBuffer queryBuffer)
+        public QueryContext([NotNull] Func<IQueryBuffer> queryBufferFactory)
         {
-            Check.NotNull(logger, nameof(logger));
-            Check.NotNull(queryBuffer, nameof(queryBuffer));
+            Check.NotNull(queryBufferFactory, nameof(queryBufferFactory));
 
-            Logger = logger;
-            QueryBuffer = queryBuffer;
+            _queryBufferFactory = queryBufferFactory;
         }
 
-        // TODO: Move this to compilation context
-        public virtual ILogger Logger { get; }
-
-        public virtual IQueryBuffer QueryBuffer { get; }
+        public virtual IQueryBuffer QueryBuffer => _queryBuffer ?? (_queryBuffer = _queryBufferFactory());
 
         public virtual CancellationToken CancellationToken { get; set; }
 
         public virtual IDictionary<string, object> ParameterValues
             => _parameterValues ?? (_parameterValues = new Dictionary<string, object>());
-
-        public virtual Type ContextType { get; [param: NotNull] set; }
     }
 }

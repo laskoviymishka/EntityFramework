@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -96,12 +96,5 @@ namespace JetBrains.Annotations
         Itself = 1,
         Members = 2,
         WithMembers = Itself | Members
-    }
-}
-
-namespace Microsoft.Data.Entity.Relational.Utilities
-{
-    internal sealed class ValidatedNotNullAttribute : Attribute
-    {
     }
 }

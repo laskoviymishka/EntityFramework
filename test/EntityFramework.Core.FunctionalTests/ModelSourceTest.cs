@@ -1,13 +1,14 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Linq;
-using Microsoft.Data.Entity.InMemory;
+using Microsoft.Data.Entity.Infrastructure.Internal;
 using Microsoft.Data.Entity.Internal;
 using Microsoft.Data.Entity.Metadata;
-using Microsoft.Data.Entity.Metadata.Builders;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Data.Entity.Metadata.Conventions.Internal;
+using Microsoft.Data.Entity.Metadata.Internal;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Microsoft.Data.Entity.FunctionalTests
@@ -19,10 +20,10 @@ namespace Microsoft.Data.Entity.FunctionalTests
         {
             var serviceProvider = new ServiceCollection()
                 .AddEntityFramework()
-                .AddInMemoryStore()
+                .AddInMemoryDatabase()
                 .AddDbContext<JustSomeContext>()
                 .ServiceCollection()
-                .AddSingleton<IInMemoryModelSource, MyModelSource>()
+                .AddSingleton<InMemoryModelSource, MyModelSource>()
                 .BuildServiceProvider();
 
             using (var context = serviceProvider.GetRequiredService<JustSomeContext>())
@@ -30,21 +31,23 @@ namespace Microsoft.Data.Entity.FunctionalTests
                 var model = context.Model;
 
                 Assert.Equal("Us!", model["AllYourModelAreBelongTo"]);
-                Assert.Equal("Us!", model.EntityTypes.Single(e => e.DisplayName() == "Base")["AllYourBaseAreBelongTo"]);
-                Assert.Contains("Peak", model.EntityTypes.Select(e => e.DisplayName()));
+                Assert.Equal("Us!", model.GetEntityTypes().Single(e => e.DisplayName() == "Base")["AllYourBaseAreBelongTo"]);
+                Assert.Contains("Peak", model.GetEntityTypes().Select(e => e.DisplayName()));
             }
         }
 
         private class MyModelSource : InMemoryModelSource
         {
-            public MyModelSource(IDbSetFinder setFinder, IModelValidator modelValidator)
-                : base(setFinder, modelValidator)
+            public MyModelSource(
+                IDbSetFinder setFinder,
+                ICoreConventionSetBuilder coreConventionSetBuilder)
+                : base(setFinder, coreConventionSetBuilder)
             {
             }
 
-            protected override IModel CreateModel(DbContext context, IModelBuilderFactory modelBuilderFactory)
+            protected override IModel CreateModel(DbContext context, IConventionSetBuilder conventionSetBuilder, IModelValidator validator)
             {
-                var model = base.CreateModel(context, modelBuilderFactory) as Model;
+                var model = base.CreateModel(context, conventionSetBuilder, validator) as Model;
 
                 model["AllYourModelAreBelongTo"] = "Us!";
 
@@ -63,8 +66,11 @@ namespace Microsoft.Data.Entity.FunctionalTests
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<Base>().Annotation("AllYourBaseAreBelongTo", "Us!");
+                modelBuilder.Entity<Base>().HasAnnotation("AllYourBaseAreBelongTo", "Us!");
             }
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+                => optionsBuilder.UseInMemoryDatabase();
         }
 
         private class Base

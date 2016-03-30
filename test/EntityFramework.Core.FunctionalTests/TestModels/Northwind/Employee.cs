@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -25,6 +25,8 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.Northwind
         public string Notes { get; set; }
         public int? ReportsTo { get; set; }
         public string PhotoPath { get; set; }
+
+        public Employee Manager { get; set; }
 
         protected bool Equals(Employee other)
         {

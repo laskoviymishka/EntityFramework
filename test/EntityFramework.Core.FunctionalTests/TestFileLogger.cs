@@ -1,9 +1,9 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.IO;
-using Microsoft.Framework.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Data.Entity.FunctionalTests
 {
@@ -22,6 +22,10 @@ namespace Microsoft.Data.Entity.FunctionalTests
             }
 
             public void AddProvider(ILoggerProvider provider)
+            {
+            }
+
+            public void Dispose()
             {
             }
         }
@@ -54,7 +58,7 @@ namespace Microsoft.Data.Entity.FunctionalTests
                 {
                     lock (_logFilePath)
                     {
-                        File.AppendAllText(_logFilePath, message + "\r\n");
+                        File.AppendAllText(_logFilePath, message + Environment.NewLine);
                     }
                 }
             }
@@ -66,6 +70,11 @@ namespace Microsoft.Data.Entity.FunctionalTests
         }
 
         public IDisposable BeginScope(object state)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IDisposable BeginScopeImpl(object state)
         {
             return NullScope.Instance;
         }

@@ -1,6 +1,7 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Data.Entity.ChangeTracking.Internal;
@@ -55,36 +56,37 @@ namespace Microsoft.Data.Entity.FunctionalTests
         {
             using (var context = new FixupContext())
             {
-                var categoryType = context.Model.GetEntityType(typeof(Category));
-                var productType = context.Model.GetEntityType(typeof(Product));
-                var offerType = context.Model.GetEntityType(typeof(SpecialOffer));
+                var categoryType = context.Model.FindEntityType(typeof(Category));
+                var productType = context.Model.FindEntityType(typeof(Product));
+                var offerType = context.Model.FindEntityType(typeof(SpecialOffer));
 
-                var stateManager = ((IAccessor<IStateManager>)context.ChangeTracker).Service;
+                var stateManager = context.ChangeTracker.GetInfrastructure();
 
-                stateManager.StartTracking(categoryType, new Category { Id = 11 }, new ObjectArrayValueReader(new object[] { 11 }));
-                stateManager.StartTracking(categoryType, new Category { Id = 12 }, new ObjectArrayValueReader(new object[] { 12 }));
-                stateManager.StartTracking(categoryType, new Category { Id = 13 }, new ObjectArrayValueReader(new object[] { 13 }));
+                stateManager.StartTracking(categoryType, new SimpleKeyValue<int>(categoryType.FindPrimaryKey(), 11), new Category { Id = 11 }, new ValueBuffer(new object[] { 11 }));
+                stateManager.StartTracking(categoryType, new SimpleKeyValue<int>(categoryType.FindPrimaryKey(), 12), new Category { Id = 12 }, new ValueBuffer(new object[] { 12 }));
+                stateManager.StartTracking(categoryType, new SimpleKeyValue<int>(categoryType.FindPrimaryKey(), 13), new Category { Id = 13 }, new ValueBuffer(new object[] { 13 }));
 
-                stateManager.StartTracking(productType, new Product { Id = 21, CategoryId = 11 }, new ObjectArrayValueReader(new object[] { 11, 21 }));
+                stateManager.StartTracking(productType, new SimpleKeyValue<int>(productType.FindPrimaryKey(), 21), new Product { Id = 21, CategoryId = 11 }, new ValueBuffer(new object[] { 21, 11 }));
                 AssertAllFixedUp(context);
-                stateManager.StartTracking(productType, new Product { Id = 22, CategoryId = 11 }, new ObjectArrayValueReader(new object[] { 11, 22 }));
+                stateManager.StartTracking(productType, new SimpleKeyValue<int>(productType.FindPrimaryKey(), 22), new Product { Id = 22, CategoryId = 11 }, new ValueBuffer(new object[] { 22, 11 }));
                 AssertAllFixedUp(context);
-                stateManager.StartTracking(productType, new Product { Id = 23, CategoryId = 11 }, new ObjectArrayValueReader(new object[] { 11, 23 }));
+                stateManager.StartTracking(productType, new SimpleKeyValue<int>(productType.FindPrimaryKey(), 23), new Product { Id = 23, CategoryId = 11 }, new ValueBuffer(new object[] { 23, 11 }));
                 AssertAllFixedUp(context);
-                stateManager.StartTracking(productType, new Product { Id = 24, CategoryId = 12 }, new ObjectArrayValueReader(new object[] { 12, 24 }));
+                stateManager.StartTracking(productType, new SimpleKeyValue<int>(productType.FindPrimaryKey(), 24), new Product { Id = 24, CategoryId = 12 }, new ValueBuffer(new object[] { 24, 12 }));
                 AssertAllFixedUp(context);
-                stateManager.StartTracking(productType, new Product { Id = 25, CategoryId = 12 }, new ObjectArrayValueReader(new object[] { 12, 25 }));
+                stateManager.StartTracking(productType, new SimpleKeyValue<int>(productType.FindPrimaryKey(), 25), new Product { Id = 25, CategoryId = 12 }, new ValueBuffer(new object[] { 25, 12 }));
                 AssertAllFixedUp(context);
 
-                stateManager.StartTracking(offerType, new SpecialOffer { Id = 31, ProductId = 22 }, new ObjectArrayValueReader(new object[] { 31, 22 }));
+                stateManager.StartTracking(offerType, new SimpleKeyValue<int>(offerType.FindPrimaryKey(), 31), new SpecialOffer { Id = 31, ProductId = 22 }, new ValueBuffer(new object[] { 31, 22 }));
                 AssertAllFixedUp(context);
-                stateManager.StartTracking(offerType, new SpecialOffer { Id = 32, ProductId = 22 }, new ObjectArrayValueReader(new object[] { 32, 22 }));
+                stateManager.StartTracking(offerType, new SimpleKeyValue<int>(offerType.FindPrimaryKey(), 32), new SpecialOffer { Id = 32, ProductId = 22 }, new ValueBuffer(new object[] { 32, 22 }));
                 AssertAllFixedUp(context);
-                stateManager.StartTracking(offerType, new SpecialOffer { Id = 33, ProductId = 24 }, new ObjectArrayValueReader(new object[] { 33, 24 }));
+                stateManager.StartTracking(offerType, new SimpleKeyValue<int>(offerType.FindPrimaryKey(), 33), new SpecialOffer { Id = 33, ProductId = 24 }, new ValueBuffer(new object[] { 33, 24 }));
                 AssertAllFixedUp(context);
-                stateManager.StartTracking(offerType, new SpecialOffer { Id = 34, ProductId = 24 }, new ObjectArrayValueReader(new object[] { 34, 24 }));
+                stateManager.StartTracking(offerType, new SimpleKeyValue<int>(offerType.FindPrimaryKey(), 34), new SpecialOffer { Id = 34, ProductId = 24 }, new ValueBuffer(new object[] { 34, 24 }));
                 AssertAllFixedUp(context);
-                stateManager.StartTracking(offerType, new SpecialOffer { Id = 35, ProductId = 24 }, new ObjectArrayValueReader(new object[] { 35, 24 }));
+                stateManager.StartTracking(offerType, new SimpleKeyValue<int>(offerType.FindPrimaryKey(), 35), new SpecialOffer { Id = 35, ProductId = 24 }, new ValueBuffer(new object[] { 35, 24 }));
+
                 AssertAllFixedUp(context);
 
                 Assert.Equal(3, context.ChangeTracker.Entries<Category>().Count());
@@ -246,18 +248,18 @@ namespace Microsoft.Data.Entity.FunctionalTests
             {
                 modelBuilder.Entity<Product>(b =>
                     {
-                        b.Collection(e => e.SpecialOffers).InverseReference(e => e.Product);
+                        b.HasMany(e => e.SpecialOffers).WithOne(e => e.Product);
                     });
 
                 modelBuilder.Entity<Category>(b =>
                     {
-                        b.Collection(e => e.Products).InverseReference(e => e.Category);
+                        b.HasMany(e => e.Products).WithOne(e => e.Category);
                     });
             }
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
-                optionsBuilder.UseInMemoryStore(persist: false);
+                optionsBuilder.UseInMemoryDatabase();
             }
         }
 

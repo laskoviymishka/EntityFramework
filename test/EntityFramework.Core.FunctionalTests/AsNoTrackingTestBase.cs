@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Linq;
@@ -41,6 +41,23 @@ namespace Microsoft.Data.Entity.FunctionalTests
         }
 
         [Fact]
+        public virtual void Applied_to_multiple_body_clauses()
+        {
+            using (var context = CreateContext())
+            {
+                var customers
+                    = (from c in context.Set<Customer>().AsNoTracking()
+                       from o in context.Set<Order>().AsNoTracking()
+                       where c.CustomerID == o.CustomerID
+                       select new { c, o })
+                        .ToList();
+
+                Assert.Equal(830, customers.Count);
+                Assert.Equal(0, context.ChangeTracker.Entries().Count());
+            }
+        }
+
+        [Fact]
         public virtual void Applied_to_body_clause_with_projection()
         {
             using (var context = CreateContext())
@@ -54,7 +71,7 @@ namespace Microsoft.Data.Entity.FunctionalTests
                         .ToList();
 
                 Assert.Equal(6, customers.Count);
-                Assert.Equal(1, context.ChangeTracker.Entries().Count());
+                Assert.Equal(0, context.ChangeTracker.Entries().Count());
             }
         }
 
@@ -92,10 +109,38 @@ namespace Microsoft.Data.Entity.FunctionalTests
             }
         }
 
-        protected NorthwindContext CreateContext()
+        [Fact]
+        public virtual void Include_reference_and_collection()
         {
-            return Fixture.CreateContext();
+            using (var context = CreateContext())
+            {
+                var orders
+                    = context.Set<Order>()
+                        .Include(o => o.Customer)
+                        .Include(o => o.OrderDetails)
+                        .AsNoTracking()
+                        .ToList();
+
+                Assert.Equal(830, orders.Count);
+            }
         }
+
+        [Fact]
+        public virtual void Where_simple_shadow()
+        {
+            using (var context = CreateContext())
+            {
+                var employees
+                    = context.Set<Employee>()
+                        .Where(e => EF.Property<string>(e, "Title") == "Sales Representative")
+                        .AsNoTracking()
+                        .ToList();
+
+                Assert.Equal(6, employees.Count);
+            }
+        }
+
+        protected NorthwindContext CreateContext() => Fixture.CreateContext();
 
         protected AsNoTrackingTestBase(TFixture fixture)
         {

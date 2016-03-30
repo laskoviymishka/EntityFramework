@@ -1,7 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\..\packages\xunit.core.2.0.0-rc3-build2880\build\Xamarin.iOS\xunit.core.props" Condition="Exists('..\..\packages\xunit.core.2.0.0-rc3-build2880\build\Xamarin.iOS\xunit.core.props')" />
-  <Import Project="..\..\packages\xunit.core.2.0.0-rc3-build2880\build\portable-net45+aspnetcore50+win+wpa81+wp80+monotouch+monoandroid+Xamarin.iOS\xunit.core.props" Condition="Exists('..\..\packages\xunit.core.2.0.0-rc3-build2880\build\portable-net45+aspnetcore50+win+wpa81+wp80+monotouch+monoandroid+Xamarin.iOS\xunit.core.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Import Project="..\..\tools\EntityFramework.props" />
   <PropertyGroup>
@@ -12,9 +10,8 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>EntityFramework.Microbenchmarks.Core</RootNamespace>
     <AssemblyName>EntityFramework.Microbenchmarks.Core</AssemblyName>
-    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <NuGetPackageImportStamp>c783c500</NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -35,68 +32,105 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
-    <Reference Include="System.Diagnostics.Debug" />
-    <PackageReference Include="System.Data.Common">
-      <TargetFramework>net45</TargetFramework>
-    </PackageReference>
-    <PackageReference Include="Microsoft.Framework.ConfigurationModel">
-      <TargetFramework>net45</TargetFramework>
-    </PackageReference>
-    <PackageReference Include="Microsoft.Framework.ConfigurationModel.Interfaces">
-      <TargetFramework>net45</TargetFramework>
-    </PackageReference>
-    <PackageReference Include="Microsoft.Framework.ConfigurationModel.Json">
-      <TargetFramework>net45</TargetFramework>
-    </PackageReference>
-    <PackageReference Include="Newtonsoft.Json">
-      <TargetFramework>net45</TargetFramework>
-    </PackageReference>
-    <Reference Include="xunit.abstractions, Version=2.0.0.0, Culture=neutral, PublicKeyToken=8d05b1bb7a6fdb6c, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\xunit.abstractions.2.0.0-rc3-build2880\lib\net35\xunit.abstractions.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="xunit.assert, Version=2.0.0.2880, Culture=neutral, PublicKeyToken=8d05b1bb7a6fdb6c, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\xunit.assert.2.0.0-rc3-build2880\lib\portable-net45+aspnetcore50+win+wpa81+wp80+monotouch+monoandroid+Xamarin.iOS\xunit.assert.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="xunit.core, Version=2.0.0.2880, Culture=neutral, PublicKeyToken=8d05b1bb7a6fdb6c, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\xunit.extensibility.core.2.0.0-rc3-build2880\lib\portable-net45+aspnetcore50+win+wpa81+wp80+monotouch+monoandroid+Xamarin.iOS\xunit.core.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="xunit.execution.desktop, Version=2.0.0.2880, Culture=neutral, PublicKeyToken=8d05b1bb7a6fdb6c, processorArchitecture=MSIL">
-      <HintPath>C:\Projects\EntityFramework\packages\xunit.extensibility.execution.2.0.0-rc3-build2880\lib\net45\xunit.execution.desktop.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
+    <Reference Include="System.Data" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Extensions.cs" />
-    <Compile Include="IterationCounter.cs" />
+    <Compile Include="BenchmarkAttribute.cs" />
+    <Compile Include="BenchmarkConfig.cs" />
+    <Compile Include="BenchmarkIterationSummary.cs" />
+    <Compile Include="BenchmarkRunSummary.cs" />
+    <Compile Include="BenchmarkTestCase.cs" />
+    <Compile Include="BenchmarkTestCaseBase.cs" />
+    <Compile Include="BenchmarkTestCaseDiscoverer.cs" />
+    <Compile Include="BenchmarkTestCaseRunner.cs" />
+    <Compile Include="BenchmarkVariationAttribute.cs" />
+    <Compile Include="ColdStartSandbox.cs" />
+    <Compile Include="IMetricCollector.cs" />
+    <Compile Include="NonCollectingBenchmarkTestCase.cs" />
+    <Compile Include="NullMetricCollector.cs" />
+    <Compile Include="MetricCollector.cs" />
+    <Compile Include="Models\AdventureWorks\Address.cs" />
+    <Compile Include="Models\AdventureWorks\AddressType.cs" />
+    <Compile Include="Models\AdventureWorks\BillOfMaterials.cs" />
+    <Compile Include="Models\AdventureWorks\BusinessEntity.cs" />
+    <Compile Include="Models\AdventureWorks\BusinessEntityAddress.cs" />
+    <Compile Include="Models\AdventureWorks\BusinessEntityContact.cs" />
+    <Compile Include="Models\AdventureWorks\ContactType.cs" />
+    <Compile Include="Models\AdventureWorks\CountryRegion.cs" />
+    <Compile Include="Models\AdventureWorks\CountryRegionCurrency.cs" />
+    <Compile Include="Models\AdventureWorks\CreditCard.cs" />
+    <Compile Include="Models\AdventureWorks\Culture.cs" />
+    <Compile Include="Models\AdventureWorks\Currency.cs" />
+    <Compile Include="Models\AdventureWorks\CurrencyRate.cs" />
+    <Compile Include="Models\AdventureWorks\Customer.cs" />
+    <Compile Include="Models\AdventureWorks\Department.cs" />
+    <Compile Include="Models\AdventureWorks\EmailAddress.cs" />
+    <Compile Include="Models\AdventureWorks\Employee.cs" />
+    <Compile Include="Models\AdventureWorks\EmployeeDepartmentHistory.cs" />
+    <Compile Include="Models\AdventureWorks\EmployeePayHistory.cs" />
+    <Compile Include="Models\AdventureWorks\Illustration.cs" />
+    <Compile Include="Models\AdventureWorks\JobCandidate.cs" />
+    <Compile Include="Models\AdventureWorks\Location.cs" />
+    <Compile Include="Models\AdventureWorks\Password.cs" />
+    <Compile Include="Models\AdventureWorks\Person.cs" />
+    <Compile Include="Models\AdventureWorks\PersonCreditCard.cs" />
+    <Compile Include="Models\AdventureWorks\PersonPhone.cs" />
+    <Compile Include="Models\AdventureWorks\PhoneNumberType.cs" />
+    <Compile Include="Models\AdventureWorks\Product.cs" />
+    <Compile Include="Models\AdventureWorks\ProductCategory.cs" />
+    <Compile Include="Models\AdventureWorks\ProductCostHistory.cs" />
+    <Compile Include="Models\AdventureWorks\ProductDescription.cs" />
+    <Compile Include="Models\AdventureWorks\ProductDocument.cs" />
+    <Compile Include="Models\AdventureWorks\ProductInventory.cs" />
+    <Compile Include="Models\AdventureWorks\ProductListPriceHistory.cs" />
+    <Compile Include="Models\AdventureWorks\ProductModel.cs" />
+    <Compile Include="Models\AdventureWorks\ProductModelIllustration.cs" />
+    <Compile Include="Models\AdventureWorks\ProductModelProductDescriptionCulture.cs" />
+    <Compile Include="Models\AdventureWorks\ProductPhoto.cs" />
+    <Compile Include="Models\AdventureWorks\ProductProductPhoto.cs" />
+    <Compile Include="Models\AdventureWorks\ProductReview.cs" />
+    <Compile Include="Models\AdventureWorks\ProductSubcategory.cs" />
+    <Compile Include="Models\AdventureWorks\ProductVendor.cs" />
+    <Compile Include="Models\AdventureWorks\PurchaseOrderDetail.cs" />
+    <Compile Include="Models\AdventureWorks\PurchaseOrderHeader.cs" />
+    <Compile Include="Models\AdventureWorks\SalesOrderDetail.cs" />
+    <Compile Include="Models\AdventureWorks\SalesOrderHeader.cs" />
+    <Compile Include="Models\AdventureWorks\SalesOrderHeaderSalesReason.cs" />
+    <Compile Include="Models\AdventureWorks\SalesPerson.cs" />
+    <Compile Include="Models\AdventureWorks\SalesPersonQuotaHistory.cs" />
+    <Compile Include="Models\AdventureWorks\SalesReason.cs" />
+    <Compile Include="Models\AdventureWorks\SalesTaxRate.cs" />
+    <Compile Include="Models\AdventureWorks\SalesTerritory.cs" />
+    <Compile Include="Models\AdventureWorks\SalesTerritoryHistory.cs" />
+    <Compile Include="Models\AdventureWorks\ScrapReason.cs" />
+    <Compile Include="Models\AdventureWorks\Shift.cs" />
+    <Compile Include="Models\AdventureWorks\ShipMethod.cs" />
+    <Compile Include="Models\AdventureWorks\ShoppingCartItem.cs" />
+    <Compile Include="Models\AdventureWorks\SpecialOffer.cs" />
+    <Compile Include="Models\AdventureWorks\SpecialOfferProduct.cs" />
+    <Compile Include="Models\AdventureWorks\StateProvince.cs" />
+    <Compile Include="Models\AdventureWorks\Store.cs" />
+    <Compile Include="Models\AdventureWorks\TestHelpers\AdventureWorksDatabaseBenchmarkAttribute.cs" />
+    <Compile Include="Models\AdventureWorks\TestHelpers\AdventureWorksDatabaseTestDiscoverer.cs" />
+    <Compile Include="Models\AdventureWorks\TestHelpers\AdventureWorksFixtureBase.cs" />
+    <Compile Include="Models\AdventureWorks\TransactionHistory.cs" />
+    <Compile Include="Models\AdventureWorks\TransactionHistoryArchive.cs" />
+    <Compile Include="Models\AdventureWorks\UnitMeasure.cs" />
+    <Compile Include="Models\AdventureWorks\Vendor.cs" />
+    <Compile Include="Models\AdventureWorks\WorkOrder.cs" />
+    <Compile Include="Models\AdventureWorks\WorkOrderRouting.cs" />
     <Compile Include="Models\Orders\Customer.cs" />
     <Compile Include="Models\Orders\Order.cs" />
     <Compile Include="Models\Orders\OrderLine.cs" />
-    <Compile Include="Models\Orders\OrdersSeedDataBase.cs" />
+    <Compile Include="Models\Orders\OrdersFixtureBase.cs" />
     <Compile Include="Models\Orders\Product.cs" />
-    <Compile Include="PerformanceCaseResult.cs" />
-    <Compile Include="PerformanceMetric.cs" />
-    <Compile Include="PerfTestRunner.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RunResult.cs" />
-    <Compile Include="TestConfig.cs" />
-    <Compile Include="TestDefinition.cs" />
-    <Compile Include="TestHarness.cs" />
+    <Compile Include="SqlServerBenchmarkResultProcessor.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
     <None Include="project.json" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('..\..\packages\xunit.core.2.0.0-rc3-build2880\build\portable-net45+aspnetcore50+win+wpa81+wp80+monotouch+monoandroid+Xamarin.iOS\xunit.core.props')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\xunit.core.2.0.0-rc3-build2880\build\portable-net45+aspnetcore50+win+wpa81+wp80+monotouch+monoandroid+Xamarin.iOS\xunit.core.props'))" />
-    <Error Condition="!Exists('..\..\packages\xunit.core.2.0.0-rc3-build2880\build\Xamarin.iOS\xunit.core.props')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\xunit.core.2.0.0-rc3-build2880\build\Xamarin.iOS\xunit.core.props'))" />
-  </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

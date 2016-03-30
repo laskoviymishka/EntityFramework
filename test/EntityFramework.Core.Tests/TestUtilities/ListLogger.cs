@@ -1,10 +1,10 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Microsoft.Framework.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Data.Entity.Tests.TestUtilities
 {
@@ -39,7 +39,11 @@ namespace Microsoft.Data.Entity.Tests.TestUtilities
         }
 
         public bool IsEnabled(LogLevel logLevel) => true;
+        public IDisposable BeginScope(object state)
+        {
+            throw new NotImplementedException();
+        }
 
-        public IDisposable BeginScope(object state) => null;
+        public IDisposable BeginScopeImpl(object state) => null;
     }
 }

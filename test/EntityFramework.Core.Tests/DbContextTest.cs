@@ -1,9 +1,10 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Entity.ChangeTracking;
@@ -11,12 +12,13 @@ using Microsoft.Data.Entity.ChangeTracking.Internal;
 using Microsoft.Data.Entity.Infrastructure;
 using Microsoft.Data.Entity.Internal;
 using Microsoft.Data.Entity.Metadata;
-using Microsoft.Data.Entity.Metadata.Builders;
+using Microsoft.Data.Entity.Metadata.Conventions.Internal;
 using Microsoft.Data.Entity.Metadata.Internal;
 using Microsoft.Data.Entity.Storage;
+using Microsoft.Data.Entity.Update;
 using Microsoft.Data.Entity.ValueGeneration;
-using Microsoft.Framework.DependencyInjection;
-using Microsoft.Framework.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 
@@ -30,15 +32,15 @@ namespace Microsoft.Data.Entity.Tests
             var serviceProvider = TestHelpers.Instance.CreateServiceProvider();
 
             IServiceProvider contextServices;
-            using (var context = new DbContext(serviceProvider))
+            using (var context = new EarlyLearningCenter(serviceProvider))
             {
-                contextServices = ((IAccessor<IServiceProvider>)context).Service;
-                Assert.Same(contextServices, ((IAccessor<IServiceProvider>)context).Service);
+                contextServices = ((IInfrastructure<IServiceProvider>)context).Instance;
+                Assert.Same(contextServices, ((IInfrastructure<IServiceProvider>)context).Instance);
             }
 
-            using (var context = new DbContext(serviceProvider))
+            using (var context = new EarlyLearningCenter(serviceProvider))
             {
-                Assert.NotSame(contextServices, ((IAccessor<IServiceProvider>)context).Service);
+                Assert.NotSame(contextServices, ((IInfrastructure<IServiceProvider>)context).Instance);
             }
         }
 
@@ -48,13 +50,13 @@ namespace Microsoft.Data.Entity.Tests
             IServiceProvider contextServices;
             using (var context = new Mock<DbContext> { CallBase = true }.Object)
             {
-                contextServices = ((IAccessor<IServiceProvider>)context).Service;
-                Assert.Same(contextServices, ((IAccessor<IServiceProvider>)context).Service);
+                contextServices = ((IInfrastructure<IServiceProvider>)context).Instance;
+                Assert.Same(contextServices, ((IInfrastructure<IServiceProvider>)context).Instance);
             }
 
             using (var context = new Mock<DbContext> { CallBase = true }.Object)
             {
-                Assert.NotSame(contextServices, ((IAccessor<IServiceProvider>)context).Service);
+                Assert.NotSame(contextServices, ((IInfrastructure<IServiceProvider>)context).Instance);
             }
         }
 
@@ -68,13 +70,13 @@ namespace Microsoft.Data.Entity.Tests
             IServiceProvider contextServices;
             using (var context = new DbContext(serviceProvider, options))
             {
-                contextServices = ((IAccessor<IServiceProvider>)context).Service;
-                Assert.Same(contextServices, ((IAccessor<IServiceProvider>)context).Service);
+                contextServices = ((IInfrastructure<IServiceProvider>)context).Instance;
+                Assert.Same(contextServices, ((IInfrastructure<IServiceProvider>)context).Instance);
             }
 
             using (var context = new DbContext(serviceProvider, options))
             {
-                Assert.NotSame(contextServices, ((IAccessor<IServiceProvider>)context).Service);
+                Assert.NotSame(contextServices, ((IInfrastructure<IServiceProvider>)context).Instance);
             }
         }
 
@@ -86,13 +88,13 @@ namespace Microsoft.Data.Entity.Tests
             IServiceProvider contextServices;
             using (var context = new DbContext(options))
             {
-                contextServices = ((IAccessor<IServiceProvider>)context).Service;
-                Assert.Same(contextServices, ((IAccessor<IServiceProvider>)context).Service);
+                contextServices = ((IInfrastructure<IServiceProvider>)context).Instance;
+                Assert.Same(contextServices, ((IInfrastructure<IServiceProvider>)context).Instance);
             }
 
             using (var context = new DbContext(options))
             {
-                Assert.NotSame(contextServices, ((IAccessor<IServiceProvider>)context).Service);
+                Assert.NotSame(contextServices, ((IInfrastructure<IServiceProvider>)context).Instance);
             }
         }
 
@@ -107,7 +109,7 @@ namespace Microsoft.Data.Entity.Tests
 
             using (var context = new DbContext(serviceProvider, new DbContextOptionsBuilder().Options))
             {
-                var changeDetector = (FakeChangeDetector)((IAccessor<IServiceProvider>)context).Service.GetRequiredService<IChangeDetector>();
+                var changeDetector = (FakeChangeDetector)context.GetService<IChangeDetector>();
 
                 Assert.False(changeDetector.DetectChangesCalled);
 
@@ -128,9 +130,9 @@ namespace Microsoft.Data.Entity.Tests
 
             using (var context = new DbContext(serviceProvider, new DbContextOptionsBuilder().Options))
             {
-                var stateManager = (FakeStateManager)((IAccessor<IServiceProvider>)context).Service.GetRequiredService<IStateManager>();
+                var stateManager = (FakeStateManager)context.GetService<IStateManager>();
 
-                var entryMock = new Mock<InternalEntityEntry>();
+                var entryMock = CreateInternalEntryMock();
                 entryMock.Setup(m => m.EntityState).Returns(EntityState.Modified);
                 stateManager.InternalEntries = new[] { entryMock.Object };
 
@@ -155,9 +157,9 @@ namespace Microsoft.Data.Entity.Tests
             {
                 context.ChangeTracker.AutoDetectChangesEnabled = false;
 
-                var stateManager = (FakeStateManager)((IAccessor<IServiceProvider>)context).Service.GetRequiredService<IStateManager>();
+                var stateManager = (FakeStateManager)context.GetService<IStateManager>();
 
-                var entryMock = new Mock<InternalEntityEntry>();
+                var entryMock = CreateInternalEntryMock();
                 entryMock.Setup(m => m.EntityState).Returns(EntityState.Modified);
                 stateManager.InternalEntries = new[] { entryMock.Object };
 
@@ -177,7 +179,7 @@ namespace Microsoft.Data.Entity.Tests
 
             var serviceProvider = TestHelpers.Instance.CreateServiceProvider(services);
 
-            using (var context = new DbContext(serviceProvider))
+            using (var context = new EarlyLearningCenter(serviceProvider))
             {
                 Assert.Equal(
                     "entity",
@@ -195,7 +197,7 @@ namespace Microsoft.Data.Entity.Tests
         {
             var entity = new Random();
             var stateManagerMock = new Mock<IStateManager>();
-            var entry = new Mock<InternalEntityEntry>().Object;
+            var entry = CreateInternalEntryMock().Object;
             stateManagerMock.Setup(m => m.GetOrCreateEntry(entity)).Returns(entry);
 
             var services = new ServiceCollection()
@@ -203,10 +205,10 @@ namespace Microsoft.Data.Entity.Tests
 
             var serviceProvider = TestHelpers.Instance.CreateServiceProvider(services);
 
-            using (var context = new DbContext(serviceProvider))
+            using (var context = new EarlyLearningCenter(serviceProvider))
             {
-                Assert.Same(entry, ((IAccessor<InternalEntityEntry>)context.Entry(entity)).Service);
-                Assert.Same(entry, ((IAccessor<InternalEntityEntry>)context.Entry((object)entity)).Service);
+                Assert.Same(entry, context.Entry(entity).GetInfrastructure());
+                Assert.Same(entry, context.Entry((object)entity).GetInfrastructure());
             }
         }
 
@@ -216,21 +218,36 @@ namespace Microsoft.Data.Entity.Tests
             public bool SaveChangesCalled { get; set; }
             public bool SaveChangesAsyncCalled { get; set; }
 
+            public void UpdateIdentityMap(InternalEntityEntry entry, IKeyValue oldKeyValue, IKey principalKey)
+            {
+                throw new NotImplementedException();
+            }
+
+            public void UpdateDependentMap(InternalEntityEntry entry, IKeyValue oldKeyValue, IForeignKey foreignKey)
+            {
+                throw new NotImplementedException();
+            }
+
             public IEnumerable<InternalEntityEntry> GetDependents(InternalEntityEntry principalEntry, IForeignKey foreignKey)
             {
                 throw new NotImplementedException();
             }
 
-            public int SaveChanges()
+            public int SaveChanges(bool acceptAllChangesOnSuccess)
             {
                 SaveChangesCalled = true;
                 return 1;
             }
 
-            public Task<int> SaveChangesAsync(CancellationToken cancellationToken = new CancellationToken())
+            public Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = new CancellationToken())
             {
                 SaveChangesAsyncCalled = true;
                 return Task.FromResult(1);
+            }
+
+            public virtual void AcceptAllChanges()
+            {
+                throw new NotImplementedException();
             }
 
             public InternalEntityEntry CreateNewEntry(IEntityType entityType)
@@ -243,12 +260,12 @@ namespace Microsoft.Data.Entity.Tests
                 throw new NotImplementedException();
             }
 
-            public InternalEntityEntry StartTracking(IEntityType entityType, object entity, IValueReader valueReader)
+            public InternalEntityEntry StartTracking(IEntityType entityType, IKeyValue keyValue, object entity, ValueBuffer valueBuffer)
             {
                 throw new NotImplementedException();
             }
 
-            public InternalEntityEntry TryGetEntry(EntityKey keyValue)
+            public InternalEntityEntry TryGetEntry(IKeyValue keyValueValue)
             {
                 throw new NotImplementedException();
             }
@@ -285,9 +302,9 @@ namespace Microsoft.Data.Entity.Tests
                 throw new NotImplementedException();
             }
 
-            public void UpdateIdentityMap(InternalEntityEntry entry, EntityKey oldKey)
+            public DbContext Context
             {
-                throw new NotImplementedException();
+                get { throw new NotImplementedException(); }
             }
         }
 
@@ -316,25 +333,43 @@ namespace Microsoft.Data.Entity.Tests
         [Fact]
         public void Can_add_new_entities_to_context()
         {
-            TrackEntitiesTest((c, e) => c.Add(e), (c, e) => c.Add(e), EntityState.Added);
+            TrackEntitiesTest((c, e) => c.Add(e, behavior: GraphBehavior.SingleObject), (c, e) => c.Add(e, behavior: GraphBehavior.SingleObject), EntityState.Added);
         }
 
         [Fact]
         public void Can_add_existing_entities_to_context_to_be_attached()
         {
-            TrackEntitiesTest((c, e) => c.Attach(e), (c, e) => c.Attach(e), EntityState.Unchanged);
+            TrackEntitiesTest((c, e) => c.Attach(e, behavior: GraphBehavior.SingleObject), (c, e) => c.Attach(e, behavior: GraphBehavior.SingleObject), EntityState.Unchanged);
         }
 
         [Fact]
         public void Can_add_existing_entities_to_context_to_be_updated()
         {
-            TrackEntitiesTest((c, e) => c.Update(e), (c, e) => c.Update(e), EntityState.Modified);
+            TrackEntitiesTest((c, e) => c.Update(e, behavior: GraphBehavior.SingleObject), (c, e) => c.Update(e, behavior: GraphBehavior.SingleObject), EntityState.Modified);
         }
 
         [Fact]
         public void Can_add_existing_entities_to_context_to_be_deleted()
         {
             TrackEntitiesTest((c, e) => c.Remove(e), (c, e) => c.Remove(e), EntityState.Deleted);
+        }
+
+        [Fact]
+        public void Can_add_new_entities_to_context_with_graph_method()
+        {
+            TrackEntitiesTest((c, e) => c.Add(e, behavior: GraphBehavior.SingleObject), (c, e) => c.Add(e), EntityState.Added);
+        }
+
+        [Fact]
+        public void Can_add_existing_entities_to_context_to_be_attached_with_graph_method()
+        {
+            TrackEntitiesTest((c, e) => c.Attach(e, behavior: GraphBehavior.SingleObject), (c, e) => c.Attach(e), EntityState.Unchanged);
+        }
+
+        [Fact]
+        public void Can_add_existing_entities_to_context_to_be_updated_with_graph_method()
+        {
+            TrackEntitiesTest((c, e) => c.Update(e, behavior: GraphBehavior.SingleObject), (c, e) => c.Update(e), EntityState.Modified);
         }
 
         private static void TrackEntitiesTest(
@@ -368,10 +403,10 @@ namespace Microsoft.Data.Entity.Tests
                 Assert.Same(product2, productEntry2.Entity);
                 Assert.Equal(expectedState, productEntry2.State);
 
-                Assert.Same(((IAccessor<InternalEntityEntry>)categoryEntry1).Service, ((IAccessor<InternalEntityEntry>)context.Entry(category1)).Service);
-                Assert.Same(((IAccessor<InternalEntityEntry>)categoryEntry2).Service, ((IAccessor<InternalEntityEntry>)context.Entry(category2)).Service);
-                Assert.Same(((IAccessor<InternalEntityEntry>)productEntry1).Service, ((IAccessor<InternalEntityEntry>)context.Entry(product1)).Service);
-                Assert.Same(((IAccessor<InternalEntityEntry>)productEntry2).Service, ((IAccessor<InternalEntityEntry>)context.Entry(product2)).Service);
+                Assert.Same(categoryEntry1.GetInfrastructure(), context.Entry(category1).GetInfrastructure());
+                Assert.Same(categoryEntry2.GetInfrastructure(), context.Entry(category2).GetInfrastructure());
+                Assert.Same(productEntry1.GetInfrastructure(), context.Entry(product1).GetInfrastructure());
+                Assert.Same(productEntry2.GetInfrastructure(), context.Entry(product2).GetInfrastructure());
             }
         }
 
@@ -467,25 +502,43 @@ namespace Microsoft.Data.Entity.Tests
         [Fact]
         public void Can_add_new_entities_to_context_non_generic()
         {
-            TrackEntitiesTestNonGeneric((c, e) => c.Add(e), (c, e) => c.Add(e), EntityState.Added);
+            TrackEntitiesTestNonGeneric((c, e) => c.Add(e, behavior: GraphBehavior.SingleObject), (c, e) => c.Add(e, behavior: GraphBehavior.SingleObject), EntityState.Added);
         }
 
         [Fact]
         public void Can_add_existing_entities_to_context_to_be_attached_non_generic()
         {
-            TrackEntitiesTestNonGeneric((c, e) => c.Attach(e), (c, e) => c.Attach(e), EntityState.Unchanged);
+            TrackEntitiesTestNonGeneric((c, e) => c.Attach(e, behavior: GraphBehavior.SingleObject), (c, e) => c.Attach(e, behavior: GraphBehavior.SingleObject), EntityState.Unchanged);
         }
 
         [Fact]
         public void Can_add_existing_entities_to_context_to_be_updated_non_generic()
         {
-            TrackEntitiesTestNonGeneric((c, e) => c.Update(e), (c, e) => c.Update(e), EntityState.Modified);
+            TrackEntitiesTestNonGeneric((c, e) => c.Update(e, behavior: GraphBehavior.SingleObject), (c, e) => c.Update(e, behavior: GraphBehavior.SingleObject), EntityState.Modified);
         }
 
         [Fact]
         public void Can_add_existing_entities_to_context_to_be_deleted_non_generic()
         {
             TrackEntitiesTestNonGeneric((c, e) => c.Remove(e), (c, e) => c.Remove(e), EntityState.Deleted);
+        }
+
+        [Fact]
+        public void Can_add_new_entities_to_context_non_generic_graph()
+        {
+            TrackEntitiesTestNonGeneric((c, e) => c.Add(e, behavior: GraphBehavior.SingleObject), (c, e) => c.Add(e), EntityState.Added);
+        }
+
+        [Fact]
+        public void Can_add_existing_entities_to_context_to_be_attached_non_generic_graph()
+        {
+            TrackEntitiesTestNonGeneric((c, e) => c.Attach(e, behavior: GraphBehavior.SingleObject), (c, e) => c.Attach(e), EntityState.Unchanged);
+        }
+
+        [Fact]
+        public void Can_add_existing_entities_to_context_to_be_updated_non_generic_graph()
+        {
+            TrackEntitiesTestNonGeneric((c, e) => c.Update(e, behavior: GraphBehavior.SingleObject), (c, e) => c.Update(e), EntityState.Modified);
         }
 
         private static void TrackEntitiesTestNonGeneric(
@@ -519,35 +572,53 @@ namespace Microsoft.Data.Entity.Tests
                 Assert.Same(product2, productEntry2.Entity);
                 Assert.Equal(expectedState, productEntry2.State);
 
-                Assert.Same(((IAccessor<InternalEntityEntry>)categoryEntry1).Service, ((IAccessor<InternalEntityEntry>)context.Entry(category1)).Service);
-                Assert.Same(((IAccessor<InternalEntityEntry>)categoryEntry2).Service, ((IAccessor<InternalEntityEntry>)context.Entry(category2)).Service);
-                Assert.Same(((IAccessor<InternalEntityEntry>)productEntry1).Service, ((IAccessor<InternalEntityEntry>)context.Entry(product1)).Service);
-                Assert.Same(((IAccessor<InternalEntityEntry>)productEntry2).Service, ((IAccessor<InternalEntityEntry>)context.Entry(product2)).Service);
+                Assert.Same(categoryEntry1.GetInfrastructure(), context.Entry(category1).GetInfrastructure());
+                Assert.Same(categoryEntry2.GetInfrastructure(), context.Entry(category2).GetInfrastructure());
+                Assert.Same(productEntry1.GetInfrastructure(), context.Entry(product1).GetInfrastructure());
+                Assert.Same(productEntry2.GetInfrastructure(), context.Entry(product2).GetInfrastructure());
             }
         }
 
         [Fact]
         public void Can_add_multiple_new_entities_to_context_Enumerable()
         {
-            TrackMultipleEntitiesTestEnumerable((c, e) => c.AddRange(e), (c, e) => c.AddRange(e), EntityState.Added);
+            TrackMultipleEntitiesTestEnumerable((c, e) => c.AddRange(e, behavior: GraphBehavior.SingleObject), (c, e) => c.AddRange(e, behavior: GraphBehavior.SingleObject), EntityState.Added);
         }
 
         [Fact]
         public void Can_add_multiple_existing_entities_to_context_to_be_attached_Enumerable()
         {
-            TrackMultipleEntitiesTestEnumerable((c, e) => c.AttachRange(e), (c, e) => c.AttachRange(e), EntityState.Unchanged);
+            TrackMultipleEntitiesTestEnumerable((c, e) => c.AttachRange(e, behavior: GraphBehavior.SingleObject), (c, e) => c.AttachRange(e, behavior: GraphBehavior.SingleObject), EntityState.Unchanged);
         }
 
         [Fact]
         public void Can_add_multiple_existing_entities_to_context_to_be_updated_Enumerable()
         {
-            TrackMultipleEntitiesTestEnumerable((c, e) => c.UpdateRange(e), (c, e) => c.UpdateRange(e), EntityState.Modified);
+            TrackMultipleEntitiesTestEnumerable((c, e) => c.UpdateRange(e, behavior: GraphBehavior.SingleObject), (c, e) => c.UpdateRange(e, behavior: GraphBehavior.SingleObject), EntityState.Modified);
         }
 
         [Fact]
         public void Can_add_multiple_existing_entities_to_context_to_be_deleted_Enumerable()
         {
             TrackMultipleEntitiesTestEnumerable((c, e) => c.RemoveRange(e), (c, e) => c.RemoveRange(e), EntityState.Deleted);
+        }
+
+        [Fact]
+        public void Can_add_multiple_new_entities_to_context_Enumerable_graph()
+        {
+            TrackMultipleEntitiesTestEnumerable((c, e) => c.AddRange(e, behavior: GraphBehavior.SingleObject), (c, e) => c.AddRange(e), EntityState.Added);
+        }
+
+        [Fact]
+        public void Can_add_multiple_existing_entities_to_context_to_be_attached_Enumerable_graph()
+        {
+            TrackMultipleEntitiesTestEnumerable((c, e) => c.AttachRange(e, behavior: GraphBehavior.SingleObject), (c, e) => c.AttachRange(e), EntityState.Unchanged);
+        }
+
+        [Fact]
+        public void Can_add_multiple_existing_entities_to_context_to_be_updated_Enumerable_graph()
+        {
+            TrackMultipleEntitiesTestEnumerable((c, e) => c.UpdateRange(e, behavior: GraphBehavior.SingleObject), (c, e) => c.UpdateRange(e), EntityState.Modified);
         }
 
         private static void TrackMultipleEntitiesTestEnumerable(
@@ -584,25 +655,43 @@ namespace Microsoft.Data.Entity.Tests
         [Fact]
         public void Can_add_no_new_entities_to_context_Enumerable()
         {
-            TrackNoEntitiesTestEnumerable((c, e) => c.AddRange(e), (c, e) => c.AddRange(e));
+            TrackNoEntitiesTestEnumerable((c, e) => c.AddRange(e, behavior: GraphBehavior.SingleObject), (c, e) => c.AddRange(e, behavior: GraphBehavior.SingleObject));
         }
 
         [Fact]
         public void Can_add_no_existing_entities_to_context_to_be_attached_Enumerable()
         {
-            TrackNoEntitiesTestEnumerable((c, e) => c.AttachRange(e), (c, e) => c.AttachRange(e));
+            TrackNoEntitiesTestEnumerable((c, e) => c.AttachRange(e, behavior: GraphBehavior.SingleObject), (c, e) => c.AttachRange(e, behavior: GraphBehavior.SingleObject));
         }
 
         [Fact]
         public void Can_add_no_existing_entities_to_context_to_be_updated_Enumerable()
         {
-            TrackNoEntitiesTestEnumerable((c, e) => c.UpdateRange(e), (c, e) => c.UpdateRange(e));
+            TrackNoEntitiesTestEnumerable((c, e) => c.UpdateRange(e, behavior: GraphBehavior.SingleObject), (c, e) => c.UpdateRange(e, behavior: GraphBehavior.SingleObject));
         }
 
         [Fact]
         public void Can_add_no_existing_entities_to_context_to_be_deleted_Enumerable()
         {
             TrackNoEntitiesTestEnumerable((c, e) => c.RemoveRange(e), (c, e) => c.RemoveRange(e));
+        }
+
+        [Fact]
+        public void Can_add_no_new_entities_to_context_Enumerable_graph()
+        {
+            TrackNoEntitiesTestEnumerable((c, e) => c.AddRange(e, behavior: GraphBehavior.SingleObject), (c, e) => c.AddRange(e));
+        }
+
+        [Fact]
+        public void Can_add_no_existing_entities_to_context_to_be_attached_Enumerable_graph()
+        {
+            TrackNoEntitiesTestEnumerable((c, e) => c.AttachRange(e, behavior: GraphBehavior.SingleObject), (c, e) => c.AttachRange(e));
+        }
+
+        [Fact]
+        public void Can_add_no_existing_entities_to_context_to_be_updated_Enumerable_graph()
+        {
+            TrackNoEntitiesTestEnumerable((c, e) => c.UpdateRange(e, behavior: GraphBehavior.SingleObject), (c, e) => c.UpdateRange(e));
         }
 
         private static void TrackNoEntitiesTestEnumerable(
@@ -619,6 +708,12 @@ namespace Microsoft.Data.Entity.Tests
 
         [Fact]
         public void Can_add_new_entities_to_context_with_key_generation()
+        {
+            TrackEntitiesWithKeyGenerationTest((c, e) => c.Add(e, behavior: GraphBehavior.SingleObject).Entity);
+        }
+
+        [Fact]
+        public void Can_add_new_entities_to_context_with_key_generation_graph()
         {
             TrackEntitiesWithKeyGenerationTest((c, e) => c.Add(e).Entity);
         }
@@ -649,31 +744,31 @@ namespace Microsoft.Data.Entity.Tests
         [Fact]
         public void Can_use_Add_to_change_entity_state()
         {
-            ChangeStateWithMethod((c, e) => c.Add(e), EntityState.Detached, EntityState.Added);
-            ChangeStateWithMethod((c, e) => c.Add(e), EntityState.Unchanged, EntityState.Added);
-            ChangeStateWithMethod((c, e) => c.Add(e), EntityState.Deleted, EntityState.Added);
-            ChangeStateWithMethod((c, e) => c.Add(e), EntityState.Modified, EntityState.Added);
-            ChangeStateWithMethod((c, e) => c.Add(e), EntityState.Added, EntityState.Added);
+            ChangeStateWithMethod((c, e) => c.Add(e, behavior: GraphBehavior.SingleObject), EntityState.Detached, EntityState.Added);
+            ChangeStateWithMethod((c, e) => c.Add(e, behavior: GraphBehavior.SingleObject), EntityState.Unchanged, EntityState.Added);
+            ChangeStateWithMethod((c, e) => c.Add(e, behavior: GraphBehavior.SingleObject), EntityState.Deleted, EntityState.Added);
+            ChangeStateWithMethod((c, e) => c.Add(e, behavior: GraphBehavior.SingleObject), EntityState.Modified, EntityState.Added);
+            ChangeStateWithMethod((c, e) => c.Add(e, behavior: GraphBehavior.SingleObject), EntityState.Added, EntityState.Added);
         }
 
         [Fact]
         public void Can_use_Attach_to_change_entity_state()
         {
-            ChangeStateWithMethod((c, e) => c.Attach(e), EntityState.Detached, EntityState.Unchanged);
-            ChangeStateWithMethod((c, e) => c.Attach(e), EntityState.Unchanged, EntityState.Unchanged);
-            ChangeStateWithMethod((c, e) => c.Attach(e), EntityState.Deleted, EntityState.Unchanged);
-            ChangeStateWithMethod((c, e) => c.Attach(e), EntityState.Modified, EntityState.Unchanged);
-            ChangeStateWithMethod((c, e) => c.Attach(e), EntityState.Added, EntityState.Unchanged);
+            ChangeStateWithMethod((c, e) => c.Attach(e, behavior: GraphBehavior.SingleObject), EntityState.Detached, EntityState.Unchanged);
+            ChangeStateWithMethod((c, e) => c.Attach(e, behavior: GraphBehavior.SingleObject), EntityState.Unchanged, EntityState.Unchanged);
+            ChangeStateWithMethod((c, e) => c.Attach(e, behavior: GraphBehavior.SingleObject), EntityState.Deleted, EntityState.Unchanged);
+            ChangeStateWithMethod((c, e) => c.Attach(e, behavior: GraphBehavior.SingleObject), EntityState.Modified, EntityState.Unchanged);
+            ChangeStateWithMethod((c, e) => c.Attach(e, behavior: GraphBehavior.SingleObject), EntityState.Added, EntityState.Unchanged);
         }
 
         [Fact]
         public void Can_use_Update_to_change_entity_state()
         {
-            ChangeStateWithMethod((c, e) => c.Update(e), EntityState.Detached, EntityState.Modified);
-            ChangeStateWithMethod((c, e) => c.Update(e), EntityState.Unchanged, EntityState.Modified);
-            ChangeStateWithMethod((c, e) => c.Update(e), EntityState.Deleted, EntityState.Modified);
-            ChangeStateWithMethod((c, e) => c.Update(e), EntityState.Modified, EntityState.Modified);
-            ChangeStateWithMethod((c, e) => c.Update(e), EntityState.Added, EntityState.Modified);
+            ChangeStateWithMethod((c, e) => c.Update(e, behavior: GraphBehavior.SingleObject), EntityState.Detached, EntityState.Modified);
+            ChangeStateWithMethod((c, e) => c.Update(e, behavior: GraphBehavior.SingleObject), EntityState.Unchanged, EntityState.Modified);
+            ChangeStateWithMethod((c, e) => c.Update(e, behavior: GraphBehavior.SingleObject), EntityState.Deleted, EntityState.Modified);
+            ChangeStateWithMethod((c, e) => c.Update(e, behavior: GraphBehavior.SingleObject), EntityState.Modified, EntityState.Modified);
+            ChangeStateWithMethod((c, e) => c.Update(e, behavior: GraphBehavior.SingleObject), EntityState.Added, EntityState.Modified);
         }
 
         [Fact]
@@ -684,6 +779,36 @@ namespace Microsoft.Data.Entity.Tests
             ChangeStateWithMethod((c, e) => c.Remove(e), EntityState.Deleted, EntityState.Deleted);
             ChangeStateWithMethod((c, e) => c.Remove(e), EntityState.Modified, EntityState.Deleted);
             ChangeStateWithMethod((c, e) => c.Remove(e), EntityState.Added, EntityState.Detached);
+        }
+
+        [Fact]
+        public void Can_use_graph_Add_to_change_entity_state()
+        {
+            ChangeStateWithMethod((c, e) => c.Add(e), EntityState.Detached, EntityState.Added);
+            ChangeStateWithMethod((c, e) => c.Add(e), EntityState.Unchanged, EntityState.Added);
+            ChangeStateWithMethod((c, e) => c.Add(e), EntityState.Deleted, EntityState.Added);
+            ChangeStateWithMethod((c, e) => c.Add(e), EntityState.Modified, EntityState.Added);
+            ChangeStateWithMethod((c, e) => c.Add(e), EntityState.Added, EntityState.Added);
+        }
+
+        [Fact]
+        public void Can_use_graph_Attach_to_change_entity_state()
+        {
+            ChangeStateWithMethod((c, e) => c.Attach(e), EntityState.Detached, EntityState.Unchanged);
+            ChangeStateWithMethod((c, e) => c.Attach(e), EntityState.Unchanged, EntityState.Unchanged);
+            ChangeStateWithMethod((c, e) => c.Attach(e), EntityState.Deleted, EntityState.Unchanged);
+            ChangeStateWithMethod((c, e) => c.Attach(e), EntityState.Modified, EntityState.Unchanged);
+            ChangeStateWithMethod((c, e) => c.Attach(e), EntityState.Added, EntityState.Unchanged);
+        }
+
+        [Fact]
+        public void Can_use_graph_Update_to_change_entity_state()
+        {
+            ChangeStateWithMethod((c, e) => c.Update(e), EntityState.Detached, EntityState.Modified);
+            ChangeStateWithMethod((c, e) => c.Update(e), EntityState.Unchanged, EntityState.Modified);
+            ChangeStateWithMethod((c, e) => c.Update(e), EntityState.Deleted, EntityState.Modified);
+            ChangeStateWithMethod((c, e) => c.Update(e), EntityState.Modified, EntityState.Modified);
+            ChangeStateWithMethod((c, e) => c.Update(e), EntityState.Added, EntityState.Modified);
         }
 
         private void ChangeStateWithMethod(Action<DbContext, object> action, EntityState initialState, EntityState expectedState)
@@ -710,17 +835,17 @@ namespace Microsoft.Data.Entity.Tests
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite", Category = category };
                 category.Products = new List<Product> { product };
 
-                context.Attach(category);
+                context.Attach(category, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
                 Assert.Equal(EntityState.Detached, context.Entry(product).State);
 
-                context.Attach(product);
+                context.Attach(product, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
@@ -739,21 +864,21 @@ namespace Microsoft.Data.Entity.Tests
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite", Category = category };
                 category.Products = new List<Product> { product };
 
-                context.Attach(product);
+                context.Attach(product, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Detached, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
 
-                context.Attach(category);
+                context.Attach(category, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -766,7 +891,7 @@ namespace Microsoft.Data.Entity.Tests
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite", Category = category };
                 category.Products = new List<Product>();
 
-                context.Attach(category);
+                context.Attach(category, behavior: GraphBehavior.SingleObject);
 
                 Assert.Equal(7, product.CategoryId);
                 Assert.Empty(category.Products);
@@ -774,13 +899,13 @@ namespace Microsoft.Data.Entity.Tests
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
                 Assert.Equal(EntityState.Detached, context.Entry(product).State);
 
-                context.Attach(product);
+                context.Attach(product, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
-                Assert.Same(product, category.Products.Single());
+                Assert.Equal(7, product.CategoryId);
+                Assert.Empty(category.Products);
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -793,21 +918,21 @@ namespace Microsoft.Data.Entity.Tests
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite", Category = category };
                 category.Products = new List<Product>();
 
-                context.Attach(product);
+                context.Attach(product, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
-                Assert.Same(product, category.Products.Single());
+                Assert.Equal(7, product.CategoryId);
+                Assert.Empty(category.Products);
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Detached, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
 
-                context.Attach(category);
+                context.Attach(category, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
-                Assert.Same(product, category.Products.Single());
+                Assert.Equal(7, product.CategoryId);
+                Assert.Empty(category.Products);
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -820,22 +945,20 @@ namespace Microsoft.Data.Entity.Tests
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite" };
                 category.Products = new List<Product> { product };
 
-                context.Attach(category);
+                context.Attach(category, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
+                Assert.Null(product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
                 Assert.Equal(EntityState.Detached, context.Entry(product).State);
 
-                context.Attach(product);
+                context.Attach(product, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
+                Assert.Null(product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-
-                // Dependent is Unchanged here because the FK change happened before it was attached
                 Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
@@ -849,7 +972,7 @@ namespace Microsoft.Data.Entity.Tests
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite" };
                 category.Products = new List<Product> { product };
 
-                context.Attach(product);
+                context.Attach(product, behavior: GraphBehavior.SingleObject);
 
                 Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
@@ -857,13 +980,13 @@ namespace Microsoft.Data.Entity.Tests
                 Assert.Equal(EntityState.Detached, context.Entry(category).State);
                 Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
 
-                context.Attach(category);
+                context.Attach(category, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
+                Assert.Null(product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -878,7 +1001,7 @@ namespace Microsoft.Data.Entity.Tests
 
                 context.Entry(category).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
@@ -886,7 +1009,7 @@ namespace Microsoft.Data.Entity.Tests
 
                 context.Entry(product).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
@@ -907,19 +1030,19 @@ namespace Microsoft.Data.Entity.Tests
 
                 context.Entry(product).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Detached, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
 
                 context.Entry(category).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -942,11 +1065,11 @@ namespace Microsoft.Data.Entity.Tests
 
                 context.Entry(product).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
-                Assert.Same(product, category.Products.Single());
+                Assert.Equal(7, product.CategoryId);
+                Assert.Empty(category.Products);
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -961,19 +1084,19 @@ namespace Microsoft.Data.Entity.Tests
 
                 context.Entry(product).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
-                Assert.Same(product, category.Products.Single());
+                Assert.Equal(7, product.CategoryId);
+                Assert.Empty(category.Products);
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Detached, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
 
                 context.Entry(category).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
-                Assert.Same(product, category.Products.Single());
+                Assert.Equal(7, product.CategoryId);
+                Assert.Empty(category.Products);
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -988,20 +1111,18 @@ namespace Microsoft.Data.Entity.Tests
 
                 context.Entry(category).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
+                Assert.Null(product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
                 Assert.Equal(EntityState.Detached, context.Entry(product).State);
 
                 context.Entry(product).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
+                Assert.Null(product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-
-                // Dependent is Unchanged here because the FK change happened before it was attached
                 Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
@@ -1025,11 +1146,11 @@ namespace Microsoft.Data.Entity.Tests
 
                 context.Entry(category).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
+                Assert.Null(product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1038,30 +1159,29 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter(TestHelpers.Instance.CreateServiceProvider()))
             {
-                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }).Entity;
+                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }, behavior: GraphBehavior.SingleObject).Entity;
 
                 var category = new Category { Id = 1, Name = "Beverages" };
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite", Category = category };
                 category.Products = new List<Product> { product };
 
-                context.Attach(category);
+                context.Attach(category, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Empty(category7.Products);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
                 Assert.Equal(EntityState.Detached, context.Entry(product).State);
 
-                context.Attach(product);
+                context.Attach(product, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
 
-                // Dependent is Unchanged here because the FK change happened before it was attached
                 Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
@@ -1071,29 +1191,29 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter(TestHelpers.Instance.CreateServiceProvider()))
             {
-                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }).Entity;
+                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }, behavior: GraphBehavior.SingleObject).Entity;
 
                 var category = new Category { Id = 1, Name = "Beverages" };
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite", Category = category };
                 category.Products = new List<Product> { product };
 
-                context.Attach(product);
+                context.Attach(product, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Detached, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
 
-                context.Attach(category);
+                context.Attach(category, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1102,13 +1222,13 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter(TestHelpers.Instance.CreateServiceProvider()))
             {
-                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }).Entity;
+                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }, behavior: GraphBehavior.SingleObject).Entity;
 
                 var category = new Category { Id = 1, Name = "Beverages" };
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite", Category = category };
                 category.Products = new List<Product>();
 
-                context.Attach(category);
+                context.Attach(category, behavior: GraphBehavior.SingleObject);
 
                 Assert.Equal(7, product.CategoryId);
                 Assert.Empty(category.Products);
@@ -1117,14 +1237,14 @@ namespace Microsoft.Data.Entity.Tests
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
                 Assert.Equal(EntityState.Detached, context.Entry(product).State);
 
-                context.Attach(product);
+                context.Attach(product, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
-                Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Equal(7, product.CategoryId);
+                Assert.Empty(category.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1133,29 +1253,29 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter(TestHelpers.Instance.CreateServiceProvider()))
             {
-                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }).Entity;
+                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }, behavior: GraphBehavior.SingleObject).Entity;
 
                 var category = new Category { Id = 1, Name = "Beverages" };
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite", Category = category };
                 category.Products = new List<Product>();
 
-                context.Attach(product);
+                context.Attach(product, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
-                Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Equal(7, product.CategoryId);
+                Assert.Empty(category.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Detached, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
 
-                context.Attach(category);
+                context.Attach(category, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
-                Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Equal(7, product.CategoryId);
+                Assert.Empty(category.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1164,30 +1284,28 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter(TestHelpers.Instance.CreateServiceProvider()))
             {
-                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }).Entity;
+                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }, behavior: GraphBehavior.SingleObject).Entity;
 
                 var category = new Category { Id = 1, Name = "Beverages" };
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite" };
                 category.Products = new List<Product> { product };
 
-                context.Attach(category);
+                context.Attach(category, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
+                Assert.Null(product.Category);
                 Assert.Empty(category7.Products);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
                 Assert.Equal(EntityState.Detached, context.Entry(product).State);
 
-                context.Attach(product);
+                context.Attach(product, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-
-                // Dependent is Unchanged here because the FK change happened before it was attached
                 Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
@@ -1197,13 +1315,13 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter(TestHelpers.Instance.CreateServiceProvider()))
             {
-                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }).Entity;
+                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }, behavior: GraphBehavior.SingleObject).Entity;
 
                 var category = new Category { Id = 1, Name = "Beverages" };
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite" };
                 category.Products = new List<Product> { product };
 
-                context.Attach(product);
+                context.Attach(product, behavior: GraphBehavior.SingleObject);
 
                 Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
@@ -1212,14 +1330,14 @@ namespace Microsoft.Data.Entity.Tests
                 Assert.Equal(EntityState.Detached, context.Entry(category).State);
                 Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
 
-                context.Attach(category);
+                context.Attach(category, behavior: GraphBehavior.SingleObject);
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1228,7 +1346,7 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter(TestHelpers.Instance.CreateServiceProvider()))
             {
-                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }).Entity;
+                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }, behavior: GraphBehavior.SingleObject).Entity;
 
                 var category = new Category { Id = 1, Name = "Beverages" };
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite", Category = category };
@@ -1236,7 +1354,7 @@ namespace Microsoft.Data.Entity.Tests
 
                 context.Entry(category).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Empty(category7.Products);
@@ -1245,13 +1363,11 @@ namespace Microsoft.Data.Entity.Tests
 
                 context.Entry(product).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-
-                // Dependent is Unchanged here because the FK change happened before it was attached
                 Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
@@ -1261,7 +1377,7 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter(TestHelpers.Instance.CreateServiceProvider()))
             {
-                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }).Entity;
+                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }, behavior: GraphBehavior.SingleObject).Entity;
 
                 var category = new Category { Id = 1, Name = "Beverages" };
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite", Category = category };
@@ -1269,21 +1385,21 @@ namespace Microsoft.Data.Entity.Tests
 
                 context.Entry(product).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Detached, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
 
                 context.Entry(category).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1292,7 +1408,7 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter(TestHelpers.Instance.CreateServiceProvider()))
             {
-                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }).Entity;
+                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }, behavior: GraphBehavior.SingleObject).Entity;
 
                 var category = new Category { Id = 1, Name = "Beverages" };
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite", Category = category };
@@ -1309,12 +1425,12 @@ namespace Microsoft.Data.Entity.Tests
 
                 context.Entry(product).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
-                Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Equal(7, product.CategoryId);
+                Assert.Empty(category.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1323,7 +1439,7 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter(TestHelpers.Instance.CreateServiceProvider()))
             {
-                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }).Entity;
+                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }, behavior: GraphBehavior.SingleObject).Entity;
 
                 var category = new Category { Id = 1, Name = "Beverages" };
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite", Category = category };
@@ -1331,21 +1447,21 @@ namespace Microsoft.Data.Entity.Tests
 
                 context.Entry(product).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
-                Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Equal(7, product.CategoryId);
+                Assert.Empty(category.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Detached, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
 
                 context.Entry(category).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
-                Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Equal(7, product.CategoryId);
+                Assert.Empty(category.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1354,7 +1470,7 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter(TestHelpers.Instance.CreateServiceProvider()))
             {
-                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }).Entity;
+                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }, behavior: GraphBehavior.SingleObject).Entity;
 
                 var category = new Category { Id = 1, Name = "Beverages" };
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite" };
@@ -1362,22 +1478,20 @@ namespace Microsoft.Data.Entity.Tests
 
                 context.Entry(category).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
+                Assert.Null(product.Category);
                 Assert.Empty(category7.Products);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
                 Assert.Equal(EntityState.Detached, context.Entry(product).State);
 
                 context.Entry(product).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-
-                // Dependent is Unchanged here because the FK change happened before it was attached
                 Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
@@ -1387,7 +1501,7 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter(TestHelpers.Instance.CreateServiceProvider()))
             {
-                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }).Entity;
+                var category7 = context.Attach(new Category { Id = 7, Products = new List<Product>() }, behavior: GraphBehavior.SingleObject).Entity;
 
                 var category = new Category { Id = 1, Name = "Beverages" };
                 var product = new Product { Id = 1, CategoryId = 7, Name = "Marmite" };
@@ -1404,12 +1518,12 @@ namespace Microsoft.Data.Entity.Tests
 
                 context.Entry(category).State = EntityState.Unchanged;
 
-                Assert.Equal(1, product.CategoryId);
+                Assert.Equal(7, product.CategoryId);
                 Assert.Same(product, category.Products.Single());
-                Assert.Same(category, product.Category);
-                Assert.Empty(category7.Products);
+                Assert.Same(category7, product.Category);
+                Assert.Same(product, category7.Products.Single());
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1420,22 +1534,22 @@ namespace Microsoft.Data.Entity.Tests
             {
                 Assert.Equal(
                     new[] { typeof(Category).FullName, typeof(Product).FullName, typeof(TheGu).FullName },
-                    context.Model.EntityTypes.Select(e => e.Name).ToArray());
+                    context.Model.GetEntityTypes().Select(e => e.Name).ToArray());
 
-                var categoryType = context.Model.GetEntityType(typeof(Category));
-                Assert.Equal("Id", categoryType.GetPrimaryKey().Properties.Single().Name);
+                var categoryType = context.Model.FindEntityType(typeof(Category));
+                Assert.Equal("Id", categoryType.FindPrimaryKey().Properties.Single().Name);
                 Assert.Equal(
                     new[] { "Id", "Name" },
                     categoryType.GetProperties().Select(p => p.Name).ToArray());
 
-                var productType = context.Model.GetEntityType(typeof(Product));
-                Assert.Equal("Id", productType.GetPrimaryKey().Properties.Single().Name);
+                var productType = context.Model.FindEntityType(typeof(Product));
+                Assert.Equal("Id", productType.FindPrimaryKey().Properties.Single().Name);
                 Assert.Equal(
-                    new[] { "CategoryId", "Id", "Name", "Price" },
+                    new[] { "Id", "CategoryId", "Name", "Price" },
                     productType.GetProperties().Select(p => p.Name).ToArray());
 
-                var guType = context.Model.GetEntityType(typeof(TheGu));
-                Assert.Equal("Id", guType.GetPrimaryKey().Properties.Single().Name);
+                var guType = context.Model.FindEntityType(typeof(TheGu));
+                Assert.Equal("Id", guType.FindPrimaryKey().Properties.Single().Name);
                 Assert.Equal(
                     new[] { "Id", "ShirtColor" },
                     guType.GetProperties().Select(p => p.Name).ToArray());
@@ -1454,7 +1568,7 @@ namespace Microsoft.Data.Entity.Tests
             {
                 Assert.Equal(
                     new[] { typeof(TheGu).FullName },
-                    context.Model.EntityTypes.Select(e => e.Name).ToArray());
+                    context.Model.GetEntityTypes().Select(e => e.Name).ToArray());
             }
         }
 
@@ -1485,19 +1599,21 @@ namespace Microsoft.Data.Entity.Tests
         }
 
         [Fact]
-        public void SaveChanges_doesnt_call_DataStore_when_nothing_is_dirty()
+        public void SaveChanges_doesnt_call_Database_when_nothing_is_dirty()
         {
-            var store = new Mock<IDataStore>();
+            var database = new Mock<IDatabase>();
 
-            var servicesMock = new Mock<IDataStoreServices>();
-            servicesMock.Setup(m => m.Store).Returns(store.Object);
-            servicesMock.Setup(m => m.ModelBuilderFactory).Returns(new ModelBuilderFactory());
-            servicesMock.Setup(m => m.ModelSource).Returns(new Mock<ModelSource>(new DbSetFinder(), Mock.Of<IModelValidator>())
+            var servicesMock = new Mock<IDatabaseProviderServices>();
+            servicesMock.Setup(m => m.Database).Returns(database.Object);
+            servicesMock.Setup(m => m.ModelSource).Returns(new Mock<ModelSource>(new DbSetFinder(), new CoreConventionSetBuilder())
                 { CallBase = true }.Object);
+            servicesMock
+                .Setup(m => m.ModelValidator)
+                .Returns(new LoggingModelValidator(new Logger<LoggingModelValidator>(new LoggerFactory())));
 
-            var sourceMock = new Mock<IDataStoreSource>();
+            var sourceMock = new Mock<IDatabaseProvider>();
             sourceMock.Setup(m => m.IsConfigured(It.IsAny<IDbContextOptions>())).Returns(true);
-            sourceMock.Setup(m => m.GetStoreServices(It.IsAny<IServiceProvider>())).Returns(servicesMock.Object);
+            sourceMock.Setup(m => m.GetProviderServices(It.IsAny<IServiceProvider>())).Returns(servicesMock.Object);
 
             var services = new ServiceCollection();
             services.AddEntityFramework();
@@ -1513,33 +1629,35 @@ namespace Microsoft.Data.Entity.Tests
                 context.SaveChanges();
             }
 
-            store.Verify(
+            database.Verify(
                 s => s.SaveChangesAsync(It.IsAny<IReadOnlyList<InternalEntityEntry>>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
         [Fact]
-        public void SaveChanges_only_passes_dirty_entries_to_DataStore()
+        public void SaveChanges_only_passes_dirty_entries_to_Database()
         {
-            var passedEntries = new List<InternalEntityEntry>();
-            var store = new Mock<IDataStore>();
-            store.Setup(s => s.SaveChanges(It.IsAny<IReadOnlyList<InternalEntityEntry>>()))
-                .Callback<IEnumerable<InternalEntityEntry>>(passedEntries.AddRange)
+            var passedEntries = new List<IUpdateEntry>();
+            var database = new Mock<IDatabase>();
+            database.Setup(s => s.SaveChanges(It.IsAny<IReadOnlyList<IUpdateEntry>>()))
+                .Callback<IEnumerable<IUpdateEntry>>(passedEntries.AddRange)
                 .Returns(3);
 
             var valueGenMock = new Mock<IValueGeneratorSelector>();
-            valueGenMock.Setup(m => m.Select(It.IsAny<IProperty>())).Returns(Mock.Of<ValueGenerator>());
+            valueGenMock.Setup(m => m.Select(It.IsAny<IProperty>(), It.IsAny<IEntityType>())).Returns(Mock.Of<ValueGenerator>());
 
-            var servicesMock = new Mock<IDataStoreServices>();
-            servicesMock.Setup(m => m.Store).Returns(store.Object);
+            var servicesMock = new Mock<IDatabaseProviderServices>();
+            servicesMock.Setup(m => m.Database).Returns(database.Object);
             servicesMock.Setup(m => m.ValueGeneratorSelector).Returns(valueGenMock.Object);
-            servicesMock.Setup(m => m.ModelBuilderFactory).Returns(new ModelBuilderFactory());
-            servicesMock.Setup(m => m.ModelSource).Returns(new Mock<ModelSource>(new DbSetFinder(), Mock.Of<IModelValidator>())
+            servicesMock.Setup(m => m.ModelSource).Returns(new Mock<ModelSource>(new DbSetFinder(), new CoreConventionSetBuilder())
                 { CallBase = true }.Object);
+            servicesMock
+                .Setup(m => m.ModelValidator)
+                .Returns(new LoggingModelValidator(new Logger<LoggingModelValidator>(new LoggerFactory())));
 
-            var sourceMock = new Mock<IDataStoreSource>();
+            var sourceMock = new Mock<IDatabaseProvider>();
             sourceMock.Setup(m => m.IsConfigured(It.IsAny<IDbContextOptions>())).Returns(true);
-            sourceMock.Setup(m => m.GetStoreServices(It.IsAny<IServiceProvider>())).Returns(servicesMock.Object);
+            sourceMock.Setup(m => m.GetProviderServices(It.IsAny<IServiceProvider>())).Returns(servicesMock.Object);
 
             var services = new ServiceCollection();
             services.AddEntityFramework();
@@ -1559,33 +1677,35 @@ namespace Microsoft.Data.Entity.Tests
 
             Assert.Equal(3, passedEntries.Count);
 
-            store.Verify(
+            database.Verify(
                 s => s.SaveChanges(It.IsAny<IReadOnlyList<InternalEntityEntry>>()),
                 Times.Once);
         }
 
         [Fact]
-        public async Task SaveChangesAsync_only_passes_dirty_entries_to_DataStore()
+        public async Task SaveChangesAsync_only_passes_dirty_entries_to_Database()
         {
-            var passedEntries = new List<InternalEntityEntry>();
-            var store = new Mock<IDataStore>();
-            store.Setup(s => s.SaveChangesAsync(It.IsAny<IReadOnlyList<InternalEntityEntry>>(), It.IsAny<CancellationToken>()))
-                .Callback<IEnumerable<InternalEntityEntry>, CancellationToken>((e, c) => passedEntries.AddRange(e))
+            var passedEntries = new List<IUpdateEntry>();
+            var database = new Mock<IDatabase>();
+            database.Setup(s => s.SaveChangesAsync(It.IsAny<IReadOnlyList<IUpdateEntry>>(), It.IsAny<CancellationToken>()))
+                .Callback<IEnumerable<IUpdateEntry>, CancellationToken>((e, c) => passedEntries.AddRange(e))
                 .Returns(Task.FromResult(3));
 
             var valueGenMock = new Mock<IValueGeneratorSelector>();
-            valueGenMock.Setup(m => m.Select(It.IsAny<IProperty>())).Returns(Mock.Of<ValueGenerator>());
+            valueGenMock.Setup(m => m.Select(It.IsAny<IProperty>(), It.IsAny<IEntityType>())).Returns(Mock.Of<ValueGenerator>());
 
-            var servicesMock = new Mock<IDataStoreServices>();
-            servicesMock.Setup(m => m.Store).Returns(store.Object);
+            var servicesMock = new Mock<IDatabaseProviderServices>();
+            servicesMock.Setup(m => m.Database).Returns(database.Object);
             servicesMock.Setup(m => m.ValueGeneratorSelector).Returns(valueGenMock.Object);
-            servicesMock.Setup(m => m.ModelBuilderFactory).Returns(new ModelBuilderFactory());
-            servicesMock.Setup(m => m.ModelSource).Returns(new Mock<ModelSource>(new DbSetFinder(), Mock.Of<IModelValidator>())
+            servicesMock.Setup(m => m.ModelSource).Returns(new Mock<ModelSource>(new DbSetFinder(), new CoreConventionSetBuilder())
                 { CallBase = true }.Object);
-
-            var sourceMock = new Mock<IDataStoreSource>();
+            servicesMock
+                .Setup(m => m.ModelValidator)
+                .Returns(new LoggingModelValidator(new Logger<LoggingModelValidator>(new LoggerFactory())));
+                
+            var sourceMock = new Mock<IDatabaseProvider>();
             sourceMock.Setup(m => m.IsConfigured(It.IsAny<IDbContextOptions>())).Returns(true);
-            sourceMock.Setup(m => m.GetStoreServices(It.IsAny<IServiceProvider>())).Returns(servicesMock.Object);
+            sourceMock.Setup(m => m.GetProviderServices(It.IsAny<IServiceProvider>())).Returns(servicesMock.Object);
 
             var services = new ServiceCollection();
             services.AddEntityFramework();
@@ -1605,7 +1725,7 @@ namespace Microsoft.Data.Entity.Tests
 
             Assert.Equal(3, passedEntries.Count);
 
-            store.Verify(
+            database.Verify(
                 s => s.SaveChangesAsync(It.IsAny<IReadOnlyList<InternalEntityEntry>>(), It.IsAny<CancellationToken>()),
                 Times.Once);
         }
@@ -1615,9 +1735,7 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter())
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
-
-                Assert.IsType<EntityKeyFactorySource>(contextServices.GetRequiredService<IEntityKeyFactorySource>());
+                Assert.IsType<KeyValueFactorySource>(context.GetService<IKeyValueFactorySource>());
             }
         }
 
@@ -1626,9 +1744,7 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter())
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
-
-                Assert.IsType<InternalEntityEntryFactory>(contextServices.GetRequiredService<IInternalEntityEntryFactory>());
+                Assert.IsType<InternalEntityEntryFactory>(context.GetService<IInternalEntityEntryFactory>());
             }
         }
 
@@ -1637,9 +1753,7 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new EarlyLearningCenter())
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
-
-                Assert.IsType<StateManager>(contextServices.GetRequiredService<IStateManager>());
+                Assert.IsType<StateManager>(context.GetService<IStateManager>());
             }
         }
 
@@ -1650,25 +1764,20 @@ namespace Microsoft.Data.Entity.Tests
             var serviceCollection = new ServiceCollection()
                 .AddSingleton<IDbSetFinder, DbSetFinder>()
                 .AddSingleton<IDbSetSource, DbSetSource>()
-                .AddSingleton<IClrAccessorSource<IClrPropertyGetter>, ClrPropertyGetterSource>()
-                .AddSingleton<IClrAccessorSource<IClrPropertySetter>, ClrPropertySetterSource >()
-                .AddSingleton<IClrCollectionAccessorSource, ClrCollectionAccessorSource>()
                 .AddSingleton<IEntityMaterializerSource, EntityMaterializerSource>()
                 .AddSingleton<IMemberMapper, MemberMapper>()
                 .AddSingleton<IFieldMatcher, FieldMatcher>()
-                .AddSingleton<DataStoreSelector>()
-                .AddSingleton<ILoggerFactory, LoggerFactory>()
+                .AddSingleton<DatabaseProviderSelector>()
                 .AddScoped<IDbSetInitializer, DbSetInitializer>()
                 .AddScoped<IDbContextServices, DbContextServices>()
+                .AddLogging()
                 .AddInstance(factory);
 
             var provider = serviceCollection.BuildServiceProvider();
 
             using (var context = new EarlyLearningCenter(provider))
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
-
-                Assert.Same(factory, contextServices.GetRequiredService<IOriginalValuesFactory>());
+                Assert.Same(factory, context.GetService<IOriginalValuesFactory>());
             }
         }
 
@@ -1729,9 +1838,7 @@ namespace Microsoft.Data.Entity.Tests
 
             using (var context = new EarlyLearningCenter(provider))
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
-
-                Assert.Same(factory, contextServices.GetRequiredService<IOriginalValuesFactory>());
+                Assert.Same(factory, context.GetService<IOriginalValuesFactory>());
             }
         }
 
@@ -1747,9 +1854,7 @@ namespace Microsoft.Data.Entity.Tests
 
             using (var context = new EarlyLearningCenter(provider))
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
-
-                Assert.Same(modelSource, contextServices.GetRequiredService<IModelSource>());
+                Assert.Same(modelSource, context.GetService<IModelSource>());
             }
         }
 
@@ -1763,9 +1868,7 @@ namespace Microsoft.Data.Entity.Tests
 
             using (var context = new EarlyLearningCenter(provider))
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
-
-                Assert.IsType<FakeModelSource>(contextServices.GetRequiredService<IModelSource>());
+                Assert.IsType<FakeModelSource>(context.GetService<IModelSource>());
             }
         }
 
@@ -1779,9 +1882,7 @@ namespace Microsoft.Data.Entity.Tests
 
             using (var context = new EarlyLearningCenter(provider))
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
-
-                Assert.IsType<FakeStateManager>(contextServices.GetRequiredService<IStateManager>());
+                Assert.IsType<FakeStateManager>(context.GetService<IStateManager>());
             }
         }
 
@@ -1791,36 +1892,33 @@ namespace Microsoft.Data.Entity.Tests
             var services = new ServiceCollection();
             services
                 .AddEntityFramework()
-                .ServiceCollection()
+                .GetInfrastructure()
                 .AddSingleton<IModelSource, FakeModelSource>()
                 .AddScoped<IStateManager, FakeStateManager>();
 
             var provider = services.BuildServiceProvider();
 
             var context = new EarlyLearningCenter(provider);
-            var contextServices = ((IAccessor<IServiceProvider>)context).Service;
 
-            var modelSource = contextServices.GetRequiredService<IModelSource>();
-
-            context.Dispose();
-
-            context = new EarlyLearningCenter(provider);
-            contextServices = ((IAccessor<IServiceProvider>)context).Service;
-
-            var stateManager = contextServices.GetRequiredService<IStateManager>();
-
-            Assert.Same(stateManager, contextServices.GetRequiredService<IStateManager>());
-
-            Assert.Same(modelSource, contextServices.GetRequiredService<IModelSource>());
+            var modelSource = context.GetService<IModelSource>();
 
             context.Dispose();
 
             context = new EarlyLearningCenter(provider);
-            contextServices = ((IAccessor<IServiceProvider>)context).Service;
 
-            Assert.NotSame(stateManager, contextServices.GetRequiredService<IStateManager>());
+            var stateManager = context.GetService<IStateManager>();
 
-            Assert.Same(modelSource, contextServices.GetRequiredService<IModelSource>());
+            Assert.Same(stateManager, context.GetService<IStateManager>());
+
+            Assert.Same(modelSource, context.GetService<IModelSource>());
+
+            context.Dispose();
+
+            context = new EarlyLearningCenter(provider);
+
+            Assert.NotSame(stateManager, context.GetService<IStateManager>());
+
+            Assert.Same(modelSource, context.GetService<IModelSource>());
 
             context.Dispose();
         }
@@ -1830,15 +1928,13 @@ namespace Microsoft.Data.Entity.Tests
         {
             var provider = new ServiceCollection()
                 .AddEntityFramework()
-                .ServiceCollection()
+                .GetInfrastructure()
                 .AddSingleton<IEntityMaterializerSource, FakeEntityMaterializerSource>()
                 .BuildServiceProvider();
 
             using (var context = new EarlyLearningCenter(provider))
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
-
-                Assert.IsType<FakeEntityMaterializerSource>(contextServices.GetRequiredService<IEntityMaterializerSource>());
+                Assert.IsType<FakeEntityMaterializerSource>(context.GetService<IEntityMaterializerSource>());
             }
         }
 
@@ -1888,18 +1984,22 @@ namespace Microsoft.Data.Entity.Tests
 
             protected internal override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
-                optionsBuilder.UseInMemoryStore(persist: false);
+                optionsBuilder.UseInMemoryDatabase();
             }
 
             protected internal override void OnModelCreating(ModelBuilder modelBuilder)
             {
                 modelBuilder
-                    .Entity<Category>().Collection(e => e.Products).InverseReference(e => e.Category);
+                    .Entity<Category>().HasMany(e => e.Products).WithOne(e => e.Category);
             }
         }
 
         private class FakeEntityMaterializerSource : EntityMaterializerSource
         {
+            public FakeEntityMaterializerSource(IMemberMapper memberMapper)
+                : base(memberMapper)
+            {
+            }
         }
 
         private class FakeLoggerFactory : ILoggerFactory
@@ -1914,11 +2014,15 @@ namespace Microsoft.Data.Entity.Tests
             public void AddProvider(ILoggerProvider provider)
             {
             }
+
+            public void Dispose()
+            {
+            }
         }
 
         private class FakeModelSource : IModelSource
         {
-            public virtual IModel GetModel(DbContext context, IModelBuilderFactory modelBuilder = null)
+            public virtual IModel GetModel(DbContext context, IConventionSetBuilder conventionSetBuilder, IModelValidator validator = null)
             {
                 return null;
             }
@@ -1938,11 +2042,11 @@ namespace Microsoft.Data.Entity.Tests
 
             using (var context = serviceProvider.GetRequiredService<ContextWithDefaults>())
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
+                var contextServices = ((IInfrastructure<IServiceProvider>)context).Instance;
 
                 Assert.NotNull(serviceProvider.GetRequiredService<FakeService>());
                 Assert.NotSame(serviceProvider, contextServices);
-                Assert.Equal(0, contextServices.GetRequiredService<IDbContextOptions>().Extensions.Count());
+                Assert.Equal(0, context.GetService<IDbContextOptions>().Extensions.Count());
             }
         }
 
@@ -1956,16 +2060,15 @@ namespace Microsoft.Data.Entity.Tests
                 .AddSingleton<FakeService>()
                 .AddEntityFramework()
                 .AddDbContext<ContextWithDefaults>(optionsBuilder
-                    => ((IOptionsBuilderExtender)optionsBuilder).AddOrUpdateExtension(contextOptionsExtension));
+                    => ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(contextOptionsExtension));
 
             var serviceProvider = services.BuildServiceProvider();
 
             using (var context = serviceProvider.GetRequiredService<ContextWithDefaults>())
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
-                var options = contextServices.GetRequiredService<IDbContextOptions>();
+                var options = context.GetService<IDbContextOptions>();
 
-                Assert.NotNull(contextServices.GetRequiredService<FakeService>());
+                Assert.NotNull(context.GetService<FakeService>());
                 Assert.Equal(1, options.Extensions.Count());
                 Assert.Same(contextOptionsExtension, options.Extensions.Single());
             }
@@ -1981,16 +2084,15 @@ namespace Microsoft.Data.Entity.Tests
                 .AddSingleton<FakeService>()
                 .AddEntityFramework()
                 .AddDbContext<ContextWithServiceProvider>(optionsBuilder
-                    => ((IOptionsBuilderExtender)optionsBuilder).AddOrUpdateExtension(contextOptionsExtension));
+                    => ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(contextOptionsExtension));
 
             var serviceProvider = services.BuildServiceProvider();
 
             using (var context = serviceProvider.GetRequiredService<ContextWithServiceProvider>())
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
-                var options = contextServices.GetRequiredService<IDbContextOptions>();
+                var options = context.GetService<IDbContextOptions>();
 
-                Assert.NotNull(contextServices.GetRequiredService<FakeService>());
+                Assert.NotNull(context.GetService<FakeService>());
                 Assert.Equal(1, options.Extensions.Count());
                 Assert.Same(contextOptionsExtension, options.Extensions.Single());
             }
@@ -2006,18 +2108,38 @@ namespace Microsoft.Data.Entity.Tests
                 .AddSingleton<FakeService>()
                 .AddEntityFramework()
                 .AddDbContext<ContextWithOptions>(optionsBuilder
-                    => ((IOptionsBuilderExtender)optionsBuilder).AddOrUpdateExtension(contextOptionsExtension));
+                    => ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(contextOptionsExtension));
 
             var serviceProvider = services.BuildServiceProvider();
 
             using (var context = serviceProvider.GetRequiredService<ContextWithOptions>())
             {
-                var contextServices = ((IAccessor<IServiceProvider>)context).Service;
-                var options = contextServices.GetRequiredService<IDbContextOptions>();
+                var options = context.GetService<IDbContextOptions>();
 
-                Assert.NotNull(contextServices.GetRequiredService<FakeService>());
+                Assert.NotNull(context.GetService<FakeService>());
                 Assert.Equal(1, options.Extensions.Count());
                 Assert.Same(contextOptionsExtension, options.Extensions.Single());
+            }
+        }
+
+        [Fact]
+        public void Context_with_parameters_can_be_created_By_dbcontextactivator_createinstance()
+        {
+            var services = new ServiceCollection();
+            var contextOptionsExtension = new FakeDbContextOptionsExtension();
+
+            services
+                .AddSingleton<FakeService>()
+                .AddEntityFramework();
+
+            var serviceProvider = services.BuildServiceProvider();
+            var valueOfParamInt = 100;
+            var valueOfParamStr = "Hello DbContext";
+            using (var context = DbContextActivator.CreateInstance<ContextWithParameters>(serviceProvider, valueOfParamInt, valueOfParamStr))
+            {
+                Assert.NotNull(context.GetService<FakeService>());
+                Assert.Equal(valueOfParamInt, context.ParamInt);
+                Assert.Equal(valueOfParamStr, context.ParamStr);
             }
         }
 
@@ -2057,20 +2179,34 @@ namespace Microsoft.Data.Entity.Tests
             public DbSet<Product> Products { get; set; }
         }
 
+        private class ContextWithParameters : DbContext
+        {
+            public int ParamInt { get; set; }
+            public string ParamStr { get; set; }
+
+            public ContextWithParameters(int paramInt, string paramStr)
+            {
+                ParamInt = paramInt;
+                ParamStr = paramStr;
+            }
+
+            public DbSet<Product> Products { get; set; }
+        }
+
         [Fact]
         public void Model_cannot_be_used_in_OnModelCreating()
         {
             var serviceProvider = new ServiceCollection()
                 .AddEntityFramework()
-                .AddInMemoryStore()
+                .AddInMemoryDatabase()
                 .AddDbContext<UseModelInOnModelCreatingContext>()
-                .ServiceCollection()
+                .GetInfrastructure()
                 .BuildServiceProvider();
 
             using (var context = serviceProvider.GetRequiredService<UseModelInOnModelCreatingContext>())
             {
                 Assert.Equal(
-                    Strings.RecursiveOnModelCreating,
+                    CoreStrings.RecursiveOnModelCreating,
                     Assert.Throws<InvalidOperationException>(() => context.Model).Message);
             }
         }
@@ -2088,6 +2224,9 @@ namespace Microsoft.Data.Entity.Tests
             {
                 var _ = Model;
             }
+
+            protected internal override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+                => optionsBuilder.UseInMemoryDatabase();
         }
 
         [Fact]
@@ -2095,15 +2234,15 @@ namespace Microsoft.Data.Entity.Tests
         {
             var serviceProvider = new ServiceCollection()
                 .AddEntityFramework()
-                .AddInMemoryStore()
+                .AddInMemoryDatabase()
                 .AddDbContext<UseInOnModelCreatingContext>()
-                .ServiceCollection()
+                .GetInfrastructure()
                 .BuildServiceProvider();
 
             using (var context = serviceProvider.GetRequiredService<UseInOnModelCreatingContext>())
             {
                 Assert.Equal(
-                    Strings.RecursiveOnModelCreating,
+                    CoreStrings.RecursiveOnModelCreating,
                     Assert.Throws<InvalidOperationException>(() => context.Products.ToList()).Message);
             }
         }
@@ -2118,9 +2257,10 @@ namespace Microsoft.Data.Entity.Tests
             public DbSet<Product> Products { get; set; }
 
             protected internal override void OnModelCreating(ModelBuilder modelBuilder)
-            {
-                Products.ToList();
-            }
+                => Products.ToList();
+
+            protected internal override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+                => optionsBuilder.UseInMemoryDatabase();
         }
 
         [Fact]
@@ -2128,15 +2268,15 @@ namespace Microsoft.Data.Entity.Tests
         {
             var serviceProvider = new ServiceCollection()
                 .AddEntityFramework()
-                .AddInMemoryStore()
+                .AddInMemoryDatabase()
                 .AddDbContext<UseInOnConfiguringContext>()
-                .ServiceCollection()
+                .GetInfrastructure()
                 .BuildServiceProvider();
 
             using (var context = serviceProvider.GetRequiredService<UseInOnConfiguringContext>())
             {
                 Assert.Equal(
-                    Strings.RecursiveOnConfiguring,
+                    CoreStrings.RecursiveOnConfiguring,
                     Assert.Throws<InvalidOperationException>(() => context.Products.ToList()).Message);
             }
         }
@@ -2169,7 +2309,7 @@ namespace Microsoft.Data.Entity.Tests
             {
                 Assert.True(context.ChangeTracker.AutoDetectChangesEnabled);
 
-                var product = context.Attach(new Product { Id = 1, Name = "Little Hedgehogs" }).Entity;
+                var product = context.Attach(new Product { Id = 1, Name = "Little Hedgehogs" }, behavior: GraphBehavior.SingleObject).Entity;
 
                 product.Name = "Cracked Cookies";
 
@@ -2201,7 +2341,7 @@ namespace Microsoft.Data.Entity.Tests
                 context.ChangeTracker.AutoDetectChangesEnabled = false;
                 Assert.False(context.ChangeTracker.AutoDetectChangesEnabled);
 
-                var product = context.Attach(new Product { Id = 1, Name = "Little Hedgehogs" }).Entity;
+                var product = context.Attach(new Product { Id = 1, Name = "Little Hedgehogs" }, behavior: GraphBehavior.SingleObject).Entity;
 
                 product.Name = "Cracked Cookies";
 
@@ -2232,7 +2372,7 @@ namespace Microsoft.Data.Entity.Tests
 
             protected internal override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
-                optionsBuilder.UseInMemoryStore(persist: true);
+                optionsBuilder.UseInMemoryDatabase();
             }
         }
 
@@ -2243,7 +2383,7 @@ namespace Microsoft.Data.Entity.Tests
         {
             using (var context = new ButTheHedgehogContext(TestHelpers.Instance.CreateServiceProvider()))
             {
-                var entry = context.Attach(new Product { Id = 1, Name = "Little Hedgehogs" });
+                var entry = context.Attach(new Product { Id = 1, Name = "Little Hedgehogs" }, behavior: GraphBehavior.SingleObject);
 
                 entry.Entity.Name = "Cracked Cookies";
 
@@ -2271,7 +2411,7 @@ namespace Microsoft.Data.Entity.Tests
             {
                 context.ChangeTracker.AutoDetectChangesEnabled = false;
 
-                var entry = context.Attach(new Product { Id = 1, Name = "Little Hedgehogs" });
+                var entry = context.Attach(new Product { Id = 1, Name = "Little Hedgehogs" }, behavior: GraphBehavior.SingleObject);
 
                 entry.Entity.Name = "Cracked Cookies";
 
@@ -2296,37 +2436,48 @@ namespace Microsoft.Data.Entity.Tests
             var provider = TestHelpers.Instance.CreateServiceProvider(new ServiceCollection().AddScoped<IChangeDetector, ChangeDetectorProxy>());
             using (var context = new ButTheHedgehogContext(provider))
             {
-                var changeDetector = (ChangeDetectorProxy)((IAccessor<IServiceProvider>)context).Service
-                    .GetRequiredService<IChangeDetector>();
+                var changeDetector = (ChangeDetectorProxy)context.GetService<IChangeDetector>();
 
-                var entity = new Product { Id = 1, Name = "Little Hedgehogs" };
+                var id = 1;
 
                 changeDetector.DetectChangesCalled = false;
 
-                context.Add(entity);
-                context.Add((object)entity);
-                context.AddRange(entity);
-                context.AddRange(entity);
-                context.AddRange(new List<Product> { entity });
-                context.AddRange(new List<object> { entity });
-                context.Attach(entity);
-                context.Attach((object)entity);
-                context.AttachRange(entity);
-                context.AttachRange(entity);
-                context.AttachRange(new List<Product> { entity });
-                context.AttachRange(new List<object> { entity });
-                context.Update(entity);
-                context.Update((object)entity);
-                context.UpdateRange(entity);
-                context.UpdateRange(entity);
-                context.UpdateRange(new List<Product> { entity });
-                context.UpdateRange(new List<object> { entity });
-                context.Remove(entity);
-                context.Remove((object)entity);
-                context.RemoveRange(entity);
-                context.RemoveRange(entity);
-                context.RemoveRange(new List<Product> { entity });
-                context.RemoveRange(new List<object> { entity });
+                context.Add(new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.Add((object)new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.AddRange(new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.AddRange(new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.AddRange(new List<Product> { new Product { Id = id++, Name = "Little Hedgehogs" } });
+                context.AddRange(new List<object> { new Product { Id = id++, Name = "Little Hedgehogs" } });
+                context.Attach(new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.Attach((object)new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.AttachRange(new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.AttachRange(new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.AttachRange(new List<Product> { new Product { Id = id++, Name = "Little Hedgehogs" } });
+                context.AttachRange(new List<object> { new Product { Id = id++, Name = "Little Hedgehogs" } });
+                context.Update(new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.Update((object)new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.UpdateRange(new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.UpdateRange(new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.UpdateRange(new List<Product> { new Product { Id = id++, Name = "Little Hedgehogs" } });
+                context.UpdateRange(new List<object> { new Product { Id = id++, Name = "Little Hedgehogs" } });
+                context.Remove(new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.Remove((object)new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.RemoveRange(new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.RemoveRange(new Product { Id = id++, Name = "Little Hedgehogs" });
+                context.RemoveRange(new List<Product> { new Product { Id = id++, Name = "Little Hedgehogs" } });
+                context.RemoveRange(new List<object> { new Product { Id = id++, Name = "Little Hedgehogs" } });
+                context.Add(new Product { Id = id++, Name = "Little Hedgehogs" }, behavior: GraphBehavior.SingleObject);
+                context.Add((object)new Product { Id = id++, Name = "Little Hedgehogs" }, behavior: GraphBehavior.SingleObject);
+                context.AddRange(new List<Product> { new Product { Id = id++, Name = "Little Hedgehogs" } }, behavior: GraphBehavior.SingleObject);
+                context.AddRange(new List<object> { new Product { Id = id++, Name = "Little Hedgehogs" } }, behavior: GraphBehavior.SingleObject);
+                context.Attach(new Product { Id = id++, Name = "Little Hedgehogs" }, behavior: GraphBehavior.SingleObject);
+                context.Attach((object)new Product { Id = id++, Name = "Little Hedgehogs" }, behavior: GraphBehavior.SingleObject);
+                context.AttachRange(new List<Product> { new Product { Id = id++, Name = "Little Hedgehogs" } }, behavior: GraphBehavior.SingleObject);
+                context.AttachRange(new List<object> { new Product { Id = id++, Name = "Little Hedgehogs" } }, behavior: GraphBehavior.SingleObject);
+                context.Update(new Product { Id = id++, Name = "Little Hedgehogs" }, behavior: GraphBehavior.SingleObject);
+                context.Update((object)new Product { Id = id++, Name = "Little Hedgehogs" }, behavior: GraphBehavior.SingleObject);
+                context.UpdateRange(new List<Product> { new Product { Id = id++, Name = "Little Hedgehogs" } }, behavior: GraphBehavior.SingleObject);
+                context.UpdateRange(new List<object> { new Product { Id = id++, Name = "Little Hedgehogs" } }, behavior: GraphBehavior.SingleObject);
 
                 Assert.False(changeDetector.DetectChangesCalled);
 
@@ -2338,8 +2489,8 @@ namespace Microsoft.Data.Entity.Tests
 
         private class ChangeDetectorProxy : ChangeDetector
         {
-            public ChangeDetectorProxy(IModel model)
-                : base(model)
+            public ChangeDetectorProxy(IEntityGraphAttacher attacher)
+                : base(attacher)
             {
             }
 
@@ -2357,6 +2508,130 @@ namespace Microsoft.Data.Entity.Tests
                 DetectChangesCalled = true;
 
                 base.DetectChanges(stateManager);
+            }
+        }
+
+        private static Mock<InternalEntityEntry> CreateInternalEntryMock()
+        {
+            var entityTypeMock = new Mock<IEntityType>();
+            entityTypeMock.Setup(e => e.GetProperties()).Returns(new IProperty[0]);
+
+            var internalEntryMock = new Mock<InternalEntityEntry>(
+                Mock.Of<IStateManager>(), entityTypeMock.Object, Mock.Of<IEntityEntryMetadataServices>());
+            return internalEntryMock;
+        }
+
+        [Fact]
+        public async void It_throws_object_disposed_exception()
+        {
+            var context = new DbContext(new DbContextOptions<DbContext>());
+            context.Dispose();
+
+            // methods (tests all paths)
+            Assert.Throws<ObjectDisposedException>(() => context.Add(new object()));
+            Assert.Throws<ObjectDisposedException>(() => context.Attach(new object()));
+            Assert.Throws<ObjectDisposedException>(() => context.Update(new object()));
+            Assert.Throws<ObjectDisposedException>(() => context.Remove(new object()));
+            Assert.Throws<ObjectDisposedException>(() => context.SaveChanges());
+            await Assert.ThrowsAsync<ObjectDisposedException>(() => context.SaveChangesAsync());
+
+            var methodCount = typeof(DbContext).GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly).Count();
+            var expectedMethodCount = 27;
+            Assert.True(
+                methodCount == expectedMethodCount,
+                userMessage: $"Expected {expectedMethodCount} methods on DbContext but found {methodCount}. " +
+                    "Update test to ensure all methods throw ObjectDisposedException after dispose.");
+
+            // getters
+            Assert.Throws<ObjectDisposedException>(() => context.ChangeTracker);
+            Assert.Throws<ObjectDisposedException>(() => context.Model);
+
+            var expectedProperties = new List<string> { "ChangeTracker", "Database", "Model" };
+
+            Assert.True(expectedProperties.SequenceEqual(
+                    typeof(DbContext)
+                    .GetProperties()
+                    .Select(p => p.Name)
+                    .OrderBy(s => s)
+                    .ToList()),
+                userMessage: "Unexpected properties on DbContext. " + 
+                    "Update test to ensure all getters throw ObjectDisposedException after dispose.");
+
+            Assert.Throws<ObjectDisposedException>(() => ((IInfrastructure<IServiceProvider>)context).Instance);
+        }
+
+        [Fact]
+        public void It_throws_with_derived_name()
+        {
+            var context = new EarlyLearningCenter();
+
+            context.Dispose();
+
+            var ex = Assert.Throws<ObjectDisposedException>(() => context.Model);
+            Assert.Contains(nameof(EarlyLearningCenter), ex.Message);
+        }
+
+        [Fact]
+        public void It_disposes_scope()
+        {
+            var fakeServiceProvider = new FakeServiceProvider();
+            var context = new DbContext(fakeServiceProvider, new DbContextOptions<DbContext>());
+
+            var scopeService = Assert.IsType<FakeServiceProvider.FakeServiceScope>(context.GetService<IServiceScopeFactory>().CreateScope());
+
+            Assert.False(scopeService.Disposed);
+
+            context.Dispose();
+
+            Assert.True(scopeService.Disposed);
+
+            Assert.Throws<ObjectDisposedException>(() => ((IInfrastructure<IServiceProvider>)context).Instance);
+        }
+
+        public class FakeServiceProvider : IServiceProvider, IDisposable
+        {
+            private IServiceProvider _realProvider;
+
+            public FakeServiceProvider()
+            {
+                _realProvider = ((IInfrastructure<IServiceCollection>)new ServiceCollection().AddEntityFramework())
+                    .Instance.BuildServiceProvider();
+            }
+            public bool Disposed { get; set; }
+
+            public void Dispose()
+            {
+                Disposed = true;
+            }
+
+            public object GetService(Type serviceType)
+            {
+                if (serviceType == typeof(IServiceProvider))
+                {
+                    return this;
+                }
+                if (serviceType == typeof(IServiceScopeFactory))
+                {
+                    return new FakeServiceScopeFactory();
+                }
+                return _realProvider.GetService(serviceType);
+            }
+
+            public class FakeServiceScopeFactory : IServiceScopeFactory
+            {
+                public static FakeServiceScope Scope { get; } = new FakeServiceScope();
+                public IServiceScope CreateScope() => Scope;
+
+            }
+            public class FakeServiceScope : IServiceScope
+            {
+                public bool Disposed { get; set; }
+                public IServiceProvider ServiceProvider { get; set; } = new FakeServiceProvider();
+
+                public void Dispose()
+                {
+                    Disposed = true;
+                }
             }
         }
     }

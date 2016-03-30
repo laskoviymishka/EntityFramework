@@ -1,103 +1,77 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Linq;
 using EntityFramework.Microbenchmarks.Core;
 using EntityFramework.Microbenchmarks.EF6.Models.Orders;
 using Xunit;
 
-namespace EntityFramework.Microbenchmarks.Query
+namespace EntityFramework.Microbenchmarks.EF6.Query
 {
-    public class FuncletizationTests
+    public class FuncletizationTests : IClassFixture<FuncletizationTests.FuncletizationFixture>
     {
-        private static readonly string _connectionString = String.Format(@"Server={0};Database=Perf_Query_Funcletization_EF6;Integrated Security=True;MultipleActiveResultSets=true;", TestConfig.Instance.DataSource);
+        private readonly FuncletizationFixture _fixture;
         private static readonly int _funcletizationIterationCount = 100;
 
-        [Fact]
-        public void NewQueryInstance()
+        public FuncletizationTests(FuncletizationFixture fixture)
         {
-            new TestDefinition
-                {
-                    TestName = "Query_Funcletization_NewQueryInstance_EF6",
-                    IterationCount = 50,
-                    WarmupCount = 5,
-                    Setup = EnsureDatabaseSetup,
-                    Run = harness =>
-                        {
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                using (harness.StartCollection())
-                                {
-                                    var val = 11;
-                                    for (var i = 0; i < _funcletizationIterationCount; i++)
-                                    {
-                                        var result = context.Products.Where(p => p.ProductId < val).ToList();
-
-                                        Assert.Equal(10, result.Count);
-                                    }
-                                }
-                            }
-                        }
-                }.RunTest();
+            _fixture = fixture;
         }
 
-        [Fact]
-        public void SameQueryInstance()
+        [Benchmark]
+        public void NewQueryInstance(IMetricCollector collector)
         {
-            new TestDefinition
+            using (var context = _fixture.CreateContext())
+            {
+                using (collector.StartCollection())
                 {
-                    TestName = "Query_Funcletization_SameQueryInstance_EF6",
-                    IterationCount = 50,
-                    WarmupCount = 5,
-                    Setup = EnsureDatabaseSetup,
-                    Run = harness =>
-                        {
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                using (harness.StartCollection())
-                                {
-                                    var val = 11;
-                                    var query = context.Products.Where(p => p.ProductId < val);
+                    var val = 11;
+                    for (var i = 0; i < _funcletizationIterationCount; i++)
+                    {
+                        var result = context.Products.Where(p => p.ProductId < val).ToList();
 
-                                    for (var i = 0; i < _funcletizationIterationCount; i++)
-                                    {
-                                        var result = query.ToList();
-
-                                        Assert.Equal(10, result.Count);
-                                    }
-                                }
-                            }
-                        }
-                }.RunTest();
+                        Assert.Equal(10, result.Count);
+                    }
+                }
+            }
         }
 
-        [Fact]
-        public void ValueFromObject()
+        [Benchmark]
+        public void SameQueryInstance(IMetricCollector collector)
         {
-            new TestDefinition
+            using (var context = _fixture.CreateContext())
+            {
+                using (collector.StartCollection())
                 {
-                    TestName = "Query_Funcletization_ValueFromObject_EF6",
-                    IterationCount = 50,
-                    WarmupCount = 5,
-                    Setup = EnsureDatabaseSetup,
-                    Run = harness =>
-                        {
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                using (harness.StartCollection())
-                                {
-                                    var valueHolder = new ValueHolder();
-                                    for (var i = 0; i < _funcletizationIterationCount; i++)
-                                    {
-                                        var result = context.Products.Where(p => p.ProductId < valueHolder.SecondLevelProperty).ToList();
+                    var val = 11;
+                    var query = context.Products.Where(p => p.ProductId < val);
 
-                                        Assert.Equal(10, result.Count);
-                                    }
-                                }
-                            }
-                        }
-                }.RunTest();
+                    for (var i = 0; i < _funcletizationIterationCount; i++)
+                    {
+                        var result = query.ToList();
+
+                        Assert.Equal(10, result.Count);
+                    }
+                }
+            }
+        }
+
+        [Benchmark]
+        public void ValueFromObject(IMetricCollector collector)
+        {
+            using (var context = _fixture.CreateContext())
+            {
+                using (collector.StartCollection())
+                {
+                    var valueHolder = new ValueHolder();
+                    for (var i = 0; i < _funcletizationIterationCount; i++)
+                    {
+                        var result = context.Products.Where(p => p.ProductId < valueHolder.SecondLevelProperty).ToList();
+
+                        Assert.Equal(10, result.Count);
+                    }
+                }
+            }
         }
 
         public class ValueHolder
@@ -110,14 +84,11 @@ namespace EntityFramework.Microbenchmarks.Query
             }
         }
 
-        private static void EnsureDatabaseSetup()
+        public class FuncletizationFixture : OrdersFixture
         {
-            new OrdersSeedData().EnsureCreated(
-                _connectionString,
-                productCount: 100,
-                customerCount: 0,
-                ordersPerCustomer: 0,
-                linesPerOrder: 0);
+            public FuncletizationFixture()
+                : base("Perf_Query_Funcletization_EF6", 100, 0, 0, 0)
+            { }
         }
     }
 }

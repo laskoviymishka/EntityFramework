@@ -1,251 +1,187 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
-using System.Linq;
 using EntityFramework.Microbenchmarks.Core;
-using EntityFramework.Microbenchmarks.Core.Models.Orders;
 using EntityFramework.Microbenchmarks.Models.Orders;
 using Xunit;
 
 namespace EntityFramework.Microbenchmarks.ChangeTracker
 {
-    public class DbSetOperationTests
+    public class DbSetOperationTests : IClassFixture<DbSetOperationTests.DbSetOperationFixture>
     {
-        private static readonly string _connectionString = String.Format(@"Server={0};Database=Perf_ChangeTracker_DbSetOperation;Integrated Security=True;MultipleActiveResultSets=true;", TestConfig.Instance.DataSource);
+        private readonly DbSetOperationFixture _fixture;
 
-        [Fact]
-        public void Add()
+        public DbSetOperationTests(DbSetOperationFixture fixture)
         {
-            new TestDefinition
-                {
-                    TestName = "ChangeTracker_DbSetOperation_Add",
-                    IterationCount = 100,
-                    WarmupCount = 5,
-                    Run = harness =>
-                        {
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                var customers = new Customer[1000];
-                                for (var i = 0; i < customers.Length; i++)
-                                {
-                                    customers[i] = new Customer { Name = "Customer " + i };
-                                }
-
-                                using (harness.StartCollection())
-                                {
-                                    foreach (var customer in customers)
-                                    {
-                                        context.Customers.Add(customer);
-                                    }
-                                }
-                            }
-                        }
-                }.RunTest();
+            _fixture = fixture;
         }
 
-        [Fact]
-        public void AddCollection()
+        [Benchmark]
+        [BenchmarkVariation("AutoDetectChanges On", true)]
+        [BenchmarkVariation("AutoDetectChanges Off", false)]
+        public void Add(IMetricCollector collector, bool autoDetectChanges)
         {
-            new TestDefinition
-                {
-                    TestName = "ChangeTracker_DbSetOperation_AddCollection",
-                    IterationCount = 100,
-                    WarmupCount = 5,
-                    Run = harness =>
-                        {
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                var customers = new Customer[1000];
-                                for (var i = 0; i < customers.Length; i++)
-                                {
-                                    customers[i] = new Customer { Name = "Customer " + i };
-                                }
-
-                                using (harness.StartCollection())
-                                {
-                                    context.Customers.AddRange(customers);
-                                }
-                            }
-                        }
-                }.RunTest();
-        }
-
-        [Fact]
-        public void Attach()
-        {
-            new TestDefinition
-                {
-                    TestName = "ChangeTracker_DbSetOperation_Attach",
-                    IterationCount = 100,
-                    WarmupCount = 5,
-                    Setup = EnsureDatabaseSetup,
-                    Run = harness =>
-                        {
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                var customers = GetAllCustomersFromDatabase();
-                                Assert.Equal(1000, customers.Length);
-
-                                using (harness.StartCollection())
-                                {
-                                    foreach (var customer in customers)
-                                    {
-                                        context.Customers.Attach(customer);
-                                    }
-                                }
-                            }
-                        }
-                }.RunTest();
-        }
-
-        [Fact]
-        public void AttachCollection()
-        {
-            new TestDefinition
-                {
-                    TestName = "ChangeTracker_DbSetOperation_AttachCollection",
-                    IterationCount = 100,
-                    WarmupCount = 5,
-                    Setup = EnsureDatabaseSetup,
-                    Run = harness =>
-                        {
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                var customers = GetAllCustomersFromDatabase();
-                                Assert.Equal(1000, customers.Length);
-
-                                using (harness.StartCollection())
-                                {
-                                    context.Customers.AttachRange(customers);
-                                }
-                            }
-                        }
-                }.RunTest();
-        }
-
-        [Fact]
-        public void Remove()
-        {
-            new TestDefinition
-                {
-                    TestName = "ChangeTracker_DbSetOperation_Remove",
-                    IterationCount = 100,
-                    WarmupCount = 5,
-                    Setup = EnsureDatabaseSetup,
-                    Run = harness =>
-                        {
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                var customers = context.Customers.ToArray();
-                                Assert.Equal(1000, customers.Length);
-
-                                using (harness.StartCollection())
-                                {
-                                    foreach (var customer in customers)
-                                    {
-                                        context.Customers.Remove(customer);
-                                    }
-                                }
-                            }
-                        }
-                }.RunTest();
-        }
-
-        [Fact]
-        public void RemoveCollection()
-        {
-            new TestDefinition
-                {
-                    TestName = "ChangeTracker_DbSetOperation_RemoveCollection",
-                    IterationCount = 100,
-                    WarmupCount = 5,
-                    Setup = EnsureDatabaseSetup,
-                    Run = harness =>
-                        {
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                var customers = context.Customers.ToArray();
-                                Assert.Equal(1000, customers.Length);
-
-                                using (harness.StartCollection())
-                                {
-                                    context.Customers.RemoveRange(customers);
-                                }
-                            }
-                        }
-                }.RunTest();
-        }
-
-        [Fact]
-        public void Update()
-        {
-            new TestDefinition
-                {
-                    TestName = "ChangeTracker_DbSetOperation_Update",
-                    IterationCount = 100,
-                    WarmupCount = 5,
-                    Setup = EnsureDatabaseSetup,
-                    Run = harness =>
-                        {
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                var customers = GetAllCustomersFromDatabase();
-                                Assert.Equal(1000, customers.Length);
-
-                                using (harness.StartCollection())
-                                {
-                                    foreach (var customer in customers)
-                                    {
-                                        context.Customers.Update(customer);
-                                    }
-                                }
-                            }
-                        }
-                }.RunTest();
-        }
-
-        [Fact]
-        public void UpdateCollection()
-        {
-            new TestDefinition
-                {
-                    TestName = "ChangeTracker_DbSetOperation_UpdateCollection",
-                    IterationCount = 100,
-                    WarmupCount = 5,
-                    Setup = EnsureDatabaseSetup,
-                    Run = harness =>
-                        {
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                var customers = GetAllCustomersFromDatabase();
-                                Assert.Equal(1000, customers.Length);
-
-                                using (harness.StartCollection())
-                                {
-                                    context.Customers.UpdateRange(customers);
-                                }
-                            }
-                        }
-                }.RunTest();
-        }
-
-        private static Customer[] GetAllCustomersFromDatabase()
-        {
-            using (var context = new OrdersContext(_connectionString))
+            using (var context = _fixture.CreateContext())
             {
-                return context.Customers.ToArray();
+                context.ChangeTracker.AutoDetectChangesEnabled = autoDetectChanges;
+
+                var customers = _fixture.CreateCustomers(1000, setPrimaryKeys: false);
+
+                using (collector.StartCollection())
+                {
+                    foreach (var customer in customers)
+                    {
+                        context.Customers.Add(customer);
+                    }
+                }
             }
         }
 
-        private static void EnsureDatabaseSetup()
+        [Benchmark]
+        [BenchmarkVariation("AutoDetectChanges On", true)]
+        [BenchmarkVariation("AutoDetectChanges Off", false)]
+        public void AddRange(IMetricCollector collector, bool autoDetectChanges)
         {
-            new OrdersSeedData().EnsureCreated(
-                _connectionString,
-                productCount: 0,
-                customerCount: 1000,
-                ordersPerCustomer: 0,
-                linesPerOrder: 0);
+            using (var context = _fixture.CreateContext())
+            {
+                context.ChangeTracker.AutoDetectChangesEnabled = autoDetectChanges;
+
+                var customers = _fixture.CreateCustomers(1000, setPrimaryKeys: false);
+
+                using (collector.StartCollection())
+                {
+                    context.Customers.AddRange(customers);
+                }
+            }
+
+        }
+
+        [Benchmark]
+        [BenchmarkVariation("AutoDetectChanges On", true)]
+        [BenchmarkVariation("AutoDetectChanges Off", false)]
+        public void Attach(IMetricCollector collector, bool autoDetectChanges)
+        {
+            using (var context = _fixture.CreateContext())
+            {
+                context.ChangeTracker.AutoDetectChangesEnabled = autoDetectChanges;
+
+                var customers = _fixture.CreateCustomers(1000, setPrimaryKeys: true);
+
+                using (collector.StartCollection())
+                {
+                    foreach (var customer in customers)
+                    {
+                        context.Customers.Attach(customer);
+                    }
+                }
+            }
+        }
+
+        [Benchmark]
+        [BenchmarkVariation("AutoDetectChanges On", true)]
+        [BenchmarkVariation("AutoDetectChanges Off", false)]
+        public void AttachRange(IMetricCollector collector, bool autoDetectChanges)
+        {
+            using (var context = _fixture.CreateContext())
+            {
+                context.ChangeTracker.AutoDetectChangesEnabled = autoDetectChanges;
+
+                var customers = _fixture.CreateCustomers(1000, setPrimaryKeys: true);
+               
+                using (collector.StartCollection())
+                {
+                    context.Customers.AttachRange(customers);
+                }
+            }
+        }
+
+        [Benchmark]
+        [BenchmarkVariation("AutoDetectChanges On", true)]
+        [BenchmarkVariation("AutoDetectChanges Off", false)]
+        public void Remove(IMetricCollector collector, bool autoDetectChanges)
+        {
+            using (var context = _fixture.CreateContext())
+            {
+                context.ChangeTracker.AutoDetectChangesEnabled = autoDetectChanges;
+
+                var customers = _fixture.CreateCustomers(1000, setPrimaryKeys: true);
+                context.Customers.AttachRange(customers);
+
+                using (collector.StartCollection())
+                {
+                    foreach (var customer in customers)
+                    {
+                        context.Customers.Remove(customer);
+                    }
+                }
+            }
+        }
+
+        [Benchmark]
+        [BenchmarkVariation("AutoDetectChanges On", true)]
+        [BenchmarkVariation("AutoDetectChanges Off", false)]
+        public void RemoveRange(IMetricCollector collector, bool autoDetectChanges)
+        {
+            using (var context = _fixture.CreateContext())
+            {
+                context.ChangeTracker.AutoDetectChangesEnabled = autoDetectChanges;
+
+                var customers = _fixture.CreateCustomers(1000, setPrimaryKeys: true);
+                context.Customers.AttachRange(customers);
+
+                using (collector.StartCollection())
+                {
+                    context.Customers.RemoveRange(customers);
+                }
+            }
+        }
+
+        [Benchmark]
+        [BenchmarkVariation("AutoDetectChanges On", true)]
+        [BenchmarkVariation("AutoDetectChanges Off", false)]
+        public void Update(IMetricCollector collector, bool autoDetectChanges)
+        {
+            using (var context = _fixture.CreateContext())
+            {
+                context.ChangeTracker.AutoDetectChangesEnabled = autoDetectChanges;
+
+                var customers = _fixture.CreateCustomers(1000, setPrimaryKeys: true);
+                context.Customers.AttachRange(customers);
+
+                using (collector.StartCollection())
+                {
+                    foreach (var customer in customers)
+                    {
+                        context.Customers.Update(customer);
+                    }
+                }
+            }
+        }
+
+        [Benchmark]
+        [BenchmarkVariation("AutoDetectChanges On", true)]
+        [BenchmarkVariation("AutoDetectChanges Off", false)]
+        public void UpdateRange(IMetricCollector collector, bool autoDetectChanges)
+        {
+            using (var context = _fixture.CreateContext())
+            {
+                context.ChangeTracker.AutoDetectChangesEnabled = autoDetectChanges;
+
+                var customers = _fixture.CreateCustomers(1000, setPrimaryKeys: true);
+                context.Customers.AttachRange(customers);
+
+                using (collector.StartCollection())
+                {
+                    context.Customers.UpdateRange(customers);
+                }
+            }
+        }
+
+        public class DbSetOperationFixture : OrdersFixture
+        {
+            public DbSetOperationFixture()
+                : base("Perf_ChangeTracker_DbSetOperation", 0, 0, 0, 0)
+            { }
         }
     }
 }

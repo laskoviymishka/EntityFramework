@@ -1,11 +1,11 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Data.Entity.FunctionalTests;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Microsoft.Data.Entity.InMemory.FunctionalTests
@@ -17,7 +17,7 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
         {
             var serviceProvider = new ServiceCollection()
                 .AddEntityFramework()
-                .AddInMemoryStore()
+                .AddInMemoryDatabase()
                 .ServiceCollection()
                 .BuildServiceProvider();
 
@@ -56,7 +56,7 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
         {
             var serviceProvider = new ServiceCollection()
                 .AddEntityFramework()
-                .AddInMemoryStore()
+                .AddInMemoryDatabase()
                 .ServiceCollection()
                 .BuildServiceProvider();
 
@@ -95,7 +95,7 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
         {
             var serviceProvider = new ServiceCollection()
                 .AddEntityFramework()
-                .AddInMemoryStore()
+                .AddInMemoryDatabase()
                 .ServiceCollection()
                 .BuildServiceProvider();
 
@@ -134,6 +134,9 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
                 : base(serviceProvider)
             {
             }
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+                => optionsBuilder.UseInMemoryDatabase();
 
             public DbSet<Pegasus> Pegasuses { get; set; }
         }

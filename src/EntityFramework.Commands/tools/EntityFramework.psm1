@@ -10,16 +10,40 @@ $EFDefaultParameterValues = @{
 #
 
 Register-TabExpansion Use-DbContext @{
-    Context = { param ($context) GetContextTypes $context.Project }
+    Context = { param ($tabExpansionContext) GetContextTypes $tabExpansionContext.Project $tabExpansionContext.StartupProject $tabExpansionContext.Environment }
     Project = { GetProjects }
+    StartupProject = { GetProjects }
 }
 
+<#
+.SYNOPSIS
+    Sets the default DbContext to use.
+
+.DESCRIPTION
+    Sets the default DbContext to use.
+
+.PARAMETER Context
+    Specifies the DbContext to use.
+
+.PARAMETER Project
+    Specifies the project to use. If omitted, the default project is used.
+
+.PARAMETER StartupProject
+    Specifies the startup project to use. If omitted, the solution's startup project is used.
+
+.PARAMETER Environment
+    Specifies the environment to use. If omitted, "Development" is used.
+
+.LINK
+    about_EntityFramework
+#>
 function Use-DbContext {
-    [CmdletBinding()]
-    param ([Parameter(Mandatory = $true)] [string] $Context, [string] $Project)
+    [CmdletBinding(PositionalBinding = $false)]
+    param ([Parameter(Position = 0, Mandatory = $true)] [string] $Context, [string] $Project, [string] $StartupProject, [string] $Environment)
 
     $dteProject = GetProject $Project
-    $contextTypeName = InvokeOperation $dteProject GetContextType @{ name = $Context }
+    $dteStartupProject = GetStartupProject $StartupProject $dteProject
+    $contextTypeName = InvokeOperation $dteStartupProject $Environment $dteProject GetContextType @{ name = $Context }
 
     $EFDefaultParameterValues.ContextTypeName = $contextTypeName
     $EFDefaultParameterValues.ProjectName = $dteProject.ProjectName
@@ -30,81 +54,141 @@ function Use-DbContext {
 #
 
 Register-TabExpansion Add-Migration @{
-    Context = { param ($context) GetContextTypes $context.Project }
+    Context = { param ($tabExpansionContext) GetContextTypes $tabExpansionContext.Project $tabExpansionContext.StartupProject $tabExpansionContext.Environment }
     Project = { GetProjects }
     StartupProject = { GetProjects }
 }
 
-function Add-Migration {
-    [CmdletBinding()]
-    param ([Parameter(Mandatory = $true)] [string] $Name, [string] $Context, [string] $Project, [string] $StartupProject)
+<#
+.SYNOPSIS
+    Adds a new migration.
 
-    $values = ProcessCommonParameters $Context $Project $StartupProject
+.DESCRIPTION
+    Adds a new migration.
+
+.PARAMETER Name
+    Specifies the name of the migration.
+
+.PARAMETER OutputDir
+    The directory (and sub-namespace) to use. If omitted, "Migrations" is used.
+
+.PARAMETER Context
+    Specifies the DbContext to use. If omitted, the default DbContext is used.
+
+.PARAMETER Project
+    Specifies the project to use. If omitted, the default project is used.
+
+.PARAMETER StartupProject
+    Specifies the startup project to use. If omitted, the solution's startup project is used.
+
+.PARAMETER Environment
+    Specifies the environment to use. If omitted, "Development" is used.
+
+.LINK
+    Remove-Migration
+    Update-Database
+    about_EntityFramework
+#>
+function Add-Migration {
+    [CmdletBinding(PositionalBinding = $false)]
+    param (
+        [Parameter(Position = 0, Mandatory = $true)]
+        [string] $Name,
+        [string] $OutputDir,
+        [string] $Context,
+        [string] $Project,
+        [string] $StartupProject,
+        [string] $Environment)
+
+    $values = ProcessCommonParameters $StartupProject $Project $Context
+    $dteStartupProject = $values.StartupProject
     $dteProject = $values.Project
     $contextTypeName = $values.ContextTypeName
-    $dteStartupProject = $values.StartupProject
 
-    $artifacts = InvokeOperation $dteProject AddMigration @{
-        migrationName = $Name
-        contextTypeName = $contextTypeName
-    } -startupProject $dteStartupProject
+    $artifacts = InvokeOperation $dteStartupProject $Environment $dteProject AddMigration @{
+        name = $Name
+        outputDir = $OutputDir
+        contextType = $contextTypeName
+    }
 
     $artifacts | %{ $dteProject.ProjectItems.AddFromFile($_) | Out-Null }
     $DTE.ItemOperations.OpenFile($artifacts[0]) | Out-Null
     ShowConsole
+
+    Write-Output 'To undo this action, use Remove-Migration.'
 }
 
 #
-# Apply-Migration
-#
-
-Register-TabExpansion Apply-Migration @{
-    Migration = { param ($context) GetMigrations $context.Context $context.Project }
-    Context = { param ($context) GetContextTypes $context.Project }
-    Project = { GetProjects }
-    StartupProject = { GetProjects }
-}
-
-# TODO: WhatIf (See #1775)
-function Apply-Migration {
-    [CmdletBinding()]
-    param ([string] $Migration, [string] $Context, [string] $Project, [string] $StartupProject)
-
-    $values = ProcessCommonParameters $Context $Project $StartupProject
-    $dteProject = $values.Project
-    $contextTypeName = $values.ContextTypeName
-    $dteStartupProject = $values.StartupProject
-
-    $targetFrameworkMoniker = GetProperty $dteProject.Properties TargetFrameworkMoniker
-    $frameworkName = New-Object System.Runtime.Versioning.FrameworkName $targetFrameworkMoniker
-    if ($frameworkName.Identifier -in '.NETCore', 'WindowsPhoneApp') {
-        throw 'Apply-Migration should not be used with Phone/Store apps. Instead, call DbContext.Database.AsRelational().ApplyMigrations() at runtime.'
-    }
-
-    InvokeOperation $dteProject ApplyMigration @{
-        migrationName = $Migration
-        contextTypeName = $contextTypeName
-    } -startupProject $dteStartupProject
-}
-
-#
-# Update-Database (Obsolete)
+# Update-Database
 #
 
 Register-TabExpansion Update-Database @{
-    Migration = { param ($context) GetMigrations $context.Context $context.Project }
-    Context = { param ($context) GetContextTypes $context.Project }
+    Migration = { param ($tabExpansionContext) GetMigrations $tabExpansionContext.Context $tabExpansionContext.Project $tabExpansionContext.StartupProject $tabExpansionContext.Environment }
+    Context = { param ($tabExpansionContext) GetContextTypes $tabExpansionContext.Project $tabExpansionContext.StartupProject $tabExpansionContext.Environment }
     Project = { GetProjects }
     StartupProject = { GetProjects }
 }
 
+<#
+.SYNOPSIS
+    Updates the database to a specified migration.
+
+.DESCRIPTION
+    Updates the database to a specified migration.
+
+.PARAMETER Migration
+    Specifies the target migration. If '0', all migrations will be reverted. If omitted, all pending migrations will be applied.
+
+.PARAMETER Context
+    Specifies the DbContext to use. If omitted, the default DbContext is used.
+
+.PARAMETER Project
+    Specifies the project to use. If omitted, the default project is used.
+
+.PARAMETER StartupProject
+    Specifies the startup project to use. If omitted, the solution's startup project is used.
+
+.PARAMETER Environment
+    Specifies the environment to use. If omitted, "Development" is used.
+
+.LINK
+    Script-Migration
+    about_EntityFramework
+#>
 function Update-Database {
-    [CmdletBinding()]
-    param ([string] $Migration, [string] $Context, [string] $Project, [string] $StartupProject)
+    [CmdletBinding(PositionalBinding = $false)]
+    param (
+        [Parameter(Position = 0)]
+        [string] $Migration,
+        [string] $Context,
+        [string] $Project,
+        [string] $StartupProject,
+        [string] $Environment)
 
-    Write-Warning 'Update-Database is obsolete. Use Apply-Migration instead.'
+    $values = ProcessCommonParameters $StartupProject $Project $Context
+    $dteStartupProject = $values.StartupProject
+    $dteProject = $values.Project
+    $contextTypeName = $values.ContextTypeName
 
-    Apply-Migration $Migration -Context $Context -Project $Project -StartupProject $StartupProject
+    $targetFrameworkMoniker = GetProperty $dteProject.Properties TargetFrameworkMoniker
+    $frameworkName = New-Object System.Runtime.Versioning.FrameworkName $targetFrameworkMoniker
+    if ($frameworkName.Identifier -eq '.NETCore') {
+        throw 'Update-Database should not be used with Universal Windows apps. Instead, call DbContext.Database.Migrate() at runtime.'
+    }
+
+    InvokeOperation $dteStartupProject $Environment $dteProject UpdateDatabase @{
+        targetMigration = $Migration
+        contextType = $contextTypeName
+    }
+}
+
+#
+# Apply-Migration (Obsolete)
+#
+
+function Apply-Migration {
+    # TODO: Remove before RTM
+    throw 'Apply-Migration has been removed. Use Update-Database instead.'
 }
 
 #
@@ -112,28 +196,70 @@ function Update-Database {
 #
 
 Register-TabExpansion Script-Migration @{
-    From = { param ($context) GetMigrations $context.Context $context.Project }
-    To = { param ($context) GetMigrations $context.Context $context.Project }
-    Context = { param ($context) GetContextTypes $context.Project }
+    From = { param ($tabExpansionContext) GetMigrations $tabExpansionContext.Context $tabExpansionContext.Project $tabExpansionContext.StartupProject $tabExpansionContext.Environment }
+    To = { param ($tabExpansionContext) GetMigrations $tabExpansionContext.Context $tabExpansionContext.Project $tabExpansionContext.StartupProject $tabExpansionContext.Environment }
+    Context = { param ($tabExpansionContext) GetContextTypes $tabExpansionContext.Project $tabExpansionContext.StartupProject $tabExpansionContext.Environment }
     Project = { GetProjects }
     StartupProject = { GetProjects }
 }
 
-function Script-Migration {
-    [CmdletBinding()]
-    param ([string] $From, [string] $To, [switch] $Idempotent, [string] $Context, [string] $Project, [string] $StartupProject)
+<#
+.SYNOPSIS
+    Generates a SQL script from migrations.
 
-    $values = ProcessCommonParameters $Context $Project $StartupProject
+.DESCRIPTION
+    Generates a SQL script from migrations.
+
+.PARAMETER From
+    Specifies the starting migration. If omitted, '0' (the initial database) is used.
+
+.PARAMETER To
+    Specifies the ending migration. If omitted, the last migration is used.
+
+.PARAMETER Idempotent
+    Generates an idempotent script that can used on a database at any migration.
+
+.PARAMETER Context
+    Specifies the DbContext to use. If omitted, the default DbContext is used.
+
+.PARAMETER Project
+    Specifies the project to use. If omitted, the default project is used.
+
+.PARAMETER StartupProject
+    Specifies the startup project to use. If omitted, the solution's startup project is used.
+
+.PARAMETER Environment
+    Specifies the environment to use. If omitted, "Development" is used.
+
+.LINK
+    Update-Database
+    about_EntityFramework
+#>
+function Script-Migration {
+    [CmdletBinding(PositionalBinding = $false)]
+    param (
+        [Parameter(ParameterSetName = 'WithoutTo')]
+        [Parameter(ParameterSetName = 'WithTo', Mandatory = $true)]
+        [string] $From,
+        [Parameter(ParameterSetName = 'WithTo', Mandatory = $true)]
+        [string] $To,
+        [switch] $Idempotent,
+        [string] $Context,
+        [string] $Project,
+        [string] $StartupProject,
+        [string] $Environment)
+
+    $values = ProcessCommonParameters $StartupProject $Project $Context
+    $dteStartupProject = $values.StartupProject
     $dteProject = $values.Project
     $contextTypeName = $values.ContextTypeName
-    $dteStartupProject = $values.StartupProject
 
-    $script = InvokeOperation $dteProject ScriptMigration @{
-        fromMigrationName = $From
-        toMigrationName = $To
+    $script = InvokeOperation $dteStartupProject $Environment $dteProject ScriptMigration @{
+        fromMigration = $From
+        toMigration = $To
         idempotent = [bool]$Idempotent
-        contextTypeName = $contextTypeName
-    } -startupProject $dteStartupProject
+        contextType = $contextTypeName
+    }
 
     try {
         # NOTE: Certain SKUs cannot create new SQL files
@@ -161,47 +287,134 @@ function Script-Migration {
 #
 
 Register-TabExpansion Remove-Migration @{
-    Context = { param ($context) GetContextTypes $context.Project }
+    Context = { param ($tabExpansionContext) GetContextTypes $tabExpansionContext.Project $tabExpansionContext.StartupProject $tabExpansionContext.Environment }
     Project = { GetProjects }
     StartupProject = { GetProjects }
 }
 
-function Remove-Migration {
-    [CmdletBinding()]
-    param ([string] $Context, [string] $Project, [string] $StartupProject)
+<#
+.SYNOPSIS
+    Removes the last migration.
 
-    $values = ProcessCommonParameters $Context $Project $StartupProject
+.DESCRIPTION
+    Removes the last migration.
+
+.PARAMETER Context
+    Specifies the DbContext to use. If omitted, the default DbContext is used.
+
+.PARAMETER Project
+    Specifies the project to use. If omitted, the default project is used.
+
+.PARAMETER StartupProject
+    Specifies the startup project to use. If omitted, the solution's startup project is used.
+
+.PARAMETER Environment
+    Specifies the environment to use. If omitted, "Development" is used.
+
+.LINK
+    Add-Migration
+    about_EntityFramework
+#>
+function Remove-Migration {
+    [CmdletBinding(PositionalBinding = $false)]
+    param ([string] $Context, [string] $Project, [string] $StartupProject, [string] $Environment)
+
+    $values = ProcessCommonParameters $StartupProject $Project $Context
     $dteProject = $values.Project
     $contextTypeName = $values.ContextTypeName
     $dteStartupProject = $values.StartupProject
 
-    $filesToDelete = InvokeOperation $dteProject RemoveMigration @{
-        contextTypeName = $contextTypeName
-    } -startupProject $dteStartupProject
+    $filesToRemove = InvokeOperation $dteStartupProject $Environment $dteProject RemoveMigration @{
+        contextType = $contextTypeName
+    }
 
-    $filesToDelete | ?{ Test-Path $_ } | %{ (GetProjectItem $dteProject $_).Delete() }
+    $filesToRemove | %{
+        $projectItem = GetProjectItem $dteProject $_
+        if ($projectItem) {
+            $projectItem.Remove()
+        }
+    }
 }
 
 #
-# Reverse-Engineer
+# Scaffold-DbContext
 #
 
-Register-TabExpansion Reverse-Engineer @{
+Register-TabExpansion Scaffold-DbContext @{
+    Provider = { param ($tabExpansionContext) GetProviders $tabExpansionContext.Project }
     Project = { GetProjects }
     StartupProject = { GetProjects }
 }
 
-function Reverse-Engineer {
-    [CmdletBinding()]
-    param ([string] $ConnectionString, [string] $Project, [string] $StartupProject)
+<#
+.SYNOPSIS
+    Scaffolds a DbContext and entity type classes for a specified database.
 
-    $values = ProcessCommonParameters -projectName $Project -startupProjectName $StartupProject
-    $dteProject = $values.Project
+.DESCRIPTION
+    Scaffolds a DbContext and entity type classes for a specified database.
+
+.PARAMETER Connection
+    Specifies the connection string of the database.
+
+.PARAMETER Provider
+    Specifies the provider to use. For example, EntityFramework.MicrosoftSqlServer.
+
+.PARAMETER OutputDirectory
+    Specifies the directory to use to output the classes. If omitted, the top-level project directory is used.
+
+.PARAMETER Context
+    Specifies the name of the generated DbContext class.
+
+.PARAMETER Schemas
+    Specifies the schemas for which to generate classes.
+
+.PARAMETER Tables
+    Specifies the tables for which to generate classes.
+
+.PARAMETER DataAnnotations
+    Use DataAnnotation attributes to configure the model where possible. If omitted, the output code will use only the fluent API.
+
+.PARAMETER Project
+    Specifies the project to use. If omitted, the default project is used.
+
+.PARAMETER StartupProject
+    Specifies the startup project to use. If omitted, the solution's startup project is used.
+
+.PARAMETER Environment
+    Specifies the environment to use. If omitted, "Development" is used.
+
+.LINK
+    about_EntityFramework
+#>
+function Scaffold-DbContext {
+    [CmdletBinding(PositionalBinding = $false)]
+    param (
+        [Parameter(Position = 0, Mandatory = $true)]
+        [string] $Connection,
+        [Parameter(Position = 1, Mandatory = $true)]
+        [string] $Provider,
+        [string] $OutputDirectory,
+        [string] $ContextClassName,
+        [string[]] $Schemas,
+        [string[]] $Tables,
+        [switch] $DataAnnotations,
+        [string] $Project,
+        [string] $StartupProject,
+        [string] $Environment)
+
+    $values = ProcessCommonParameters $StartupProject $Project
     $dteStartupProject = $values.StartupProject
+    $dteProject = $values.Project
 
-    $artifacts = InvokeOperation $dteProject ReverseEngineer @{
-        connectionString = $ConnectionString
-    } -startupProject $dteStartupProject
+    $artifacts = InvokeOperation $dteStartupProject $Environment $dteProject ReverseEngineer @{
+        connectionString = $Connection
+        provider = $Provider
+        outputDir = $OutputDirectory
+        dbContextClassName = $ContextClassName
+        schemaFilters = $Schemas
+        tableFilters = $Tables
+        useDataAnnotations = [bool]$DataAnnotations
+    }
 
     $artifacts | %{ $dteProject.ProjectItems.AddFromFile($_) | Out-Null }
     $DTE.ItemOperations.OpenFile($artifacts[0]) | Out-Null
@@ -234,25 +447,28 @@ function GetProjects {
     }
 }
 
-function GetContextTypes($projectName) {
-    $project = GetProject $projectName
+function GetContextTypes($projectName, $startupProjectName, $environment) {
+    $values = ProcessCommonParameters $startupProjectName $projectName
+    $startupProject = $values.StartupProject
+    $project = $values.Project
 
-    $contextTypes = InvokeOperation $project GetContextTypes -skipBuild
+    $contextTypes = InvokeOperation $startupProject $environment $project GetContextTypes -skipBuild
 
     return $contextTypes | %{ $_.SafeName }
 }
 
-function GetMigrations($contextTypeName, $projectName) {
-    $values = ProcessCommonParameters $contextTypeName $projectName
+function GetMigrations($contextTypeName, $projectName, $startupProjectName, $environment) {
+    $values = ProcessCommonParameters $startupProjectName $projectName $contextTypeName
+    $startupProject = $values.StartupProject
     $project = $values.Project
     $contextTypeName = $values.ContextTypeName
 
-    $migrations = InvokeOperation $project GetMigrations @{ contextTypeName = $contextTypeName } -skipBuild
+    $migrations = InvokeOperation $startupProject $environment $project GetMigrations @{ contextTypeName = $contextTypeName } -skipBuild
 
     return $migrations | %{ $_.SafeName }
 }
 
-function ProcessCommonParameters($contextTypeName, $projectName, $startupProjectName) {
+function ProcessCommonParameters($startupProjectName, $projectName, $contextTypeName) {
     $project = GetProject $projectName
 
     if (!$contextTypeName -and $project.ProjectName -eq $EFDefaultParameterValues.ProjectName) {
@@ -282,51 +498,50 @@ function ShowConsole {
     $powerConsoleWindow.Show()
 }
 
-function InvokeOperation($project, $operation, $arguments = @{}, $startupProject = $project, [switch] $skipBuild) {
+function InvokeOperation($startupProject, $environment, $project, $operation, $arguments = @{}, [switch] $skipBuild) {
+    $startupProjectName = $startupProject.ProjectName
+
+    Write-Verbose "Using startup project '$startupProjectName'."
+
     $projectName = $project.ProjectName
 
     Write-Verbose "Using project '$projectName'"
 
+    $package = Get-Package -ProjectName $startupProjectName | ? Id -eq EntityFramework.Commands
+    if (!($package)) {
+        throw "Cannot execute this command because EntityFramework.Commands is not installed in the startup project '$startupProjectName'."
+    }
+
     if (!$skipBuild) {
         Write-Verbose 'Build started...'
 
+        # TODO: Only build required project. Don't use BuildProject, you can't specify platform
         $solutionBuild = $DTE.Solution.SolutionBuild
-        $solutionBuild.BuildProject($solutionBuild.ActiveConfiguration.Name, $project.UniqueName, $true)
+        $solutionBuild.Build($true)
         if ($solutionBuild.LastBuildInfo) {
-            throw "Build failed for project '$projectName'."
+            throw "Build failed."
         }
 
         Write-Verbose 'Build succeeded.'
     }
 
-    $startupProjectName = $startupProject.ProjectName
-
-    Write-Verbose "Using start-up project '$startupProjectName'."
-
-    if (![Type]::GetType('Microsoft.Data.Entity.Commands.ILogHandler')) {
-        $componentModel = Get-VSComponentModel
-        $packageInstaller = $componentModel.GetService([NuGet.VisualStudio.IVsPackageInstallerServices])
-        $package = $packageInstaller.GetInstalledPackages() | ? Id -eq EntityFramework.Commands |
-            sort Version -Descending | select -First 1
-        $installPath = $package.InstallPath
-        $toolsPath = Join-Path $installPath tools
-
-        Add-Type @(
-            Join-Path $toolsPath IHandlers.cs
-            Join-Path $toolsPath Handlers.cs
-        )
+    if (![Type]::GetType('Microsoft.Data.Entity.Design.OperationResultHandler')) {
+        Add-Type -Path (Join-Path $PSScriptRoot OperationHandlers.cs) -CompilerParameters (
+            New-Object CodeDom.Compiler.CompilerParameters -Property @{
+                CompilerOptions = '/d:ENABLE_HANDLERS'
+            })
     }
 
-    $logHandler = New-Object Microsoft.Data.Entity.Commands.LogHandler @(
+    $logHandler = New-Object Microsoft.Data.Entity.Design.OperationLogHandler @(
+        { param ($message) Write-Error $message }
         { param ($message) Write-Warning $message }
         { param ($message) Write-Host $message }
         { param ($message) Write-Verbose $message }
+        { param ($message) Write-Debug $message }
     )
 
-    $outputPath = GetProperty $project.ConfigurationManager.ActiveConfiguration.Properties OutputPath
     $properties = $project.Properties
     $fullPath = GetProperty $properties FullPath
-    $targetDir = Join-Path $fullPath $outputPath
 
     $startupOutputPath = GetProperty $startupProject.ConfigurationManager.ActiveConfiguration.Properties OutputPath
     $startupProperties = $startupProject.Properties
@@ -336,51 +551,53 @@ function InvokeOperation($project, $operation, $arguments = @{}, $startupProject
     $webConfig = GetProjectItem $startupProject 'Web.Config'
     $appConfig = GetProjectItem $startupProject 'App.Config'
 
-    Write-Verbose "Using application base '$targetDir'."
-
     if ($webConfig) {
         $configurationFile = GetProperty $webConfig.Properties FullPath
         $dataDirectory = Join-Path $startupFullPath 'App_Data'
-        Write-Verbose "Using application configuration '$configurationFile'"
     }
     elseif ($appConfig) {
         $configurationFile = GetProperty $appConfig.Properties FullPath
-        $dataDirectory = $startupTargetDir
+    }
+
+    Write-Verbose "Using application base '$startupTargetDir'."
+
+    $info = New-Object AppDomainSetup -Property @{
+        ApplicationBase = $startupTargetDir
+        ShadowCopyFiles = 'true'
+    }
+
+    if ($configurationFile) {
         Write-Verbose "Using application configuration '$configurationFile'"
+        $info.ConfigurationFile = $configurationFile
     }
     else {
         Write-Verbose 'No configuration file found.'
-        $dataDirectory = $startupTargetDir
-    }
-
-    Write-Verbose "Using data directory '$dataDirectory'"
-
-    $info = New-Object AppDomainSetup -Property @{
-        ApplicationBase = $targetDir
-        ShadowCopyFiles = 'true'
-        ConfigurationFile = $configurationFile
     }
 
     $domain = [AppDomain]::CreateDomain('EntityFrameworkDesignDomain', $null, $info)
-    $domain.SetData('DataDirectory', $dataDirectory)
+    if ($dataDirectory) {
+        Write-Verbose "Using data directory '$dataDirectory'"
+        $domain.SetData('DataDirectory', $dataDirectory)
+    }
     try {
-        $assemblyName = 'EntityFramework.Commands'
-        $typeName = 'Microsoft.Data.Entity.Commands.Executor'
-        $targetFileName = GetProperty $properties OutputFileName
-        $targetPath = Join-Path $targetDir $targetFileName
+        $commandsAssembly = 'EntityFramework.Commands'
+        $operationExecutorTypeName = 'Microsoft.Data.Entity.Design.OperationExecutor'
+        $targetAssemblyName = GetProperty $properties AssemblyName
+        $startupAssemblyName = GetProperty $startupProperties AssemblyName
         $rootNamespace = GetProperty $properties RootNamespace
 
-        Write-Verbose "Using assembly '$targetFileName'."
         $executor = $domain.CreateInstanceAndUnwrap(
-            $assemblyName,
-            $typeName,
+            $commandsAssembly,
+            $operationExecutorTypeName,
             $false,
             0,
             $null,
             @(
                 [MarshalByRefObject]$logHandler,
                 @{
-                    targetPath = [string]$targetPath
+                    startupTargetName = $startupAssemblyName
+                    targetName = $targetAssemblyName
+                    environment = $environment
                     projectDir = $fullPath
                     rootNamespace = $rootNamespace
                 }
@@ -388,7 +605,7 @@ function InvokeOperation($project, $operation, $arguments = @{}, $startupProject
             $null,
             $null)
 
-        $resultHandler = New-Object Microsoft.Data.Entity.Commands.ResultHandler
+        $resultHandler = New-Object Microsoft.Data.Entity.Design.OperationResultHandler
         $currentDirectory = [IO.Directory]::GetCurrentDirectory()
 
         Write-Verbose "Using current directory '$startupTargetDir'."
@@ -396,8 +613,8 @@ function InvokeOperation($project, $operation, $arguments = @{}, $startupProject
         [IO.Directory]::SetCurrentDirectory($startupTargetDir)
         try {
             $domain.CreateInstance(
-                $assemblyName,
-                "$typeName+$operation",
+                $commandsAssembly,
+                "$operationExecutorTypeName+$operation",
                 $false,
                 0,
                 $null,
@@ -414,7 +631,12 @@ function InvokeOperation($project, $operation, $arguments = @{}, $startupProject
     }
 
     if ($resultHandler.ErrorType) {
-        Write-Verbose $resultHandler.ErrorStackTrace
+        if ($resultHandler.ErrorType -eq 'Microsoft.Data.Entity.Design.OperationException') {
+            Write-Verbose $resultHandler.ErrorStackTrace
+        }
+        else {
+            Write-Host $resultHandler.ErrorStackTrace
+        }
 
         throw $resultHandler.ErrorMessage
     }
@@ -492,14 +714,14 @@ function GetStartUpProject($name, $fallbackProject) {
                 return $startupProject
             }
 
-            Write-Warning "Unable to resolve start-up project '$startupProjectPath'."
+            Write-Warning "Unable to resolve startup project '$startupProjectPath'."
         }
         else {
-            Write-Verbose 'More than one start-up project found.'
+            Write-Verbose 'More than one startup project found.'
         }
     }
     else {
-        Write-Verbose 'No start-up project found.'
+        Write-Verbose 'No startup project found.'
     }
 
     return $fallbackProject
@@ -525,3 +747,12 @@ function GetSolutionProjects() {
         }
     }
 }
+
+function GetProviders($projectName) {
+    if (!($projectName)) {
+        $projectName = (Get-Project).ProjectName
+    }
+
+    return Get-Package -ProjectName $projectName | select -ExpandProperty Id
+}
+

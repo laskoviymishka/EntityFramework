@@ -1,137 +1,382 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Linq;
-using Microsoft.Data.Entity.FunctionalTests;
 using Microsoft.Data.Entity.FunctionalTests.TestModels.Northwind;
-using Microsoft.Data.Entity.Tests;
+using Microsoft.Data.Entity.Internal;
 using Xunit;
 
-namespace Microsoft.Data.Entity.Relational.FunctionalTests
+namespace Microsoft.Data.Entity.FunctionalTests
 {
     public abstract class FromSqlQueryTestBase<TFixture> : IClassFixture<TFixture>
-        where TFixture : NorthwindQueryFixtureBase, new()
+        where TFixture : NorthwindQueryRelationalFixture, new()
     {
         [Fact]
         public virtual void From_sql_queryable_simple()
         {
-            AssertQuery<Customer>(
-                cs => cs.FromSql("SELECT * FROM Customers"),
-                cs => cs,
-                entryCount: 91);
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Customer>()
+                    .FromSql(@"SELECT * FROM ""Customers"" WHERE ""ContactName"" LIKE '%z%'")
+                    .ToArray();
+
+                Assert.Equal(14, actual.Length);
+                Assert.Equal(14, context.ChangeTracker.Entries().Count());
+            }
         }
 
         [Fact]
-        public virtual void From_sql_queryable_filter()
-        {
-            AssertQuery<Customer>(
-                cs => cs.FromSql("SELECT * FROM Customers WHERE Customers.ContactName LIKE '%z%'"),
-                cs => cs.Where(c => c.ContactName.Contains("z")),
-                entryCount: 14);
-        }
-
-        [Fact]
-        public virtual void From_sql_queryable_cached_by_query()
-        {
-            AssertQuery<Customer>(
-                cs => cs.FromSql("SELECT * FROM Customers WHERE Customers.City = 'London'"),
-                cs => cs.Where(c => c.City == "London"),
-                entryCount: 6);
-
-            AssertQuery<Customer>(
-                cs => cs.FromSql("SELECT * FROM Customers WHERE Customers.City = 'Seattle'"),
-                cs => cs.Where(c => c.City == "Seattle"),
-                entryCount: 1);
-        }
-
-        [Fact]
-        public virtual void From_sql_queryable_where_simple_closure_via_query_cache()
-        {
-            var title = "Sales Associate";
-
-            AssertQuery<Customer>(
-                cs => cs.FromSql("SELECT * FROM Customers WHERE Customers.ContactName LIKE '%o%'").Where(c => c.ContactTitle == title),
-                cs => cs.Where(c => c.ContactName.Contains("o")).Where(c => c.ContactTitle == title),
-                entryCount: 4);
-
-            title = "Sales Manager";
-
-            AssertQuery<Customer>(
-                cs => cs.FromSql("SELECT * FROM Customers WHERE Customers.ContactName LIKE '%o%'").Where(c => c.ContactTitle == title),
-                cs => cs.Where(c => c.ContactName.Contains("o")).Where(c => c.ContactTitle == title),
-                entryCount: 7);
-        }
-
-        [Fact]
-        public virtual void From_sql_queryable_with_multiple_line_query()
-        {
-            AssertQuery<Customer>(
-                cs => cs.FromSql(@"SELECT *
-FROM Customers
-WHERE Customers.City = 'London'"),
-                cs => cs.Where(c => c.City == "London"),
-                entryCount: 6);
-        }
-
-        [Fact]
-        public virtual void From_sql_queryable_with_params_parameters()
-        {
-            var city = "London";
-            var contactTitle = "Sales Representative";
-
-            AssertQuery<Customer>(
-                cs => cs.FromSql(@"SELECT * FROM Customers WHERE City = {0} AND ContactTitle = {1}", city, contactTitle),
-                cs => cs.Where(c => c.City == city && c.ContactTitle == contactTitle),
-                entryCount: 3);
-        }
-
-        [Fact]
-        public virtual void From_sql_queryable_with_params_parameters_does_not_collide_with_cache()
-        {
-            var city = "London";
-            var contactTitle = "Sales Representative";
-            var sql = @"SELECT * FROM Customers WHERE City = {0} AND ContactTitle = {1}";
-
-            AssertQuery<Customer>(
-                cs => cs.FromSql(sql, city, contactTitle),
-                cs => cs.Where(c => c.City == city && c.ContactTitle == contactTitle),
-                entryCount: 3);
-
-            city = "Madrid";
-            contactTitle = "Accounting Manager";
-
-            AssertQuery<Customer>(
-                cs => cs.FromSql(sql, city, contactTitle),
-                cs => cs.Where(c => c.City == city && c.ContactTitle == contactTitle),
-                entryCount: 2);
-        }
-
-        [Fact]
-        public virtual void From_sql_annotations_do_not_modify_successive_calls()
+        public virtual void From_sql_queryable_simple_columns_out_of_order()
         {
             using (var context = CreateContext())
             {
-                TestHelpers.AssertResults(
-                    NorthwindData.Set<Customer>().Where(c => c.ContactName.Contains("z")).ToArray(),
-                    context.Customers.FromSql("SELECT * FROM Customers WHERE Customers.ContactName LIKE '%z%'").ToArray(),
-                    assertOrder: false);
+                var actual = context.Set<Customer>()
+                    .FromSql(@"SELECT ""Region"", ""PostalCode"", ""Phone"", ""Fax"", ""CustomerID"", ""Country"", ""ContactTitle"", ""ContactName"", ""CompanyName"", ""City"", ""Address"" FROM ""Customers""")
+                    .ToArray();
 
-                Assert.Equal(14, context.ChangeTracker.Entries().Count());
-
-                TestHelpers.AssertResults(
-                    NorthwindData.Set<Customer>().ToArray(),
-                    context.Customers.ToArray(),
-                    assertOrder: false);
-
+                Assert.Equal(91, actual.Length);
                 Assert.Equal(91, context.ChangeTracker.Entries().Count());
             }
         }
 
-        protected NorthwindContext CreateContext()
+        [Fact]
+        public virtual void From_sql_queryable_simple_columns_out_of_order_and_extra_columns()
         {
-            return Fixture.CreateContext();
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Customer>()
+                    .FromSql(@"SELECT ""Region"", ""PostalCode"", ""PostalCode"" AS ""Foo"", ""Phone"", ""Fax"", ""CustomerID"", ""Country"", ""ContactTitle"", ""ContactName"", ""CompanyName"", ""City"", ""Address"" FROM ""Customers""")
+                    .ToArray();
+
+                Assert.Equal(91, actual.Length);
+                Assert.Equal(91, context.ChangeTracker.Entries().Count());
+            }
         }
+
+        [Fact]
+        public virtual void From_sql_queryable_simple_columns_out_of_order_and_not_enough_columns_throws()
+        {
+            using (var context = CreateContext())
+            {
+                Assert.Equal(
+                    RelationalStrings.FromSqlMissingColumn("Region"),
+                    Assert.Throws<InvalidOperationException>(
+                        () =>
+                            context.Set<Customer>()
+                                .FromSql(@"SELECT ""PostalCode"", ""Phone"", ""Fax"", ""CustomerID"", ""Country"", ""ContactTitle"", ""ContactName"", ""CompanyName"", ""City"", ""Address"" FROM ""Customers""")
+                                .ToArray()
+                        ).Message);
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_composed()
+        {
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Customer>()
+                    .FromSql(@"SELECT * FROM ""Customers""")
+                    .Where(c => c.ContactName.Contains("z"))
+                    .ToArray();
+
+                Assert.Equal(14, actual.Length);
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_multiple_composed()
+        {
+            using (var context = CreateContext())
+            {
+                var actual
+                    = (from c in context.Set<Customer>().FromSql(@"SELECT * FROM ""Customers""")
+                        from o in context.Set<Order>().FromSql(@"SELECT * FROM ""Orders""")
+                        where c.CustomerID == o.CustomerID
+                        select new { c, o })
+                        .ToArray();
+
+                Assert.Equal(830, actual.Length);
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_multiple_composed_with_closure_parameters()
+        {
+            var startDate = new DateTime(1997, 1, 1);
+            var endDate = new DateTime(1998, 1, 1);
+
+            using (var context = CreateContext())
+            {
+                var actual
+                    = (from c in context.Set<Customer>().FromSql(@"SELECT * FROM ""Customers""")
+                        from o in context.Set<Order>().FromSql(@"SELECT * FROM ""Orders"" WHERE ""OrderDate"" BETWEEN {0} AND {1}",
+                            startDate,
+                            endDate)
+                        where c.CustomerID == o.CustomerID
+                        select new { c, o })
+                        .ToArray();
+
+                Assert.Equal(411, actual.Length);
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_multiple_composed_with_parameters_and_closure_parameters()
+        {
+            var city = "London";
+            var startDate = new DateTime(1997, 1, 1);
+            var endDate = new DateTime(1998, 1, 1);
+
+            using (var context = CreateContext())
+            {
+                var actual
+                    = (from c in context.Set<Customer>().FromSql(@"SELECT * FROM ""Customers"" WHERE ""City"" = {0}",
+                        city)
+                        from o in context.Set<Order>().FromSql(@"SELECT * FROM ""Orders"" WHERE ""OrderDate"" BETWEEN {0} AND {1}",
+                            startDate,
+                            endDate)
+                        where c.CustomerID == o.CustomerID
+                        select new { c, o })
+                        .ToArray();
+
+                Assert.Equal(25, actual.Length);
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_multiple_line_query()
+        {
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Customer>()
+                    .FromSql(@"SELECT *
+FROM ""Customers""
+WHERE ""City"" = 'London'")
+                    .ToArray();
+
+                Assert.Equal(6, actual.Length);
+                Assert.True(actual.All(c => c.City == "London"));
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_composed_multiple_line_query()
+        {
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Customer>()
+                    .FromSql(@"SELECT *
+FROM ""Customers""")
+                    .Where(c => c.City == "London")
+                    .ToArray();
+
+                Assert.Equal(6, actual.Length);
+                Assert.True(actual.All(c => c.City == "London"));
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_with_parameters()
+        {
+            var city = "London";
+            var contactTitle = "Sales Representative";
+
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Customer>()
+                    .FromSql(@"SELECT * FROM ""Customers"" WHERE ""City"" = {0} AND ""ContactTitle"" = {1}",
+                        city,
+                        contactTitle)
+                    .ToArray();
+
+                Assert.Equal(3, actual.Length);
+                Assert.True(actual.All(c => c.City == "London"));
+                Assert.True(actual.All(c => c.ContactTitle == "Sales Representative"));
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_with_null_parameter()
+        {
+            int? reportsTo = null;
+
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Employee>()
+                    .FromSql(@"SELECT * FROM ""Employees"" WHERE ""ReportsTo"" = {0} OR (""ReportsTo"" IS NULL AND {0} IS NULL)",
+                        reportsTo)
+                    .ToArray();
+
+                Assert.Equal(1, actual.Length);
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_with_parameters_and_closure()
+        {
+            var city = "London";
+            var contactTitle = "Sales Representative";
+
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Customer>()
+                    .FromSql(@"SELECT * FROM ""Customers"" WHERE ""City"" = {0}",
+                        city)
+                    .Where(c => c.ContactTitle == contactTitle)
+                    .ToArray();
+
+                Assert.Equal(3, actual.Length);
+                Assert.True(actual.All(c => c.City == "London"));
+                Assert.True(actual.All(c => c.ContactTitle == "Sales Representative"));
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_simple_cache_key_includes_query_string()
+        {
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Customer>()
+                    .FromSql(@"SELECT * FROM ""Customers"" WHERE ""City"" = 'London'")
+                    .ToArray();
+
+                Assert.Equal(6, actual.Length);
+                Assert.True(actual.All(c => c.City == "London"));
+
+                actual = context.Set<Customer>()
+                    .FromSql(@"SELECT * FROM ""Customers"" WHERE ""City"" = 'Seattle'")
+                    .ToArray();
+
+                Assert.Equal(1, actual.Length);
+                Assert.True(actual.All(c => c.City == "Seattle"));
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_with_parameters_cache_key_includes_parameters()
+        {
+            var city = "London";
+            var contactTitle = "Sales Representative";
+            var sql = @"SELECT * FROM ""Customers"" WHERE ""City"" = {0} AND ""ContactTitle"" = {1}";
+
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Customer>()
+                    .FromSql(sql, city, contactTitle)
+                    .ToArray();
+
+                Assert.Equal(3, actual.Length);
+                Assert.True(actual.All(c => c.City == "London"));
+                Assert.True(actual.All(c => c.ContactTitle == "Sales Representative"));
+
+                city = "Madrid";
+                contactTitle = "Accounting Manager";
+
+                actual = context.Set<Customer>()
+                    .FromSql(sql, city, contactTitle)
+                    .ToArray();
+
+                Assert.Equal(2, actual.Length);
+                Assert.True(actual.All(c => c.City == "Madrid"));
+                Assert.True(actual.All(c => c.ContactTitle == "Accounting Manager"));
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_simple_as_no_tracking_not_composed()
+        {
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Customer>()
+                    .FromSql(@"SELECT * FROM ""Customers""")
+                    .AsNoTracking()
+                    .ToArray();
+
+                Assert.Equal(91, actual.Length);
+                Assert.Equal(0, context.ChangeTracker.Entries().Count());
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_simple_projection_composed()
+        {
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Product>()
+                    .FromSql(@"SELECT *
+FROM Products
+WHERE Discontinued <> 1
+AND ((UnitsInStock + UnitsOnOrder) < ReorderLevel)")
+                    .Select(p => p.ProductName)
+                    .ToArray();
+
+                Assert.Equal(2, actual.Length);
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_simple_include()
+        {
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Customer>()
+                    .FromSql(@"SELECT * FROM ""Customers""")
+                    .Include(c => c.Orders)
+                    .ToArray();
+
+                Assert.Equal(830, actual.SelectMany(c => c.Orders).Count());
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_simple_composed_include()
+        {
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Customer>()
+                    .FromSql(@"SELECT * FROM ""Customers""")
+                    .Where(c => c.City == "London")
+                    .Include(c => c.Orders)
+                    .ToArray();
+
+                Assert.Equal(46, actual.SelectMany(c => c.Orders).Count());
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_annotations_do_not_affect_successive_calls()
+        {
+            using (var context = CreateContext())
+            {
+                var actual = context.Customers
+                    .FromSql(@"SELECT * FROM ""Customers"" WHERE ""ContactName"" LIKE '%z%'")
+                    .ToArray();
+
+                Assert.Equal(14, actual.Length);
+
+                actual = context.Customers
+                    .ToArray();
+
+                Assert.Equal(91, actual.Length);
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_composed_with_nullable_predicate()
+        {
+            using (var context = CreateContext())
+            {
+                var actual = context.Set<Customer>()
+                    .FromSql(@"SELECT * FROM ""Customers""")
+                    .Where(c => c.ContactName == c.CompanyName)
+                    .ToArray();
+
+                Assert.Equal(0, actual.Length);
+            }
+        }
+
+        protected NorthwindContext CreateContext() => Fixture.CreateContext();
 
         protected FromSqlQueryTestBase(TFixture fixture)
         {
@@ -139,23 +384,5 @@ WHERE Customers.City = 'London'"),
         }
 
         protected TFixture Fixture { get; }
-
-        private void AssertQuery<TItem>(
-            Func<DbSet<TItem>, IQueryable<object>> relationalQuery,
-            Func<IQueryable<TItem>, IQueryable<object>> l2oQuery,
-            bool assertOrder = false,
-            int entryCount = 0)
-            where TItem : class
-        {
-            using (var context = CreateContext())
-            {
-                TestHelpers.AssertResults(
-                    l2oQuery(NorthwindData.Set<TItem>()).ToArray(),
-                    relationalQuery(context.Set<TItem>()).ToArray(),
-                    assertOrder);
-
-                Assert.Equal(entryCount, context.ChangeTracker.Entries().Count());
-            }
-        }
     }
 }

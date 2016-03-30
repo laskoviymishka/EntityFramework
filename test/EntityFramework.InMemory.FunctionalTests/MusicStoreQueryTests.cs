@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Data.Entity.FunctionalTests;
 using Microsoft.Data.Entity.Infrastructure;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Microsoft.Data.Entity.InMemory.FunctionalTests
@@ -19,12 +19,12 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
             var serviceProvider
                 = new ServiceCollection()
                     .AddEntityFramework()
-                    .AddInMemoryStore()
+                    .AddInMemoryDatabase()
                     .ServiceCollection()
                     .BuildServiceProvider();
 
             var optionsBuilder = new DbContextOptionsBuilder();
-            optionsBuilder.UseInMemoryStore(persist: true);
+            optionsBuilder.UseInMemoryDatabase();
 
             using (var db = new MusicStoreContext(serviceProvider, optionsBuilder.Options))
             {
@@ -81,11 +81,11 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
 
             protected override void OnModelCreating(ModelBuilder builder)
             {
-                builder.Entity<Album>().Key(a => a.AlbumId);
-                builder.Entity<Artist>().Key(a => a.ArtistId);
-                builder.Entity<Order>().Key(o => o.OrderId);
-                builder.Entity<Genre>().Key(g => g.GenreId);
-                builder.Entity<OrderDetail>().Key(o => o.OrderDetailId);
+                builder.Entity<Album>().HasKey(a => a.AlbumId);
+                builder.Entity<Artist>().HasKey(a => a.ArtistId);
+                builder.Entity<Order>().HasKey(o => o.OrderId);
+                builder.Entity<Genre>().HasKey(g => g.GenreId);
+                builder.Entity<OrderDetail>().HasKey(o => o.OrderDetailId);
 
                 base.OnModelCreating(builder);
             }

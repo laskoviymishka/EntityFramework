@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Diagnostics;
@@ -15,29 +15,27 @@ namespace Microsoft.Data.Entity.ChangeTracking
     ///         Provides access to change tracking information and operations for a given entity.
     ///     </para>
     ///     <para>
-    ///         Instances of this class are returned from methods when using the <see cref="ChangeTracker"/> API and it is 
+    ///         Instances of this class are returned from methods when using the <see cref="ChangeTracker" /> API and it is
     ///         not designed to be directly constructed in your application code.
     ///     </para>
     /// </summary>
     [DebuggerDisplay("{_internalEntityEntry,nq}")]
-    public class EntityEntry : IAccessor<InternalEntityEntry>
+    public class EntityEntry : IInfrastructure<InternalEntityEntry>
     {
         private readonly InternalEntityEntry _internalEntityEntry;
 
         /// <summary>
-        ///     Initializes a new instance of the <see cref="EntityEntry"/> class. Instances of this class are returned from 
-        ///     methods when using the <see cref="ChangeTracker"/> API and it is not designed to be directly constructed in 
+        ///     Initializes a new instance of the <see cref="EntityEntry" /> class. Instances of this class are returned from
+        ///     methods when using the <see cref="ChangeTracker" /> API and it is not designed to be directly constructed in
         ///     your application code.
         /// </summary>
-        /// <param name="context"> The context that is tracking the entity. </param>
         /// <param name="internalEntry"> The internal entry tracking information about this entity. </param>
-        public EntityEntry([NotNull] DbContext context, [NotNull] InternalEntityEntry internalEntry)
+        /// 
+        public EntityEntry([NotNull] InternalEntityEntry internalEntry)
         {
             Check.NotNull(internalEntry, nameof(internalEntry));
-            Check.NotNull(context, nameof(context));
 
             _internalEntityEntry = internalEntry;
-            Context = context;
         }
 
         /// <summary>
@@ -51,9 +49,9 @@ namespace Microsoft.Data.Entity.ChangeTracking
         ///     </para>
         ///     <para>
         ///         When setting the state, the entity will always end up in the specified state. For example, if you
-        ///         change the state to <see cref="EntityState.Deleted"/> the entity will be marked for deletion regardless
-        ///         of its current state. This is different than calling <see cref="DbSet{TEntity}.Remove"/> where the entity
-        ///         will be disconnected (rather than marked for deletion) if it is in the <see cref="EntityState.Added"/> state.
+        ///         change the state to <see cref="EntityState.Deleted" /> the entity will be marked for deletion regardless
+        ///         of its current state. This is different than calling <see cref="DbSet{TEntity}.Remove(TEntity)" /> where the entity
+        ///         will be disconnected (rather than marked for deletion) if it is in the <see cref="EntityState.Added" /> state.
         ///     </para>
         /// </summary>
         public virtual EntityState State
@@ -68,17 +66,22 @@ namespace Microsoft.Data.Entity.ChangeTracking
         }
 
         /// <summary>
-        ///     Gets the internal entry that is tracking information about this entity.
+        ///     <para>
+        ///         Gets the internal entry that is tracking information about this entity.
+        ///     </para>
+        ///     <para>
+        ///         This property is intended for use by extension methods. It is not intended to be used in
+        ///         application code.
+        ///     </para>
         /// </summary>
-        InternalEntityEntry IAccessor<InternalEntityEntry>.Service => _internalEntityEntry;
+        InternalEntityEntry IInfrastructure<InternalEntityEntry>.Instance => _internalEntityEntry;
 
         /// <summary>
         ///     Gets the context that is tracking the entity.
         /// </summary>
-        public virtual DbContext Context { get; }
-
+        public virtual DbContext Context => _internalEntityEntry.StateManager.Context;
         /// <summary>
-        ///     Gets the metadata the context is using to reason about this entity.
+        ///     Gets the metadata about the shape of the entity, its relationships to other entities, and how it maps to the database.
         /// </summary>
         public virtual IEntityType Metadata => _internalEntityEntry.EntityType;
 
@@ -96,15 +99,9 @@ namespace Microsoft.Data.Entity.ChangeTracking
         }
 
         /// <summary>
-        ///     <para>
-        ///         Gets a value indicating if the key values of this entity have been assigned a value.
-        ///         False if one or more of the key properties is assigned null or <see cref="IProperty.SentinelValue"/>, 
-        ///         otherwise true.
-        ///     </para>
-        ///     <para>
-        ///         By default <see cref="IProperty.SentinelValue"/> is set to the CLR default for the type of
-        ///         the property (i.e. null for string, 0 for int, etc.)
-        ///     </para>
+        ///     Gets a value indicating if the key values of this entity have been assigned a value.
+        ///     False if one or more of the key properties is assigned null or the CLR default,
+        ///     otherwise true.
         /// </summary>
         public virtual bool IsKeySet => _internalEntityEntry.IsKeySet;
     }

@@ -1,32 +1,54 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Linq.Expressions;
 using JetBrains.Annotations;
+using Microsoft.Data.Entity.Utilities;
 using Remotion.Linq.Clauses;
-using Remotion.Linq.Clauses.Expressions;
-using Remotion.Linq.Parsing;
 
-namespace Microsoft.Data.Entity.Relational.Query.Expressions
+namespace Microsoft.Data.Entity.Query.Expressions
 {
-    public abstract class TableExpressionBase : ExtensionExpression
+    public abstract class TableExpressionBase : Expression
     {
+        private string _alias;
+        private IQuerySource _querySource;
+
         protected TableExpressionBase(
-            [CanBeNull] IQuerySource querySource,
-            [CanBeNull] string alias)
-            : base(typeof(object))
+            [CanBeNull] IQuerySource querySource, [CanBeNull] string alias)
         {
-            QuerySource = querySource;
-            Alias = alias;
+            _querySource = querySource;
+            _alias = alias;
         }
 
-        public virtual IQuerySource QuerySource { get; }
+        public override ExpressionType NodeType => ExpressionType.Extension;
 
-        public virtual string Alias { get; [param: NotNull] set; }
+        public override Type Type => typeof(object);
 
-        protected override Expression VisitChildren(ExpressionTreeVisitor visitor)
+        public virtual IQuerySource QuerySource
         {
-            return this;
+            get { return _querySource; }
+            [param: NotNull]
+            set
+            {
+                Check.NotNull(value, nameof(value));
+
+                _querySource = value;
+            }
         }
+
+        public virtual string Alias
+        {
+            get { return _alias; }
+            [param: NotNull]
+            set
+            {
+                Check.NotNull(value, nameof(value));
+
+                _alias = value;
+            }
+        }
+
+        protected override Expression VisitChildren(ExpressionVisitor visitor) => this;
     }
 }

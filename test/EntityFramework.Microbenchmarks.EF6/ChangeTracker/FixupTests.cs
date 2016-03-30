@@ -1,7 +1,6 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using EntityFramework.Microbenchmarks.Core;
@@ -11,181 +10,126 @@ using Xunit;
 
 namespace EntityFramework.Microbenchmarks.EF6.ChangeTracker
 {
-    public class FixupTests
+    public class FixupTests : IClassFixture<FixupTests.FixupFixture>
     {
-        private static readonly string _connectionString = String.Format(@"Server={0};Database=Perf_ChangeTracker_Fixup_EF6;Integrated Security=True;MultipleActiveResultSets=true;", TestConfig.Instance.DataSource);
+        private readonly FixupFixture _fixture;
 
-        [Fact]
-        public void AddChildren()
+        public FixupTests(FixupFixture fixture)
         {
-            new TestDefinition
+            _fixture = fixture;
+        }
+
+        [Benchmark]
+        public void AddChildren(IMetricCollector collector)
+        {
+            using (var context = _fixture.CreateContext())
+            {
+                var customers = _fixture.CreateCustomers(1000, setPrimaryKeys: true);
+                var orders = _fixture.CreateOrders(customers, ordersPerCustomer: 1, setPrimaryKeys: false);
+                customers.ForEach(c => context.Customers.Attach(c));
+
+                Assert.All(orders, o => Assert.Null(o.Customer));
+
+                using (collector.StartCollection())
                 {
-                    TestName = "ChangeTracker_Fixup_AddChildren_EF6",
-                    IterationCount = 10,
-                    WarmupCount = 5,
-                    Setup = EnsureDatabaseSetup,
-                    Run = harness =>
-                        {
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                var customers = context.Customers.ToList();
-                                Assert.Equal(1000, customers.Count);
+                    foreach (var order in orders)
+                    {
+                        context.Orders.Add(order);
+                    }
+                }
 
-                                foreach (var customer in customers)
-                                {
-                                    var order = new Order { CustomerId = customer.CustomerId };
-
-                                    using (harness.StartCollection())
-                                    {
-                                        context.Orders.Add(order);
-                                    }
-
-                                    Assert.Same(order, order.Customer.Orders.Single());
-                                }
-                            }
-                        }
-                }.RunTest();
+                Assert.All(orders, o => Assert.NotNull(o.Customer));
+            }
         }
 
         // Note: AddParents() not implemented because fixup to added parents 
         //       only happens during SaveChanges for EF6.x (not during Add)
 
-        [Fact]
-        public void AttachChildren()
+        [Benchmark]
+        public void AttachChildren(IMetricCollector collector)
         {
-            new TestDefinition
+            using (var context = _fixture.CreateContext())
+            {
+                var customers = _fixture.CreateCustomers(1000, setPrimaryKeys: true);
+                var orders = _fixture.CreateOrders(customers, ordersPerCustomer: 1, setPrimaryKeys: true);
+                customers.ForEach(c => context.Customers.Attach(c));
+
+                Assert.All(orders, o => Assert.Null(o.Customer));
+
+                using (collector.StartCollection())
                 {
-                    TestName = "ChangeTracker_Fixup_AttachChildren_EF6",
-                    IterationCount = 10,
-                    WarmupCount = 5,
-                    Setup = EnsureDatabaseSetup,
-                    Run = harness =>
-                        {
-                            List<Order> orders;
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                orders = context.Orders.ToList();
-                            }
+                    foreach (var order in orders)
+                    {
+                        context.Orders.Attach(order);
+                    }
+                }
 
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                var customers = context.Customers.ToList();
-                                Assert.Equal(1000, orders.Count);
-                                Assert.Equal(1000, customers.Count);
-
-                                foreach (var order in orders)
-                                {
-                                    using (harness.StartCollection())
-                                    {
-                                        context.Orders.Attach(order);
-                                    }
-
-                                    Assert.Same(order, order.Customer.Orders.Single());
-                                }
-                            }
-                        }
-                }.RunTest();
+                Assert.All(orders, o => Assert.NotNull(o.Customer));
+            }
         }
 
-        [Fact]
-        public void AttachParents()
+        [Benchmark]
+        public void AttachParents(IMetricCollector collector)
         {
-            new TestDefinition
+            using (var context = _fixture.CreateContext())
+            {
+                var customers = _fixture.CreateCustomers(1000, setPrimaryKeys: true);
+                var orders = _fixture.CreateOrders(customers, ordersPerCustomer: 1, setPrimaryKeys: true);
+                orders.ForEach(o => context.Orders.Attach(o));
+
+                Assert.All(customers, c => Assert.Null(c.Orders));
+
+                using (collector.StartCollection())
                 {
-                    TestName = "ChangeTracker_Fixup_AttachParents_EF6",
-                    IterationCount = 10,
-                    WarmupCount = 5,
-                    Setup = EnsureDatabaseSetup,
-                    Run = harness =>
-                        {
-                            List<Customer> customers;
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                customers = context.Customers.ToList();
-                            }
+                    foreach (var customer in customers)
+                    {
+                        context.Customers.Attach(customer);
+                    }
+                }
 
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                var orders = context.Orders.ToList();
-                                Assert.Equal(1000, orders.Count);
-                                Assert.Equal(1000, customers.Count);
-
-                                foreach (var customer in customers)
-                                {
-                                    using (harness.StartCollection())
-                                    {
-                                        context.Customers.Attach(customer);
-                                    }
-
-                                    Assert.Same(customer, customer.Orders.Single().Customer);
-                                }
-                            }
-                        }
-                }.RunTest();
+                Assert.All(customers, c => Assert.Equal(1, c.Orders.Count));
+            }
         }
 
-        [Fact]
-        public void QueryChildren()
+        [Benchmark]
+        public void QueryChildren(IMetricCollector collector)
         {
-            new TestDefinition
-                {
-                    TestName = "ChangeTracker_Fixup_QueryChildren_EF6",
-                    IterationCount = 10,
-                    WarmupCount = 5,
-                    Setup = EnsureDatabaseSetup,
-                    Run = harness =>
-                        {
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                context.Customers.ToList();
+            using (var context = _fixture.CreateContext())
+            {
+                context.Customers.ToList();
 
-                                harness.StartCollection();
-                                var orders = context.Orders.ToList();
-                                harness.StopCollection();
+                collector.StartCollection();
+                var orders = context.Orders.ToList();
+                collector.StopCollection();
 
-                                Assert.Equal(1000, context.ChangeTracker.Entries<Customer>().Count());
-                                Assert.Equal(1000, context.ChangeTracker.Entries<Order>().Count());
-                                Assert.All(orders, o => Assert.NotNull(o.Customer));
-                            }
-                        }
-                }.RunTest();
+                Assert.Equal(1000, context.ChangeTracker.Entries<Customer>().Count());
+                Assert.Equal(1000, context.ChangeTracker.Entries<Order>().Count());
+                Assert.All(orders, o => Assert.NotNull(o.Customer));
+            }
         }
 
-        [Fact]
-        public void QueryParents()
+        [Benchmark]
+        public void QueryParents(IMetricCollector collector)
         {
-            new TestDefinition
-                {
-                    TestName = "ChangeTracker_Fixup_QueryParents_EF6",
-                    IterationCount = 10,
-                    WarmupCount = 5,
-                    Setup = EnsureDatabaseSetup,
-                    Run = harness =>
-                        {
-                            using (var context = new OrdersContext(_connectionString))
-                            {
-                                context.Orders.ToList();
+            using (var context = _fixture.CreateContext())
+            {
+                context.Orders.ToList();
 
-                                harness.StartCollection();
-                                var customers = context.Customers.ToList();
-                                harness.StopCollection();
+                collector.StartCollection();
+                var customers = context.Customers.ToList();
+                collector.StopCollection();
 
-                                Assert.Equal(1000, context.ChangeTracker.Entries<Customer>().Count());
-                                Assert.Equal(1000, context.ChangeTracker.Entries<Order>().Count());
-                                Assert.All(customers, c => Assert.Equal(1, c.Orders.Count));
-                            }
-                        }
-                }.RunTest();
+                Assert.Equal(1000, context.ChangeTracker.Entries<Customer>().Count());
+                Assert.Equal(1000, context.ChangeTracker.Entries<Order>().Count());
+                Assert.All(customers, c => Assert.Equal(1, c.Orders.Count));
+            }
         }
 
-        private static void EnsureDatabaseSetup()
+        public class FixupFixture : OrdersFixture
         {
-            new OrdersSeedData().EnsureCreated(
-                _connectionString,
-                productCount: 1000,
-                customerCount: 1000,
-                ordersPerCustomer: 1,
-                linesPerOrder: 1);
+            public FixupFixture()
+                : base("Perf_ChangeTracker_Fixup_EF6", 0, 1000, 1, 0)
+            { }
         }
     }
 }

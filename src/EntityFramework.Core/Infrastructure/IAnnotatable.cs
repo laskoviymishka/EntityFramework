@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections.Generic;
@@ -6,13 +6,40 @@ using JetBrains.Annotations;
 
 namespace Microsoft.Data.Entity.Infrastructure
 {
+    /// <summary>
+    ///     <para>
+    ///         A class that exposes annotations. Annotations allow for arbitrary metadata to be stored on an object.
+    ///     </para>
+    ///     <para>
+    ///         This interface is typically used by database providers (and other extensions). It is generally
+    ///         not used in application code.
+    ///     </para>
+    /// </summary>
     public interface IAnnotatable
     {
-        [CanBeNull]
-        object this[[NotNull] string annotationName] { get; }
+        /// <summary>
+        ///     Gets the value annotation with the given name, returning null if it does not exist.
+        /// </summary>
+        /// <param name="name"> The key of the annotation to find. </param>
+        /// <returns>         
+        ///     The value of the existing annotation if an annotation with the specified name already exists. Otherwise, null. 
+        /// </returns>
+        // ReSharper disable once AnnotationRedundancyInHierarchy
+        // TODO: Fix API test to handle indexer
+        object this[[NotNull] string name] { get; }
 
-        Annotation GetAnnotation([NotNull] string annotationName);
+        /// <summary>
+        ///     Gets the annotation with the given name, returning null if it does not exist.
+        /// </summary>
+        /// <param name="name"> The key of the annotation to find. </param>
+        /// <returns>
+        ///     The existing annotation if an annotation with the specified name already exists. Otherwise, null. 
+        /// </returns>
+        IAnnotation FindAnnotation([NotNull] string name);
 
-        IEnumerable<IAnnotation> Annotations { get; }
+        /// <summary>
+        ///     Gets all annotations on the current object.
+        /// </summary>
+        IEnumerable<IAnnotation> GetAnnotations();
     }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -23,16 +23,12 @@ namespace Microsoft.Data.Entity.Tests
                     sets.Select(s => s.Name).ToArray());
 
                 Assert.Equal(
-                    new[] { typeof(Streets), typeof(The), typeof(The), typeof(Streets), typeof(Streets) },
-                    sets.Select(s => s.ContextType).ToArray());
-
-                Assert.Equal(
                     new[] { typeof(Better), typeof(Brandy), typeof(Drinking), typeof(Stop), typeof(You) },
                     sets.Select(s => s.EntityType).ToArray());
 
                 Assert.Equal(
                     new[] { true, true, true, false, true },
-                    sets.Select(s => s.HasSetter).ToArray());
+                    sets.Select(s => s.Setter != null).ToArray());
             }
         }
 

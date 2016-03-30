@@ -1,32 +1,40 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using Microsoft.Data.Entity.Metadata;
+using Microsoft.Data.Entity.Internal;
+using Microsoft.Data.Entity.Metadata.Internal;
 using Xunit;
 
-namespace Microsoft.Data.Entity.Relational.Metadata.Tests
+namespace Microsoft.Data.Entity.Metadata.Tests
 {
     public class SequenceTest
     {
         [Fact]
         public void Can_be_created_with_default_values()
         {
-            var sequence = new Sequence("Foo");
+            var sequence = new Sequence(new Model(), RelationalAnnotationNames.Prefix, "Foo");
 
             Assert.Equal("Foo", sequence.Name);
             Assert.Null(sequence.Schema);
-            Assert.Equal(10, sequence.IncrementBy);
+            Assert.Equal(1, sequence.IncrementBy);
             Assert.Equal(1, sequence.StartValue);
             Assert.Null(sequence.MinValue);
             Assert.Null(sequence.MaxValue);
-            Assert.Same(typeof(long), sequence.Type);
+            Assert.Same(typeof(long), sequence.ClrType);
         }
 
         [Fact]
         public void Can_be_created_with_specified_values()
         {
-            var sequence = new Sequence("Foo", "Smoo", 1729, 11, 2001, 2010, typeof(int));
+            var sequence = new Sequence(new Model(), RelationalAnnotationNames.Prefix, "Foo", "Smoo")
+            {
+                StartValue = 1729,
+                IncrementBy = 11,
+                MinValue = 2001,
+                MaxValue = 2010,
+                ClrType = typeof(int)
+            };
 
             Assert.Equal("Foo", sequence.Name);
             Assert.Equal("Smoo", sequence.Schema);
@@ -34,36 +42,72 @@ namespace Microsoft.Data.Entity.Relational.Metadata.Tests
             Assert.Equal(1729, sequence.StartValue);
             Assert.Equal(2001, sequence.MinValue);
             Assert.Equal(2010, sequence.MaxValue);
-            Assert.Same(typeof(int), sequence.Type);
+            Assert.Same(typeof(int), sequence.ClrType);
         }
 
         [Fact]
         public void Can_only_be_created_for_byte_short_int_and_long()
         {
-            Assert.Same(typeof(byte), new Sequence("Foo", null, 11, 1729, null, null, typeof(byte)).Type);
-            Assert.Same(typeof(short), new Sequence("Foo", null, 11, 1729, null, null, typeof(short)).Type);
-            Assert.Same(typeof(int), new Sequence("Foo", null, 11, 1729, null, null, typeof(int)).Type);
-            Assert.Same(typeof(long), new Sequence("Foo", null, 11, 1729, null, null, typeof(long)).Type);
+            Assert.Same(typeof(byte), new Sequence(new Model(), RelationalAnnotationNames.Prefix, "Foo") { ClrType = typeof(byte) }.ClrType);
+            Assert.Same(typeof(short), new Sequence(new Model(), RelationalAnnotationNames.Prefix, "Foo") { ClrType = typeof(short) }.ClrType);
+            Assert.Same(typeof(int), new Sequence(new Model(), RelationalAnnotationNames.Prefix, "Foo") { ClrType = typeof(int) }.ClrType);
+            Assert.Same(typeof(long), new Sequence(new Model(), RelationalAnnotationNames.Prefix, "Foo") { ClrType = typeof(long) }.ClrType);
 
             Assert.Equal(
-                Strings.BadSequenceType,
-                Assert.Throws<ArgumentException>(() => new Sequence("Foo", null, 11, 1729, null, null, typeof(decimal))).Message);
+                RelationalStrings.BadSequenceType,
+                Assert.Throws<ArgumentException>(
+                    () => new Sequence(new Model(), RelationalAnnotationNames.Prefix, "Foo") { ClrType = typeof(decimal) }).Message);
         }
 
         [Fact]
-        public void Can_set_model()
+        public void Can_get_model()
         {
-            var sequence = new Sequence("Foo");
-
             var model = new Model();
-            sequence.Model = model;
+
+            var sequence = new Sequence(model, RelationalAnnotationNames.Prefix, "Foo");
+
             Assert.Same(model, sequence.Model);
+        }
+
+        [Fact]
+        public void Can_get_model_default_schema_if_sequence_schema_not_specified()
+        {
+            var model = new Model();
+
+            var sequence = new Sequence(model, RelationalAnnotationNames.Prefix, "Foo");
+
+            Assert.Null(sequence.Schema);
+
+            model.Relational().DefaultSchema = "db0";
+
+            Assert.Equal("db0", sequence.Schema);
+        }
+
+        [Fact]
+        public void Can_get_sequence_schema_if_specified_explicitly()
+        {
+            var model = new Model();
+
+            model.Relational().DefaultSchema = "db0";
+            var sequence = new Sequence(model, RelationalAnnotationNames.Prefix, "Foo", "db1");
+
+            Assert.Equal("db1", sequence.Schema);
         }
 
         [Fact]
         public void Can_serialize_and_deserialize()
         {
-            var sequence = Sequence.Deserialize(new Sequence("Foo", "Smoo", 1729, 11, 2001, 2010, typeof(int)).Serialize());
+            var model = new Model();
+            new Sequence(model, RelationalAnnotationNames.Prefix, "Foo", "Smoo")
+            {
+                StartValue = 1729,
+                IncrementBy = 11,
+                MinValue = 2001,
+                MaxValue = 2010,
+                ClrType = typeof(int)
+            };
+
+            var sequence = new Sequence(model, RelationalAnnotationNames.Prefix, "Foo", "Smoo");
 
             Assert.Equal("Foo", sequence.Name);
             Assert.Equal("Smoo", sequence.Schema);
@@ -71,28 +115,38 @@ namespace Microsoft.Data.Entity.Relational.Metadata.Tests
             Assert.Equal(1729, sequence.StartValue);
             Assert.Equal(2001, sequence.MinValue);
             Assert.Equal(2010, sequence.MaxValue);
-            Assert.Same(typeof(int), sequence.Type);
+            Assert.Same(typeof(int), sequence.ClrType);
         }
 
         [Fact]
         public void Can_serialize_and_deserialize_with_defaults()
         {
-            var serialize = new Sequence("Foo").Serialize();
-            var sequence = Sequence.Deserialize(serialize);
+            var model = new Model();
+            new Sequence(model, RelationalAnnotationNames.Prefix, "Foo");
+
+            var sequence = new Sequence(model, RelationalAnnotationNames.Prefix, "Foo");
 
             Assert.Equal("Foo", sequence.Name);
             Assert.Null(sequence.Schema);
-            Assert.Equal(10, sequence.IncrementBy);
+            Assert.Equal(1, sequence.IncrementBy);
             Assert.Equal(1, sequence.StartValue);
             Assert.Null(sequence.MinValue);
             Assert.Null(sequence.MaxValue);
-            Assert.Same(typeof(long), sequence.Type);
+            Assert.Same(typeof(long), sequence.ClrType);
         }
 
         [Fact]
         public void Can_serialize_and_deserialize_with_funky_names()
         {
-            var sequence = Sequence.Deserialize(new Sequence("'Foo'", "''S'''m'oo'''", 1729, 11, null, null, typeof(int)).Serialize());
+            var model = new Model();
+            new Sequence(model, RelationalAnnotationNames.Prefix, "'Foo'", "''S'''m'oo'''")
+            {
+                StartValue = 1729,
+                IncrementBy = 11,
+                ClrType = typeof(int)
+            };
+
+            var sequence = new Sequence(model, RelationalAnnotationNames.Prefix, "'Foo'", "''S'''m'oo'''");
 
             Assert.Equal("'Foo'", sequence.Name);
             Assert.Equal("''S'''m'oo'''", sequence.Schema);
@@ -100,17 +154,30 @@ namespace Microsoft.Data.Entity.Relational.Metadata.Tests
             Assert.Equal(1729, sequence.StartValue);
             Assert.Null(sequence.MinValue);
             Assert.Null(sequence.MaxValue);
-            Assert.Same(typeof(int), sequence.Type);
+            Assert.Same(typeof(int), sequence.ClrType);
         }
 
         [Fact]
         public void Throws_on_bad_serialized_form()
         {
-            var badString = new Sequence("Foo", "Smoo", 1729, 11, 2001, 2010, typeof(int)).Serialize().Replace("1", "Z");
+            var model = new Model();
+            new Sequence(model, RelationalAnnotationNames.Prefix, "Foo", "Smoo")
+            {
+                StartValue = 1729,
+                IncrementBy = 11,
+                MinValue = 2001,
+                MaxValue = 2010,
+                ClrType = typeof(int)
+            };
+
+            var annotationName = RelationalAnnotationNames.Prefix + RelationalAnnotationNames.Sequence + "Smoo.Foo";
+
+            model[annotationName] = ((string)model[annotationName]).Replace("1", "Z");
 
             Assert.Equal(
-                Strings.BadSequenceString,
-                Assert.Throws<ArgumentException>(() => Sequence.Deserialize(badString)).Message);
+                RelationalStrings.BadSequenceString,
+                Assert.Throws<ArgumentException>(
+                    () => new Sequence(model, RelationalAnnotationNames.Prefix, "Foo", "Smoo").ClrType).Message);
         }
     }
 }

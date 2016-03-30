@@ -1,15 +1,14 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using JetBrains.Annotations;
-using Microsoft.Data.Entity.Metadata;
 using Microsoft.Data.Entity.Utilities;
 
-namespace Microsoft.Data.Entity.Relational.Metadata
+namespace Microsoft.Data.Entity.Metadata
 {
     public class RelationalSequenceBuilder
     {
-        private Sequence _sequence;
+        private readonly Sequence _sequence;
 
         public RelationalSequenceBuilder([NotNull] Sequence sequence)
         {
@@ -18,116 +17,39 @@ namespace Microsoft.Data.Entity.Relational.Metadata
             _sequence = sequence;
         }
 
-        public virtual RelationalSequenceBuilder IncrementBy(int increment)
+        public virtual Sequence Metadata => _sequence;
+
+        public virtual RelationalSequenceBuilder IncrementsBy(int increment)
         {
-            var model = (Model)_sequence.Model;
-
-            _sequence = new Sequence(
-                _sequence.Name,
-                _sequence.Schema,
-                _sequence.StartValue,
-                increment,
-                _sequence.MinValue,
-                _sequence.MaxValue,
-                _sequence.Type,
-                _sequence.Cycle);
-
-            model.Relational().AddOrReplaceSequence(_sequence);
+            _sequence.IncrementBy = increment;
 
             return this;
         }
 
-        public virtual RelationalSequenceBuilder Start(long startValue)
+        public virtual RelationalSequenceBuilder StartsAt(long startValue)
         {
-            var model = (Model)_sequence.Model;
-
-            _sequence = new Sequence(
-                _sequence.Name,
-                _sequence.Schema,
-                startValue,
-                _sequence.IncrementBy,
-                _sequence.MinValue,
-                _sequence.MaxValue,
-                _sequence.Type,
-                _sequence.Cycle);
-
-            model.Relational().AddOrReplaceSequence(_sequence);
+            _sequence.StartValue = startValue;
 
             return this;
         }
 
-        public virtual RelationalSequenceBuilder Type<T>()
+        public virtual RelationalSequenceBuilder HasMax(long maximum)
         {
-            var model = (Model)_sequence.Model;
-
-            _sequence = new Sequence(
-                _sequence.Name,
-                _sequence.Schema,
-                _sequence.StartValue,
-                _sequence.IncrementBy,
-                _sequence.MinValue,
-                _sequence.MaxValue,
-                typeof(T),
-                _sequence.Cycle);
-
-            model.Relational().AddOrReplaceSequence(_sequence);
+            _sequence.MaxValue = maximum;
 
             return this;
         }
 
-        public virtual RelationalSequenceBuilder Max(long maximum)
+        public virtual RelationalSequenceBuilder HasMin(long minimum)
         {
-            var model = (Model)_sequence.Model;
-
-            _sequence = new Sequence(
-                _sequence.Name,
-                _sequence.Schema,
-                _sequence.StartValue,
-                _sequence.IncrementBy,
-                _sequence.MinValue,
-                maximum,
-                _sequence.Type,
-                _sequence.Cycle);
-
-            model.Relational().AddOrReplaceSequence(_sequence);
+            _sequence.MinValue = minimum;
 
             return this;
         }
 
-        public virtual RelationalSequenceBuilder Min(long minimum)
+        public virtual RelationalSequenceBuilder IsCyclic(bool cyclic = true)
         {
-            var model = (Model)_sequence.Model;
-
-            _sequence = new Sequence(
-                _sequence.Name,
-                _sequence.Schema,
-                _sequence.StartValue,
-                _sequence.IncrementBy,
-                minimum,
-                _sequence.MaxValue,
-                _sequence.Type,
-                _sequence.Cycle);
-
-            model.Relational().AddOrReplaceSequence(_sequence);
-
-            return this;
-        }
-
-        public virtual RelationalSequenceBuilder Cycle(bool cycle = true)
-        {
-            var model = (Model)_sequence.Model;
-
-            _sequence = new Sequence(
-                _sequence.Name,
-                _sequence.Schema,
-                _sequence.StartValue,
-                _sequence.IncrementBy,
-                _sequence.MinValue,
-                _sequence.MaxValue,
-                _sequence.Type,
-                cycle);
-
-            model.Relational().AddOrReplaceSequence(_sequence);
+            _sequence.IsCyclic = cyclic;
 
             return this;
         }

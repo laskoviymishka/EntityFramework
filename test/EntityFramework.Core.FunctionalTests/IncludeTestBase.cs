@@ -1,9 +1,10 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Linq;
 using Microsoft.Data.Entity.FunctionalTests.TestModels.Northwind;
-using Microsoft.Data.Entity.Utilities;
+using Microsoft.Data.Entity.Internal;
 using Xunit;
 
 namespace Microsoft.Data.Entity.FunctionalTests
@@ -21,6 +22,35 @@ namespace Microsoft.Data.Entity.FunctionalTests
         protected NorthwindContext CreateContext()
         {
             return Fixture.CreateContext();
+        }
+
+        [Fact]
+        public virtual void Include_reference_invalid()
+        {
+            Assert.Throws<InvalidOperationException>(
+                () =>
+                {
+                    using (var context = CreateContext())
+                    {
+                        return context.Set<Order>()
+                            .Include(o => o.Customer.CustomerID)
+                            .ToList();
+                    }
+                });
+        }
+
+        [Fact]
+        public virtual void Include_when_result_operator()
+        {
+            using (var context = CreateContext())
+            {
+                var any
+                    = context.Set<Customer>()
+                        .Include(c => c.Orders)
+                        .Any();
+
+                Assert.True(any);
+            }
         }
 
         [Fact]
@@ -816,6 +846,22 @@ namespace Microsoft.Data.Entity.FunctionalTests
 
                 Assert.Equal(830, orders.Count);
                 Assert.Equal(0, context.ChangeTracker.Entries().Count());
+            }
+        }
+
+        [Fact]
+        public virtual void Include_reference_when_entity_in_projection()
+        {
+            using (var context = CreateContext())
+            {
+                var orders
+                    = context.Set<Order>()
+                        .Include(o => o.Customer)
+                        .Select(o => new { o, o.CustomerID })
+                        .ToList();
+
+                Assert.Equal(830, orders.Count);
+                Assert.Equal(919, context.ChangeTracker.Entries().Count());
             }
         }
 

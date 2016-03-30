@@ -1,11 +1,11 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Linq.Expressions;
 using JetBrains.Annotations;
 using Microsoft.Data.Entity.Utilities;
 
-namespace Microsoft.Data.Entity.Relational.Query.Expressions
+namespace Microsoft.Data.Entity.Query.Expressions
 {
     public abstract class JoinExpressionBase : TableExpressionBase
     {
@@ -20,10 +20,7 @@ namespace Microsoft.Data.Entity.Relational.Query.Expressions
             _tableExpression = tableExpression;
         }
 
-        public virtual TableExpressionBase TableExpression
-        {
-            get { return _tableExpression; }
-        }
+        public virtual TableExpressionBase TableExpression => _tableExpression;
 
         public virtual Expression Predicate
         {
@@ -35,6 +32,14 @@ namespace Microsoft.Data.Entity.Relational.Query.Expressions
 
                 _predicate = value;
             }
+        }
+
+        protected override Expression VisitChildren(ExpressionVisitor visitor)
+        {
+            visitor.Visit(_tableExpression);
+            visitor.Visit(_predicate);
+
+            return this;
         }
     }
 }

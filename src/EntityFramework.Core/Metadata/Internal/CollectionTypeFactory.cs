@@ -1,20 +1,16 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using JetBrains.Annotations;
-using Microsoft.Data.Entity.Utilities;
 
 namespace Microsoft.Data.Entity.Metadata.Internal
 {
     public class CollectionTypeFactory : ICollectionTypeFactory
     {
-        public virtual Type TryFindTypeToInstantiate([NotNull] Type collectionType)
+        public virtual Type TryFindTypeToInstantiate(Type collectionType)
         {
-            Check.NotNull(collectionType, nameof(collectionType));
-
             // Code taken from EF6. The rules are:
             // If the collection is defined as a concrete type with a public parameterless constructor, then create an instance of that type
             // Else, if HashSet{T} can be assigned to the type, then use HashSet{T}

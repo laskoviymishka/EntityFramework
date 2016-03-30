@@ -1,171 +1,116 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Linq;
 using EntityFramework.Microbenchmarks.Core;
-using EntityFramework.Microbenchmarks.Core.Models.Orders;
 using EntityFramework.Microbenchmarks.EF6.Models.Orders;
 using Xunit;
 
 namespace EntityFramework.Microbenchmarks.EF6.UpdatePipeline
 {
-    public class SimpleUpdatePipelineTests
+    public class SimpleUpdatePipelineTests : IClassFixture<SimpleUpdatePipelineTests.SimpleUpdatePipelineFixture>
     {
-        private static readonly string _connectionString = String.Format(@"Server={0};Database=Perf_UpdatePipeline_Simple_EF6;Integrated Security=True;MultipleActiveResultSets=true;", TestConfig.Instance.DataSource);
+        private readonly SimpleUpdatePipelineFixture _fixture;
 
-        [Fact]
-        public void Insert()
+        public SimpleUpdatePipelineTests(SimpleUpdatePipelineFixture fixture)
         {
-            new TestDefinition
-                {
-                    TestName = "UpdatePipeline_Simple_Insert_EF6",
-                    IterationCount = 100,
-                    WarmupCount = 5,
-                    Run = Insert,
-                    Setup = EnsureDatabaseSetup
-                }.RunTest();
+            _fixture = fixture;
         }
 
-        private static void Insert(TestHarness harness)
+        [Benchmark]
+        public void Insert(IMetricCollector collector)
         {
-            using (var context = new OrdersContext(_connectionString))
+            using (var context = _fixture.CreateContext())
             {
                 using (context.Database.BeginTransaction())
                 {
-                    for (var i = 0; i < 1000; i++)
-                    {
-                        context.Customers.Add(new Customer { Name = "New Customer " + i });
-                    }
+                    var customers = _fixture.CreateCustomers(1000, setPrimaryKeys: false);
+                    context.Customers.AddRange(customers);
 
-                    harness.StartCollection();
+                    collector.StartCollection();
                     var records = context.SaveChanges();
-                    harness.StopCollection();
+                    collector.StopCollection();
 
                     Assert.Equal(1000, records);
                 }
             }
         }
 
-        [Fact]
-        public void Update()
+        [Benchmark]
+        public void Update(IMetricCollector collector)
         {
-            new TestDefinition
-                {
-                    TestName = "UpdatePipeline_Simple_Update_EF6",
-                    IterationCount = 100,
-                    WarmupCount = 5,
-                    Run = Update,
-                    Setup = EnsureDatabaseSetup
-                }.RunTest();
-        }
-
-        private static void Update(TestHarness harness)
-        {
-            using (var context = new OrdersContext(_connectionString))
+            using (var context = _fixture.CreateContext())
             {
                 using (context.Database.BeginTransaction())
                 {
                     foreach (var customer in context.Customers)
                     {
-                        customer.Name += " Modified";
+                        customer.FirstName += " Modified";
                     }
 
-                    harness.StartCollection();
+                    collector.StartCollection();
                     var records = context.SaveChanges();
-                    harness.StopCollection();
+                    collector.StopCollection();
 
                     Assert.Equal(1000, records);
                 }
             }
         }
 
-        [Fact]
-        public void Delete()
+        [Benchmark]
+        public void Delete(IMetricCollector collector)
         {
-            new TestDefinition
-                {
-                    TestName = "UpdatePipeline_Simple_Delete_EF6",
-                    IterationCount = 100,
-                    WarmupCount = 5,
-                    Run = Delete,
-                    Setup = EnsureDatabaseSetup
-                }.RunTest();
-        }
-
-        private static void Delete(TestHarness harness)
-        {
-            using (var context = new OrdersContext(_connectionString))
+            using (var context = _fixture.CreateContext())
             {
                 using (context.Database.BeginTransaction())
                 {
-                    foreach (var customer in context.Customers)
-                    {
-                        context.Customers.Remove(customer);
-                    }
+                    context.Customers.RemoveRange(context.Customers.ToList());
 
-                    harness.StartCollection();
+                    collector.StartCollection();
                     var records = context.SaveChanges();
-                    harness.StopCollection();
+                    collector.StopCollection();
 
                     Assert.Equal(1000, records);
                 }
             }
         }
 
-        [Fact]
-        public void Mixed()
+        [Benchmark]
+        public void Mixed(IMetricCollector collector)
         {
-            new TestDefinition
-                {
-                    TestName = "UpdatePipeline_Simple_Mixed_EF6",
-                    IterationCount = 100,
-                    WarmupCount = 5,
-                    Run = Mixed,
-                    Setup = EnsureDatabaseSetup
-                }.RunTest();
-        }
-
-        private static void Mixed(TestHarness harness)
-        {
-            using (var context = new OrdersContext(_connectionString))
+            using (var context = _fixture.CreateContext())
             {
                 using (context.Database.BeginTransaction())
                 {
-                    var customers = context.Customers.ToArray();
+                    var existingCustomers = context.Customers.ToArray();
 
-                    for (var i = 0; i < 333; i++)
-                    {
-                        context.Customers.Add(new Customer { Name = "New Customer " + i });
-                    }
+                    var newCustomers = _fixture.CreateCustomers(333, setPrimaryKeys: false);
+                    context.Customers.AddRange(newCustomers);
 
                     for (var i = 0; i < 1000; i += 3)
                     {
-                        context.Customers.Remove(customers[i]);
+                        context.Customers.Remove(existingCustomers[i]);
                     }
 
                     for (var i = 1; i < 1000; i += 3)
                     {
-                        customers[i].Name += " Modified";
+                        existingCustomers[i].FirstName += " Modified";
                     }
 
-                    harness.StartCollection();
+                    collector.StartCollection();
                     var records = context.SaveChanges();
-                    harness.StopCollection();
+                    collector.StopCollection();
 
                     Assert.Equal(1000, records);
                 }
             }
         }
 
-        private static void EnsureDatabaseSetup()
+        public class SimpleUpdatePipelineFixture : OrdersFixture
         {
-            new OrdersSeedData().EnsureCreated(
-                _connectionString,
-                productCount: 0,
-                customerCount: 1000,
-                ordersPerCustomer: 0,
-                linesPerOrder: 0);
+            public SimpleUpdatePipelineFixture()
+                : base("Perf_UpdatePipeline_Simple_EF6", 0, 1000, 0, 0)
+            { }
         }
     }
 }

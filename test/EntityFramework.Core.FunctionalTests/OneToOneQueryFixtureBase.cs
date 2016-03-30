@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 namespace Microsoft.Data.Entity.FunctionalTests
@@ -8,15 +8,15 @@ namespace Microsoft.Data.Entity.FunctionalTests
         protected virtual void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder
-                .Entity<Address>(e => e.Reference(a => a.Resident).InverseReference(p => p.Address)
-                    .PrincipalKey<Person>(person => person.Id));
+                .Entity<Address>(e => e.HasOne(a => a.Resident).WithOne(p => p.Address)
+                    .HasPrincipalKey<Person>(person => person.Id));
 
             modelBuilder.Entity<Address2>().Property<int>("PersonId");
 
             modelBuilder
                 .Entity<Person2>(
-                    e => e.Reference(p => p.Address).InverseReference(a => a.Resident)
-                        .ForeignKey(typeof(Address2), "PersonId"));
+                    e => e.HasOne(p => p.Address).WithOne(a => a.Resident)
+                        .HasForeignKey(typeof(Address2), "PersonId"));
         }
 
         protected static void AddTestData(DbContext context)

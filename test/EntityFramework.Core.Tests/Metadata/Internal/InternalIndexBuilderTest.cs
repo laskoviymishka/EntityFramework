@@ -1,8 +1,9 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Reflection;
-using Microsoft.Data.Entity.Metadata.ModelConventions;
+using Microsoft.Data.Entity.Metadata.Conventions;
+using Microsoft.Data.Entity.Metadata.Conventions.Internal;
 using Xunit;
 
 namespace Microsoft.Data.Entity.Metadata.Internal
@@ -45,7 +46,7 @@ namespace Microsoft.Data.Entity.Metadata.Internal
             var modelBuilder = new InternalModelBuilder(new Model(), new ConventionSet());
             var entityBuilder = modelBuilder.Entity(typeof(Customer), ConfigurationSource.Explicit);
 
-            return entityBuilder.Index(new[] { Customer.IdProperty, Customer.NameProperty }, ConfigurationSource.Explicit);
+            return entityBuilder.HasIndex(new[] { Customer.IdProperty, Customer.NameProperty }, ConfigurationSource.Explicit);
         }
 
         private class Customer

@@ -1,10 +1,12 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Linq;
 using System.Reflection;
 using Microsoft.Data.Entity.Infrastructure;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Data.Entity.Infrastructure.Internal;
+using Microsoft.Data.Entity.Storage.Internal;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Microsoft.Data.Entity.InMemory.Tests
@@ -22,7 +24,7 @@ namespace Microsoft.Data.Entity.InMemory.Tests
 
             _applyServices.Invoke(new InMemoryOptionsExtension(), new object[] { builder });
 
-            Assert.True(services.Any(sd => sd.ServiceType == typeof(IInMemoryDataStore)));
+            Assert.True(services.Any(sd => sd.ServiceType == typeof(IInMemoryDatabase)));
         }
     }
 }

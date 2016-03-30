@@ -1,11 +1,13 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Data.Entity.ChangeTracking.Internal;
 using Microsoft.Data.Entity.Infrastructure;
 using Microsoft.Data.Entity.Metadata;
+using Microsoft.Data.Entity.Metadata.Internal;
 using Xunit;
 
 namespace Microsoft.Data.Entity.InMemory.FunctionalTests
@@ -18,37 +20,37 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
             var model = new Model();
 
             var customerType = model.AddEntityType("Customer");
-            customerType.GetOrSetPrimaryKey(customerType.AddProperty("Id", typeof(int), shadowProperty: true));
-            customerType.GetOrAddProperty("Name", typeof(string), shadowProperty: true);
+            customerType.GetOrSetPrimaryKey(customerType.AddProperty("Id", typeof(int)));
+            customerType.AddProperty("Name", typeof(string));
 
             var optionsBuilder = new DbContextOptionsBuilder()
                 .UseModel(model);
-            optionsBuilder.UseInMemoryStore();
+            optionsBuilder.UseInMemoryDatabase();
 
             using (var context = new DbContext(_fixture.ServiceProvider, optionsBuilder.Options))
             {
                 // TODO: Better API for shadow state access
-                var customerEntry = ((IAccessor<IStateManager>)context.ChangeTracker).Service.CreateNewEntry(customerType);
-                customerEntry[customerType.GetProperty("Id")] = 42;
-                customerEntry[customerType.GetProperty("Name")] = "Daenerys";
+                var customerEntry = context.ChangeTracker.GetInfrastructure().CreateNewEntry(customerType);
+                customerEntry[customerType.FindProperty("Id")] = 42;
+                customerEntry[customerType.FindProperty("Name")] = "Daenerys";
 
                 customerEntry.SetEntityState(EntityState.Added);
 
                 await context.SaveChangesAsync();
 
-                customerEntry[customerType.GetProperty("Name")] = "Changed!";
+                customerEntry[customerType.FindProperty("Name")] = "Changed!";
             }
 
             // TODO: Fix this when we can query shadow entities
-            // var customerFromStore = await inMemoryDataStore.Read(customerType).SingleAsync();
+            // var customerFromStore = await inMemoryDatabase.Read(customerType).SingleAsync();
             //
             // Assert.Equal(new object[] { 42, "Daenerys" }, customerFromStore);
 
             using (var context = new DbContext(_fixture.ServiceProvider, optionsBuilder.Options))
             {
-                var customerEntry = ((IAccessor<IStateManager>)context.ChangeTracker).Service.CreateNewEntry(customerType);
-                customerEntry[customerType.GetProperty("Id")] = 42;
-                customerEntry[customerType.GetProperty("Name")] = "Daenerys Targaryen";
+                var customerEntry = context.ChangeTracker.GetInfrastructure().CreateNewEntry(customerType);
+                customerEntry[customerType.FindProperty("Id")] = 42;
+                customerEntry[customerType.FindProperty("Name")] = "Daenerys Targaryen";
 
                 customerEntry.SetEntityState(EntityState.Modified);
 
@@ -56,14 +58,14 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
             }
 
             // TODO: Fix this when we can query shadow entities
-            // customerFromStore = await inMemoryDataStore.Read(customerType).SingleAsync();
+            // customerFromStore = await inMemoryDatabase.Read(customerType).SingleAsync();
             // 
             // Assert.Equal(new object[] { 42, "Daenerys Targaryen" }, customerFromStore);
 
             using (var context = new DbContext(_fixture.ServiceProvider, optionsBuilder.Options))
             {
-                var customerEntry = ((IAccessor<IStateManager>)context.ChangeTracker).Service.CreateNewEntry(customerType);
-                customerEntry[customerType.GetProperty("Id")] = 42;
+                var customerEntry = context.ChangeTracker.GetInfrastructure().CreateNewEntry(customerType);
+                customerEntry[customerType.FindProperty("Id")] = 42;
 
                 customerEntry.SetEntityState(EntityState.Deleted);
 
@@ -71,7 +73,7 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
             }
 
             // TODO: Fix this when we can query shadow entities
-            // Assert.Equal(0, await inMemoryDataStore.Read(customerType).CountAsync());
+            // Assert.Equal(0, await inMemoryDatabase.Read(customerType).CountAsync());
         }
 
         [Fact]
@@ -80,12 +82,13 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
             var model = new Model();
 
             var customerType = model.AddEntityType(typeof(Customer));
-            customerType.GetOrSetPrimaryKey(customerType.GetOrAddProperty("Id", typeof(int)));
-            customerType.GetOrAddProperty("Name", typeof(string), shadowProperty: true);
+            var property1 = customerType.AddProperty("Id", typeof(int));
+            property1.IsShadowProperty = false;
+            customerType.GetOrSetPrimaryKey(property1);
+            customerType.AddProperty("Name", typeof(string));
 
-            var optionsBuilder = new DbContextOptionsBuilder()
-                .UseModel(model);
-            optionsBuilder.UseInMemoryStore();
+            var optionsBuilder = new DbContextOptionsBuilder().UseModel(model);
+            optionsBuilder.UseInMemoryDatabase();
 
             var customer = new Customer { Id = 42 };
 
@@ -94,12 +97,12 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
                 context.Add(customer);
 
                 // TODO: Better API for shadow state access
-                var customerEntry = ((IAccessor<InternalEntityEntry>)context.Entry(customer)).Service;
-                customerEntry[customerType.GetProperty("Name")] = "Daenerys";
+                var customerEntry = context.Entry(customer).GetInfrastructure();
+                customerEntry[customerType.FindProperty("Name")] = "Daenerys";
 
                 await context.SaveChangesAsync();
 
-                customerEntry[customerType.GetProperty("Name")] = "Changed!";
+                customerEntry[customerType.FindProperty("Name")] = "Changed!";
             }
 
             using (var context = new DbContext(_fixture.ServiceProvider, optionsBuilder.Options))
@@ -114,8 +117,8 @@ namespace Microsoft.Data.Entity.InMemory.FunctionalTests
 
             using (var context = new DbContext(_fixture.ServiceProvider, optionsBuilder.Options))
             {
-                var customerEntry = ((IAccessor<InternalEntityEntry>)context.Entry(customer)).Service;
-                customerEntry[customerType.GetProperty("Name")] = "Daenerys Targaryen";
+                var customerEntry = context.Entry(customer).GetInfrastructure();
+                customerEntry[customerType.FindProperty("Name")] = "Daenerys Targaryen";
 
                 context.Update(customer);
 

@@ -1,79 +1,22 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
+using System.Collections.Generic;
+using System.Linq;
 using JetBrains.Annotations;
-using Microsoft.Data.Entity.Metadata;
-using Microsoft.Data.Entity.Utilities;
+using Microsoft.Data.Entity.Metadata.Internal;
 
-namespace Microsoft.Data.Entity.Relational.Metadata
+namespace Microsoft.Data.Entity.Metadata
 {
-    public class RelationalEntityTypeExtensions : ReadOnlyRelationalEntityTypeExtensions
+    public static class RelationalEntityTypeExtensions
     {
-        public RelationalEntityTypeExtensions([NotNull] EntityType entityType)
-            : base(entityType)
-        {
-        }
+        public static IEnumerable<IForeignKey> GetForeignKeysInHierarchy([NotNull] this IEntityType entityType)
+            => entityType.GetDeclaredForeignKeys().Concat(entityType.GetDerivedTypes().SelectMany(t => t.GetDeclaredForeignKeys()));
 
-        public new virtual string Table
-        {
-            get { return base.Table; }
-            [param: CanBeNull]
-            set
-            {
-                Check.NullButNotEmpty(value, nameof(value));
+        public static IEnumerable<IIndex> GetIndexesInHierarchy([NotNull] this IEntityType entityType)
+            => entityType.GetDeclaredIndexes().Concat(entityType.GetDerivedTypes().SelectMany(t => t.GetDeclaredIndexes()));
 
-                EntityType[RelationalTableAnnotation] = value;
-            }
-        }
-
-        public new virtual string Schema
-        {
-            get { return base.Schema; }
-            [param: CanBeNull]
-            set
-            {
-                Check.NullButNotEmpty(value, nameof(value));
-
-                EntityType[RelationalSchemaAnnotation] = value;
-            }
-        }
-
-        public new virtual IProperty DiscriminatorProperty
-        {
-            get { return base.DiscriminatorProperty; }
-            [param: CanBeNull]
-            set
-            {
-                if (value != null)
-                {
-                    if (EntityType != EntityType.RootType())
-                    {
-                        throw new InvalidOperationException(
-                            Strings.DiscriminatorPropertyMustBeOnRoot(EntityType));
-                    }
-
-                    if (value.EntityType != EntityType)
-                    {
-                        throw new InvalidOperationException(
-                            Strings.DiscriminatorPropertyNotFound(value, EntityType));
-                    }
-
-                    EntityType[DiscriminatorPropertyAnnotation] = value.Name;
-                }
-                else
-                {
-                    EntityType[DiscriminatorPropertyAnnotation] = null;
-                }
-            }
-        }
-
-        public new virtual string DiscriminatorValue
-        {
-            get { return base.DiscriminatorValue; }
-            [param: CanBeNull] set { EntityType[DiscriminatorValueAnnotation] = value; }
-        }
-
-        protected new virtual EntityType EntityType => (EntityType)base.EntityType;
+        public static IEnumerable<IProperty> GetPropertiesInHierarchy([NotNull] this IEntityType entityType)
+            => entityType.GetDeclaredProperties().Concat(entityType.GetDerivedTypes().SelectMany(t => t.GetDeclaredProperties()));
     }
 }

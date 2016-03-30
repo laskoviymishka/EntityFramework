@@ -1,9 +1,9 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using JetBrains.Annotations;
 using Microsoft.Data.Entity.Metadata;
+using Microsoft.Data.Entity.Metadata.Internal;
 
 namespace Microsoft.Data.Entity.ChangeTracking.Internal
 {
@@ -17,15 +17,6 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
         }
 
         private readonly InternalEntityEntry _entry;
-
-        /// <summary>
-        ///     This constructor is intended only for use when creating test doubles that will override members
-        ///     with mocked or faked behavior. Use of this constructor for other purposes may result in unexpected
-        ///     behavior including but not limited to throwing <see cref="NullReferenceException" />.
-        /// </summary>
-        protected Sidecar()
-        {
-        }
 
         protected Sidecar([NotNull] InternalEntityEntry entry)
         {
@@ -44,17 +35,17 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
 
         public virtual bool HasValue([NotNull] IPropertyBase property) => CanStoreValue(property) && ReadValue(property) != null;
 
-        public virtual object this[IPropertyBase property]
+        public virtual object this[IPropertyBase propertyBase]
         {
             get
             {
-                var value = ReadValue(property);
+                var value = ReadValue(propertyBase);
 
                 return value != null
                     ? (ReferenceEquals(value, NullSentinel.Value) ? null : value)
-                    : _entry[property];
+                    : _entry[propertyBase];
             }
-            set { WriteValue(property, value ?? NullSentinel.Value); }
+            set { WriteValue(propertyBase, value ?? NullSentinel.Value); }
         }
 
         public virtual void Commit()
@@ -111,9 +102,9 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
             }
         }
 
-        protected virtual object CopyValueFromEntry(IPropertyBase property) => _entry[property];
+        protected virtual object CopyValueFromEntry([NotNull] IPropertyBase property) => _entry[property];
 
-        protected virtual void CopyValueToEntry(IPropertyBase property, object value) => _entry[property] = value;
+        protected virtual void CopyValueToEntry([NotNull] IPropertyBase property, [CanBeNull] object value) => _entry[property] = value;
 
         protected sealed class NullSentinel
         {

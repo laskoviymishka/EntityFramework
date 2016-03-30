@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -7,7 +7,8 @@ using System.Diagnostics;
 using System.Linq;
 using JetBrains.Annotations;
 using Microsoft.Data.Entity.Internal;
-using Microsoft.Data.Entity.Metadata.ModelConventions;
+using Microsoft.Data.Entity.Metadata.Conventions;
+using Microsoft.Data.Entity.Metadata.Conventions.Internal;
 using Microsoft.Data.Entity.Utilities;
 
 namespace Microsoft.Data.Entity.Metadata.Internal
@@ -23,8 +24,6 @@ namespace Microsoft.Data.Entity.Metadata.Internal
         public InternalModelBuilder([NotNull] Model metadata, [NotNull] ConventionSet conventions)
             : base(metadata)
         {
-            Check.NotNull(conventions, nameof(conventions));
-
             ConventionDispatcher = new ConventionDispatcher(conventions);
         }
 
@@ -34,139 +33,133 @@ namespace Microsoft.Data.Entity.Metadata.Internal
 
         public virtual InternalEntityTypeBuilder Entity([NotNull] string name, ConfigurationSource configurationSource)
         {
-            Check.NotEmpty(name, nameof(name));
-
-            if (!CanAdd(name, configurationSource))
-            {
-                return null;
-            }
-
-            return _entityTypeBuilders.GetOrAdd(
-                () => Metadata.FindEntityType(name),
-                () => Metadata.AddEntityType(name),
-                entityType => new InternalEntityTypeBuilder(entityType, ModelBuilder),
-                ConventionDispatcher.OnEntityTypeAdded,
-                configurationSource);
+            return IsIgnored(name, configurationSource)
+                ? null
+                : _entityTypeBuilders.GetOrAdd(
+                    () => Metadata.FindEntityType(name),
+                    () => Metadata.AddEntityType(name),
+                    entityType => new InternalEntityTypeBuilder(entityType, ModelBuilder),
+                    OnEntityTypeAdded,
+                    configurationSource);
         }
 
         public virtual InternalEntityTypeBuilder Entity([NotNull] Type type, ConfigurationSource configurationSource)
         {
-            Check.NotNull(type, nameof(type));
+            return IsIgnored(type.DisplayName(), configurationSource)
+                ? null
+                : _entityTypeBuilders.GetOrAdd(
+                    () => Metadata.FindEntityType(type),
+                    () => Metadata.AddEntityType(type),
+                    entityType => new InternalEntityTypeBuilder(entityType, ModelBuilder),
+                    OnEntityTypeAdded,
+                    configurationSource);
+        }
 
-            if (!CanAdd(type.FullName, configurationSource))
+        private InternalEntityTypeBuilder OnEntityTypeAdded(InternalEntityTypeBuilder entityTypeBuilder)
+        {
+            if (_ignoredEntityTypeNames.HasValue)
             {
-                return null;
+                _ignoredEntityTypeNames.Value.Remove(entityTypeBuilder.Metadata.Name);
             }
 
-            return _entityTypeBuilders.GetOrAdd(
-                () => Metadata.FindEntityType(type),
-                () => Metadata.AddEntityType(type),
-                entityType => new InternalEntityTypeBuilder(entityType, ModelBuilder),
-                ConventionDispatcher.OnEntityTypeAdded,
-                configurationSource);
+            return ConventionDispatcher.OnEntityTypeAdded(entityTypeBuilder);
         }
 
-        private bool CanAdd(string name, ConfigurationSource configurationSource)
-        {
-            ConfigurationSource ignoredConfigurationSource;
-            if (_ignoredEntityTypeNames.HasValue
-                && _ignoredEntityTypeNames.Value.TryGetValue(name, out ignoredConfigurationSource))
-            {
-                if (!configurationSource.Overrides(ignoredConfigurationSource))
-                {
-                    return false;
-                }
-
-                if (ignoredConfigurationSource == ConfigurationSource.Explicit)
-                {
-                    throw new InvalidOperationException(Strings.EntityIgnoredExplicitly(name));
-                }
-
-                _ignoredEntityTypeNames.Value.Remove(name);
-            }
-
-            return true;
-        }
-
-        public virtual bool Ignore([NotNull] Type type, ConfigurationSource configurationSource)
-        {
-            Check.NotNull(type, nameof(type));
-
-            return Ignore(type.FullName, configurationSource);
-        }
-
-        public virtual bool Ignore([NotNull] string name, ConfigurationSource configurationSource)
+        public virtual bool IsIgnored([NotNull] string name, ConfigurationSource configurationSource)
         {
             Check.NotEmpty(name, nameof(name));
 
+            if (configurationSource == ConfigurationSource.Explicit)
+            {
+                return false;
+            }
+
             ConfigurationSource ignoredConfigurationSource;
-            if (_ignoredEntityTypeNames.Value.TryGetValue(name, out ignoredConfigurationSource))
+            if (_ignoredEntityTypeNames.HasValue
+                && _ignoredEntityTypeNames.Value.TryGetValue(name, out ignoredConfigurationSource))
             {
                 if (ignoredConfigurationSource.Overrides(configurationSource))
                 {
                     return true;
                 }
+
+                _ignoredEntityTypeNames.Value.Remove(name);
+            }
+
+            return false;
+        }
+
+        public virtual bool Ignore([NotNull] Type type, ConfigurationSource configurationSource)
+            => Ignore(type.DisplayName(), configurationSource);
+
+        public virtual bool Ignore([NotNull] string name, ConfigurationSource configurationSource)
+        {
+            ConfigurationSource ignoredConfigurationSource;
+            if (_ignoredEntityTypeNames.Value.TryGetValue(name, out ignoredConfigurationSource))
+            {
+                _ignoredEntityTypeNames.Value[name] = configurationSource.Max(ignoredConfigurationSource);
+                return true;
             }
 
             var entityType = Metadata.FindEntityType(name);
+
+            return Ignore(entityType, name, configurationSource);
+        }
+
+        private bool Ignore(EntityType entityType, string name, ConfigurationSource configurationSource)
+        {
+            _ignoredEntityTypeNames.Value[name] = configurationSource;
             if (entityType != null)
             {
-                if (!Remove(entityType, configurationSource, canOverrideSameSource: false))
+                if (!Remove(entityType, configurationSource))
                 {
-                    if (configurationSource == ConfigurationSource.Explicit)
-                    {
-                        throw new InvalidOperationException(Strings.EntityAddedExplicitly(entityType.Name));
-                    }
-
+                    _ignoredEntityTypeNames.Value.Remove(name);
                     return false;
                 }
-
-                RemoveEntityTypesUnreachableByForeignKeys(configurationSource);
             }
-
-            _ignoredEntityTypeNames.Value[name] = configurationSource;
 
             return true;
         }
 
-        private bool Remove(EntityType entityType, ConfigurationSource configurationSource, bool canOverrideSameSource = true)
+        private bool Remove(EntityType entityType, ConfigurationSource configurationSource)
         {
             var entityTypeBuilder = _entityTypeBuilders.TryGetValue(entityType, ConfigurationSource.Convention);
-            if (!_entityTypeBuilders.Remove(entityType, configurationSource, canOverrideSameSource).HasValue)
+            if (!_entityTypeBuilders.Remove(entityType, configurationSource).HasValue)
             {
                 return false;
             }
 
-            foreach (var foreignKey in entityType.ForeignKeys.ToList())
+            foreach (var foreignKey in entityType.GetDeclaredForeignKeys().ToList())
             {
-                var removed = entityTypeBuilder.RemoveRelationship(foreignKey, configurationSource);
+                var removed = entityTypeBuilder.RemoveForeignKey(foreignKey, configurationSource, runConventions: false);
                 Debug.Assert(removed.HasValue);
             }
 
-            foreach (var foreignKey in Metadata.GetReferencingForeignKeys(entityType).ToList())
+            foreach (var foreignKey in entityType.GetDeclaredReferencingForeignKeys().ToList())
             {
-                var removed = entityTypeBuilder.RemoveRelationship(foreignKey, configurationSource);
+                var removed = entityTypeBuilder.RemoveForeignKey(foreignKey, configurationSource);
                 Debug.Assert(removed.HasValue);
             }
 
-            Metadata.RemoveEntityType(entityType);
+            foreach (var directlyDerivedType in entityType.GetDirectlyDerivedTypes().ToList())
+            {
+                var removed = Entity(directlyDerivedType.Name, ConfigurationSource.Convention)
+                    .HasBaseType(entityType.BaseType, configurationSource);
+                Debug.Assert(removed != null);
+            }
+
+            Metadata.RemoveEntityType(entityType.Name);
 
             return true;
         }
 
-        public virtual void RemoveEntityTypesUnreachableByForeignKeys(ConfigurationSource configurationSource)
-        {
-            foreach (var orphan in new ModelForeignKeyUndirectedGraphAdapter(Metadata).GetUnreachableVertices(GetRoots(configurationSource)))
-            {
-                Remove(orphan, configurationSource);
-            }
-        }
-
         public virtual void RemoveEntityTypesUnreachableByNavigations(ConfigurationSource configurationSource)
         {
-            foreach (var orphan in new ModelNavigationsGraphAdapter(Metadata).GetUnreachableVertices(GetRoots(configurationSource)))
+            var rootEntityTypes = GetRoots(configurationSource);
+            foreach (var orphan in new ModelNavigationsGraphAdapter(Metadata).GetUnreachableVertices(rootEntityTypes))
             {
-                Remove(orphan, configurationSource);
+                // Ignoring the type prevents it from being rediscovered by conventions that run as part of the removal
+                Ignore(orphan, orphan.Name, configurationSource);
             }
         }
 
@@ -174,7 +167,7 @@ namespace Microsoft.Data.Entity.Metadata.Internal
         {
             var roots = new List<EntityType>();
             // ReSharper disable once LoopCanBeConvertedToQuery
-            foreach (var entityType in Metadata.EntityTypes)
+            foreach (var entityType in Metadata.GetEntityTypes())
             {
                 var currentConfigurationSource = _entityTypeBuilders.GetConfigurationSource(entityType);
                 if (currentConfigurationSource.Overrides(configurationSource))
@@ -186,9 +179,8 @@ namespace Microsoft.Data.Entity.Metadata.Internal
             return roots;
         }
 
-        public virtual InternalModelBuilder Initialize()
-        {
-            return ConventionDispatcher.InitializingModel(this);
-        }
+        public virtual InternalModelBuilder Initialize() => ConventionDispatcher.OnModelInitialized(this);
+
+        public virtual InternalModelBuilder Validate() => ConventionDispatcher.OnModelBuilt(this);
     }
 }

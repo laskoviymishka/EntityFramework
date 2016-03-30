@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -27,18 +27,16 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
         }
 
         [Fact]
-        public void Throws_on_attempt_to_read_when_original_value_cannot_be_stored()
+        public void Returns_current_value_when_original_value_not_stored()
         {
-            Assert.Equal(
-                Strings.OriginalValueNotTracked("Name", typeof(Banana).FullName),
-                Assert.Throws<InvalidOperationException>(() => CreateSidecar()[NameProperty]).Message);
+            Assert.Equal("Stand", CreateSidecar()[NameProperty]);
         }
 
         [Fact]
         public void Throws_on_attempt_to_write_when_original_value_cannot_be_stored()
         {
             Assert.Equal(
-                Strings.OriginalValueNotTracked("Name", typeof(Banana).FullName),
+                CoreStrings.OriginalValueNotTracked("Name", typeof(Banana).FullName),
                 Assert.Throws<InvalidOperationException>(() => CreateSidecar()[NameProperty] = "Yellow").Message);
         }
 

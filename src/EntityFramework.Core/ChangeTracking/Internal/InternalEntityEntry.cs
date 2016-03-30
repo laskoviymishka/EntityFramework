@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -6,27 +6,19 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using JetBrains.Annotations;
+using Microsoft.Data.Entity.Infrastructure;
 using Microsoft.Data.Entity.Internal;
 using Microsoft.Data.Entity.Metadata;
+using Microsoft.Data.Entity.Metadata.Internal;
+using Microsoft.Data.Entity.Update;
 
 namespace Microsoft.Data.Entity.ChangeTracking.Internal
 {
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
-    public abstract partial class InternalEntityEntry : IPropertyAccessor
+    public abstract partial class InternalEntityEntry : IPropertyAccessor, IUpdateEntry
     {
         private StateData _stateData;
         private Sidecar[] _sidecars;
-
-        private readonly Dictionary<IForeignKey, EntityKey> _principalKeys = new Dictionary<IForeignKey, EntityKey>();
-
-        /// <summary>
-        ///     This constructor is intended only for use when creating test doubles that will override members
-        ///     with mocked or faked behavior. Use of this constructor for other purposes may result in unexpected
-        ///     behavior including but not limited to throwing <see cref="NullReferenceException" />.
-        /// </summary>
-        protected InternalEntityEntry()
-        {
-        }
 
         protected InternalEntityEntry(
             [NotNull] IStateManager stateManager,
@@ -36,10 +28,9 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
             StateManager = stateManager;
             MetadataServices = metadataServices;
             EntityType = entityType;
-            _stateData = new StateData(EntityType.GetProperties().Count());
+            _stateData = new StateData(entityType.GetProperties().Count());
         }
 
-        [CanBeNull]
         public abstract object Entity { get; }
 
         public virtual IEntityType EntityType { get; }
@@ -48,8 +39,15 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
 
         protected virtual IEntityEntryMetadataServices MetadataServices { get; }
 
-        public virtual Sidecar OriginalValues => TryGetSidecar(Sidecar.WellKnownNames.OriginalValues)
-                                                 ?? AddSidecar(MetadataServices.CreateOriginalValues(this));
+        public virtual Sidecar OriginalValues
+        {
+            get
+            {
+                return TryGetSidecar(Sidecar.WellKnownNames.OriginalValues)
+                       ?? AddSidecar(MetadataServices.CreateOriginalValues(this));
+            }
+            [param: NotNull] set { AddSidecar(value); }
+        }
 
         public virtual Sidecar RelationshipsSnapshot => TryGetSidecar(Sidecar.WellKnownNames.RelationshipsSnapshot)
                                                         ?? AddSidecar(MetadataServices.CreateRelationshipSnapshot(this));
@@ -116,7 +114,7 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
 
             if (EntityState == EntityState.Modified)
             {
-                _stateData.FlagAllProperties(EntityType.GetProperties().Count(), isFlagged: false);
+                _stateData.FlagAllProperties(EntityType.GetProperties().Count(), PropertyFlag.TemporaryOrModified, flagged: false);
             }
 
             // Temporarily change the internal state to unknown so that key generation, including setting key values
@@ -133,10 +131,12 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
                 && newState != EntityState.Added
                 && newState != EntityState.Detached)
             {
-                var hasTempValue = EntityType.GetProperties().FirstOrDefault(p => _stateData.IsPropertyFlagged(p.Index));
+                var hasTempValue = EntityType.GetProperties()
+                    .FirstOrDefault(p => _stateData.IsPropertyFlagged(p.GetIndex(), PropertyFlag.TemporaryOrModified));
+
                 if (hasTempValue != null)
                 {
-                    throw new InvalidOperationException(Strings.TempValuePersists(hasTempValue.Name, EntityType.DisplayName(), newState));
+                    throw new InvalidOperationException(CoreStrings.TempValuePersists(hasTempValue.Name, EntityType.DisplayName(), newState));
                 }
             }
 
@@ -144,13 +144,10 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
             // set all properties to modified if the entity state is explicitly set to Modified.
             if (newState == EntityState.Modified)
             {
-                _stateData.FlagAllProperties(EntityType.GetProperties().Count(), isFlagged: true);
-
-                foreach (var keyProperty in EntityType.GetProperties().Where(
-                    p => p.IsReadOnly
-                         || p.IsStoreComputed))
+                foreach (var property in EntityType.GetProperties().Where(
+                    p => !p.IsReadOnlyAfterSave))
                 {
-                    _stateData.FlagProperty(keyProperty.Index, isFlagged: false);
+                    _stateData.FlagProperty(property.GetIndex(), PropertyFlag.TemporaryOrModified, isFlagged: true);
                 }
             }
 
@@ -161,7 +158,7 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
 
             if (newState == EntityState.Unchanged)
             {
-                _stateData.FlagAllProperties(EntityType.GetProperties().Count(), isFlagged: false);
+                _stateData.FlagAllProperties(EntityType.GetProperties().Count(), PropertyFlag.TemporaryOrModified, flagged: false);
             }
 
             StateManager.Notify.StateChanging(this, newState);
@@ -188,12 +185,16 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
             {
                 if (oldState == EntityState.Added)
                 {
-                    foreach (var property in EntityType.GetProperties().Where(p => _stateData.IsPropertyFlagged(p.Index)))
+                    foreach (var property in EntityType.GetProperties()
+                        .Where(p => _stateData.IsPropertyFlagged(p.GetIndex(), PropertyFlag.TemporaryOrModified)))
                     {
-                        this[property] = property.SentinelValue;
+                        this[property] = property.ClrType.GetDefaultValue();
                     }
                 }
-                _stateData.FlagAllProperties(EntityType.GetProperties().Count(), isFlagged: false);
+                var propertyCount = EntityType.GetProperties().Count();
+
+                _stateData.FlagAllProperties(propertyCount, PropertyFlag.TemporaryOrModified, flagged: false);
+                _stateData.FlagAllProperties(propertyCount, PropertyFlag.Null, flagged: false);
 
                 StateManager.StopTracking(this);
             }
@@ -203,8 +204,9 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
 
         public virtual EntityState EntityState => _stateData.EntityState;
 
-        public virtual bool IsPropertyModified([NotNull] IProperty property)
-            => _stateData.EntityState == EntityState.Modified && _stateData.IsPropertyFlagged(property.Index);
+        public virtual bool IsModified(IProperty property)
+            => _stateData.EntityState == EntityState.Modified
+               && _stateData.IsPropertyFlagged(property.GetIndex(), PropertyFlag.TemporaryOrModified);
 
         public virtual void SetPropertyModified([NotNull] IProperty property, bool isModified = true)
         {
@@ -220,21 +222,18 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
                 OriginalValues.TakeSnapshot(property);
             }
 
-            if ((currentState != EntityState.Modified
-                 && currentState != EntityState.Unchanged)
-                // TODO: Consider allowing computed properties to be forcibly marked as modified
-                // Issue #711
-                || property.IsStoreComputed)
+            if (currentState != EntityState.Modified
+                && currentState != EntityState.Unchanged)
             {
                 return;
             }
 
-            if (isModified && property.IsReadOnly)
+            if (isModified && property.IsKey())
             {
-                throw new NotSupportedException(Strings.PropertyReadOnly(property.Name, EntityType.Name));
+                throw new NotSupportedException(CoreStrings.KeyReadOnly(property.Name, EntityType.DisplayName()));
             }
 
-            _stateData.FlagProperty(property.Index, isModified);
+            _stateData.FlagProperty(property.GetIndex(), PropertyFlag.TemporaryOrModified, isModified);
 
             // Don't change entity state if it is Added or Deleted
             if (isModified && currentState == EntityState.Unchanged)
@@ -244,7 +243,7 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
                 StateManager.Notify.StateChanged(this, currentState);
             }
             else if (!isModified
-                     && !_stateData.AnyPropertiesFlagged())
+                     && !_stateData.AnyPropertiesFlagged(PropertyFlag.TemporaryOrModified))
             {
                 StateManager.Notify.StateChanging(this, EntityState.Unchanged);
                 _stateData.EntityState = EntityState.Unchanged;
@@ -252,9 +251,13 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
             }
         }
 
+        public virtual bool HasConceptualNull
+            => _stateData.EntityState != EntityState.Deleted
+               && _stateData.AnyPropertiesFlagged(PropertyFlag.Null);
+
         public virtual bool HasTemporaryValue([NotNull] IProperty property)
             => (_stateData.EntityState == EntityState.Added || _stateData.EntityState == EntityState.Detached)
-               && _stateData.IsPropertyFlagged(property.Index);
+               && _stateData.IsPropertyFlagged(property.GetIndex(), PropertyFlag.TemporaryOrModified);
 
         public virtual void MarkAsTemporary([NotNull] IProperty property, bool isTemporary = true)
         {
@@ -264,24 +267,35 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
                 return;
             }
 
-            _stateData.FlagProperty(property.Index, isTemporary);
+            _stateData.FlagProperty(property.GetIndex(), PropertyFlag.TemporaryOrModified, isTemporary);
         }
 
         protected virtual object ReadPropertyValue([NotNull] IPropertyBase propertyBase)
         {
             Debug.Assert(!(propertyBase is IProperty) || !((IProperty)propertyBase).IsShadowProperty);
 
-            return MetadataServices.ReadValue(Entity, propertyBase);
+            return propertyBase.GetGetter().GetClrValue(Entity);
         }
 
         protected virtual void WritePropertyValue([NotNull] IPropertyBase propertyBase, [CanBeNull] object value)
         {
             Debug.Assert(!(propertyBase is IProperty) || !((IProperty)propertyBase).IsShadowProperty);
 
-            MetadataServices.WriteValue(Entity, propertyBase, value);
+            propertyBase.GetSetter().SetClrValue(Entity, value);
         }
 
-        public virtual object this[IPropertyBase property]
+        public virtual object GetOriginalValue(IProperty property) => OriginalValues[property];
+
+        public virtual IKeyValue GetPrimaryKeyValue(bool originalValue = false)
+            => (originalValue ? OriginalValues : (IPropertyAccessor)this).GetPrimaryKeyValue();
+
+        public virtual IKeyValue GetPrincipalKeyValue(IForeignKey foreignKey, bool originalValue = false)
+            => (originalValue ? OriginalValues : (IPropertyAccessor)this).GetPrincipalKeyValue(foreignKey);
+
+        public virtual IKeyValue GetDependentKeyValue(IForeignKey foreignKey, bool originalValue = false)
+            => (originalValue ? OriginalValues : (IPropertyAccessor)this).GetDependentKeyValue(foreignKey);
+
+        public virtual object this[IPropertyBase propertyBase]
         {
             get
             {
@@ -290,14 +304,14 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
                     foreach (var sidecar in _sidecars)
                     {
                         if (sidecar.TransparentRead
-                            && sidecar.HasValue(property))
+                            && sidecar.HasValue(propertyBase))
                         {
-                            return sidecar[property];
+                            return sidecar[propertyBase];
                         }
                     }
                 }
 
-                return ReadPropertyValue(property);
+                return ReadPropertyValue(propertyBase);
             }
             set
             {
@@ -307,14 +321,14 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
                     foreach (var sidecar in _sidecars)
                     {
                         if (sidecar.TransparentWrite
-                            && sidecar.CanStoreValue(property))
+                            && sidecar.CanStoreValue(propertyBase))
                         {
-                            StateManager.Notify.PropertyChanging(this, property);
+                            StateManager.Notify.PropertyChanging(this, propertyBase);
 
-                            sidecar[property] = value;
+                            sidecar[propertyBase] = value;
                             wrote = true;
 
-                            StateManager.Notify.PropertyChanged(this, property);
+                            StateManager.Notify.PropertyChanged(this, propertyBase);
                         }
                     }
                     if (wrote)
@@ -323,44 +337,41 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
                     }
                 }
 
-                var currentValue = this[property];
+                var currentValue = this[propertyBase];
 
                 if (!Equals(currentValue, value))
                 {
-                    StateManager.Notify.PropertyChanging(this, property);
+                    var writeValue = true;
+                    var asProperty = propertyBase as IProperty;
 
-                    WritePropertyValue(property, value);
+                    if (asProperty != null
+                        && !asProperty.IsNullable)
+                    {
+                        if (value == null)
+                        {
+                            _stateData.FlagProperty(asProperty.GetIndex(), PropertyFlag.Null, isFlagged: true);
+                            writeValue = false;
+                        }
+                        else
+                        {
+                            _stateData.FlagProperty(asProperty.GetIndex(), PropertyFlag.Null, isFlagged: false);
+                        }
+                    }
 
-                    StateManager.Notify.PropertyChanged(this, property);
+                    if (writeValue)
+                    {
+                        StateManager.Notify.PropertyChanging(this, propertyBase);
+                        WritePropertyValue(propertyBase, value);
+                        StateManager.Notify.PropertyChanged(this, propertyBase);
+                    }
                 }
             }
         }
 
-        [NotNull]
-        public virtual EntityKey CreateKey(
-            [NotNull] IEntityType entityType,
+        public virtual IKeyValue CreateKey(
+            [NotNull] IKey key,
             [NotNull] IReadOnlyList<IProperty> properties,
-            [NotNull] IPropertyAccessor propertyAccessor) => MetadataServices.CreateKey(entityType, properties, propertyAccessor);
-
-        public virtual EntityKey GetDependentKeySnapshot([NotNull] IForeignKey foreignKey)
-            => CreateKey(foreignKey.PrincipalEntityType, foreignKey.Properties, RelationshipsSnapshot);
-
-        public virtual EntityKey GetPrincipalKey(
-            [NotNull] IForeignKey foreignKey, 
-            [NotNull] IEntityType principalEntityType, 
-            [NotNull] IReadOnlyList<IProperty> principalProperties)
-        {
-            EntityKey result;
-            if (!_principalKeys.TryGetValue(foreignKey, out result))
-            {
-                _principalKeys.Add(foreignKey,
-                    result = CreateKey(principalEntityType, principalProperties, this));
-            }
-
-            return result;
-        }
-
-        public virtual object[] GetValueBuffer() => EntityType.GetProperties().Select(p => this[p]).ToArray();
+            [NotNull] IPropertyAccessor propertyAccessor) => MetadataServices.CreateKey(key, properties, propertyAccessor);
 
         public virtual void AcceptChanges()
         {
@@ -400,7 +411,24 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
 
         public virtual InternalEntityEntry PrepareToSave()
         {
-            var properties = MayGetStoreValue();
+            if (EntityState == EntityState.Added)
+            {
+                var setProperty = EntityType.GetProperties().FirstOrDefault(p => p.IsReadOnlyBeforeSave && !IsTemporaryOrDefault(p));
+                if (setProperty != null)
+                {
+                    throw new InvalidOperationException(CoreStrings.PropertyReadOnlyBeforeSave(setProperty.Name, EntityType.DisplayName()));
+                }
+            }
+            else if (EntityState == EntityState.Modified)
+            {
+                var modifiedProperty = EntityType.GetProperties().FirstOrDefault(p => p.IsReadOnlyAfterSave && IsModified(p));
+                if (modifiedProperty != null)
+                {
+                    throw new InvalidOperationException(CoreStrings.PropertyReadOnlyAfterSave(modifiedProperty.Name, EntityType.DisplayName()));
+                }
+            }
+
+            var properties = FindPropertiesThatMayGetStoreValue();
             if (properties.Any())
             {
                 AddSidecar(MetadataServices.CreateStoreGeneratedValues(this, properties));
@@ -409,29 +437,95 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
             return this;
         }
 
-        private IReadOnlyList<IProperty> MayGetStoreValue()
+        public virtual void HandleConceptualNulls()
         {
-            var properties = EntityType.GetProperties().Where(MayGetStoreValue).ToList();
+            var fks = EntityType.GetForeignKeys()
+                .Where(fk => fk.Properties
+                    .Any(p => _stateData.IsPropertyFlagged(p.GetIndex(), PropertyFlag.Null)))
+                .ToList();
+
+            if (fks.Any(fk => fk.DeleteBehavior == DeleteBehavior.Cascade))
+            {
+                SetEntityState(EntityState == EntityState.Added
+                    ? EntityState.Detached
+                    : EntityState.Deleted);
+            }
+            else if (fks.Any())
+            {
+                throw new InvalidOperationException(CoreStrings.RelationshipConceptualNull(
+                    fks.First().PrincipalEntityType.DisplayName(),
+                    EntityType.DisplayName()));
+            }
+            else
+            {
+                throw new InvalidOperationException(CoreStrings.PropertyConceptualNull(
+                    EntityType.GetProperties().First(p => _stateData.IsPropertyFlagged(p.GetIndex(), PropertyFlag.Null)).Name,
+                    EntityType.DisplayName()));
+            }
+        }
+
+        public virtual void CascadeDelete()
+        {
+            foreach (var fk in EntityType.GetReferencingForeignKeys())
+            {
+                foreach (var dependent in StateManager.GetDependents(this, fk).ToList())
+                {
+                    if (dependent.EntityState != EntityState.Deleted
+                        && dependent.EntityState != EntityState.Detached)
+                    {
+                        if (fk.DeleteBehavior == DeleteBehavior.Cascade)
+                        {
+                            dependent.SetEntityState(dependent.EntityState == EntityState.Added
+                                ? EntityState.Detached
+                                : EntityState.Deleted);
+
+                            dependent.CascadeDelete();
+                        }
+                        else
+                        {
+                            foreach (var dependentProperty in fk.Properties)
+                            {
+                                dependent[dependentProperty] = null;
+                            }
+
+                            if (dependent.HasConceptualNull)
+                            {
+                                dependent.HandleConceptualNulls();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private IReadOnlyList<IProperty> FindPropertiesThatMayGetStoreValue()
+        {
+            var properties = EntityType.GetProperties().Where(
+                p => MayGetStoreValue(p, p.IsKey() ? p.DeclaringEntityType : EntityType)).ToList();
 
             foreach (var foreignKey in EntityType.GetForeignKeys())
             {
                 foreach (var property in foreignKey.Properties)
                 {
-                    if (!properties.Contains(property)
-                        && MayGetStoreValue(property.GetGenerationProperty()))
+                    if (!properties.Contains(property))
                     {
-                        properties.Add(property);
+                        var generationProperty = property.GetGenerationProperty();
+                        if (generationProperty != null
+                            && generationProperty != property
+                            && MayGetStoreValue(generationProperty, generationProperty.DeclaringEntityType))
+                        {
+                            properties.Add(property);
+                        }
                     }
                 }
             }
             return properties;
         }
 
-        private bool MayGetStoreValue([CanBeNull] IProperty property)
+        private bool MayGetStoreValue([CanBeNull] IProperty property, IEntityType entityType)
             => property != null
-                && (StateManager.ValueGeneration.MayGetTemporaryValue(property)
-                   || property.UseStoreDefault
-                   || property.IsStoreComputed);
+               && (property.ValueGenerated != ValueGenerated.Never
+                   || StateManager.ValueGeneration.MayGetTemporaryValue(property, entityType));
 
         public virtual void AutoRollbackSidecars()
         {
@@ -486,18 +580,25 @@ namespace Microsoft.Data.Entity.ChangeTracking.Internal
             }
         }
 
-        public virtual bool StoreMustGenerateValue([NotNull] IProperty property)
-            => property.IsValueGeneratedOnAdd && HasTemporaryValue(property)
-               || (property.UseStoreDefault && property.IsSentinelValue(this[property]))
-               || (property.IsStoreComputed
-                   && (EntityState == EntityState.Modified || EntityState == EntityState.Added)
-                   && !IsPropertyModified(property));
+        public virtual bool IsStoreGenerated(IProperty property)
+            => property.ValueGenerated != ValueGenerated.Never
+               && ((EntityState == EntityState.Added
+                    && (property.IsStoreGeneratedAlways || IsTemporaryOrDefault(property)))
+                   || (property.ValueGenerated == ValueGenerated.OnAddOrUpdate
+                       && (EntityState == EntityState.Modified
+                           && (property.IsStoreGeneratedAlways || !IsModified(property)))));
 
-        public virtual bool IsKeySet => !EntityType.GetPrimaryKey().Properties.Any(p => p.IsSentinelValue(this[p]));
+        private bool IsTemporaryOrDefault(IProperty property)
+            => HasTemporaryValue(property)
+               || property.ClrType.IsDefaultValue(this[property]);
+
+        public virtual bool IsKeySet => !EntityType.FindPrimaryKey().Properties.Any(p => p.ClrType.IsDefaultValue(this[p]));
 
         [UsedImplicitly]
-        private string DebuggerDisplay => this.GetPrimaryKeyValue() + " - " + EntityState;
+        private string DebuggerDisplay => GetPrimaryKeyValue() + " - " + EntityState;
 
         InternalEntityEntry IPropertyAccessor.InternalEntityEntry => this;
+
+        public virtual EntityEntry ToEntityEntry() => new EntityEntry(this);
     }
 }

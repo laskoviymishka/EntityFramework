@@ -1,7 +1,8 @@
-﻿// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Microsoft.Data.Entity.FunctionalTests.TestModels.Northwind
 {
@@ -21,12 +22,10 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.Northwind
 
         public virtual ICollection<Order> Orders { get; set; }
 
+        [NotMapped]
         public bool IsLondon => City == "London";
 
-        protected bool Equals(Customer other)
-        {
-            return string.Equals(CustomerID, other.CustomerID);
-        }
+        protected bool Equals(Customer other) => string.Equals(CustomerID, other.CustomerID);
 
         public override bool Equals(object obj)
         {
@@ -43,14 +42,8 @@ namespace Microsoft.Data.Entity.FunctionalTests.TestModels.Northwind
                    && Equals((Customer)obj);
         }
 
-        public override int GetHashCode()
-        {
-            return CustomerID.GetHashCode();
-        }
+        public override int GetHashCode() => CustomerID.GetHashCode();
 
-        public override string ToString()
-        {
-            return "Customer " + CustomerID;
-        }
+        public override string ToString() => "Customer " + CustomerID;
     }
 }

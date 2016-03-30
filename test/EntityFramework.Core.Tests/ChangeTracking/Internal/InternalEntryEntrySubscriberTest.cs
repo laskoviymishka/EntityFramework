@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections;
@@ -9,7 +9,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using Microsoft.Data.Entity.ChangeTracking.Internal;
 using Microsoft.Data.Entity.Metadata;
-using Microsoft.Framework.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
@@ -24,10 +24,10 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
                 EntityState.Unchanged,
                 new ChangedOnlyNotificationEntity { Name = "Palmer", Id = 1 });
 
-            Assert.True(entry.TryGetSidecar(Sidecar.WellKnownNames.OriginalValues).HasValue(entry.EntityType.GetProperty("Name")));
-            Assert.Equal("Palmer", entry.TryGetSidecar(Sidecar.WellKnownNames.OriginalValues)[entry.EntityType.GetProperty("Name")]);
-            Assert.True(entry.TryGetSidecar(Sidecar.WellKnownNames.RelationshipsSnapshot).HasValue(entry.EntityType.GetProperty("Id")));
-            Assert.Equal(1, entry.TryGetSidecar(Sidecar.WellKnownNames.RelationshipsSnapshot)[entry.EntityType.GetProperty("Id")]);
+            Assert.True(entry.TryGetSidecar(Sidecar.WellKnownNames.OriginalValues).HasValue(entry.EntityType.FindProperty("Name")));
+            Assert.Equal("Palmer", entry.TryGetSidecar(Sidecar.WellKnownNames.OriginalValues)[entry.EntityType.FindProperty("Name")]);
+            Assert.True(entry.TryGetSidecar(Sidecar.WellKnownNames.RelationshipsSnapshot).HasValue(entry.EntityType.FindProperty("Id")));
+            Assert.Equal(1, entry.TryGetSidecar(Sidecar.WellKnownNames.RelationshipsSnapshot)[entry.EntityType.FindProperty("Id")]);
         }
 
         [Fact]
@@ -51,13 +51,13 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
             Assert.Null(entry.TryGetSidecar(Sidecar.WellKnownNames.OriginalValues));
 
             Assert.False(entry.TryGetSidecar(Sidecar.WellKnownNames.RelationshipsSnapshot)
-                .HasValue(entry.EntityType.GetProperty("Id")));
+                .HasValue(entry.EntityType.FindProperty("Id")));
 
             Assert.True(entry.TryGetSidecar(Sidecar.WellKnownNames.RelationshipsSnapshot)
-                .HasValue(entry.EntityType.GetNavigation("RelatedCollection")));
+                .HasValue(entry.EntityType.FindNavigation("RelatedCollection")));
 
             Assert.NotNull(entry.TryGetSidecar(Sidecar.WellKnownNames.RelationshipsSnapshot)
-                [entry.EntityType.GetNavigation("RelatedCollection")]);
+                [entry.EntityType.FindNavigation("RelatedCollection")]);
         }
 
         [Fact]
@@ -90,7 +90,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
 
             entity.Name = "Palmer";
 
-            var property = entry.EntityType.GetProperty("Name");
+            var property = entry.EntityType.FindProperty("Name");
             Assert.Same(property, testListener.Changing);
             Assert.Same(property, testListener.Changed);
         }
@@ -112,7 +112,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
 
             entity.RelatedCollection = new List<ChangedOnlyNotificationEntity>();
 
-            var property = entry.EntityType.GetNavigation("RelatedCollection");
+            var property = entry.EntityType.FindNavigation("RelatedCollection");
             Assert.Same(property, testListener.Changing);
             Assert.Same(property, testListener.Changed);
         }
@@ -161,7 +161,7 @@ namespace Microsoft.Data.Entity.Tests.ChangeTracking.Internal
             builder.Entity<FullNotificationEntity>(b =>
                 {
                     b.Ignore(e => e.NotMapped);
-                    b.Collection(e => e.RelatedCollection).InverseReference(e => e.Related).ForeignKey(e => e.Fk);
+                    b.HasMany(e => e.RelatedCollection).WithOne(e => e.Related).HasForeignKey(e => e.Fk);
                 });
 
             return builder.Model;

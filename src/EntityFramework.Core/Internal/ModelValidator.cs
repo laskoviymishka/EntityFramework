@@ -1,11 +1,13 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
+using JetBrains.Annotations;
 using Microsoft.Data.Entity.Metadata;
+using Microsoft.Data.Entity.Metadata.Internal;
+using Microsoft.Data.Entity.Utilities;
 
 namespace Microsoft.Data.Entity.Internal
 {
@@ -13,32 +15,42 @@ namespace Microsoft.Data.Entity.Internal
     {
         public virtual void Validate(IModel model)
         {
+            EnsureNoShadowEntities(model);
             EnsureNoShadowKeys(model);
-            EnsureValidForeignKeyChains(model);
+            EnsureNonNullPrimaryKeys(model);
         }
 
-        protected void EnsureNoShadowKeys(IModel model)
+        protected virtual void EnsureNoShadowEntities([NotNull] IModel model)
         {
-            foreach (var entityType in model.EntityTypes)
+            var firstShadowEntity = model.GetEntityTypes().FirstOrDefault(entityType => !entityType.HasClrType());
+            if (firstShadowEntity != null)
+            {
+                ShowError(CoreStrings.ShadowEntity(firstShadowEntity.Name));
+            }
+        }
+
+        protected virtual void EnsureNoShadowKeys([NotNull] IModel model)
+        {
+            foreach (var entityType in model.GetEntityTypes())
             {
                 foreach (var key in entityType.GetKeys())
                 {
                     if (key.Properties.Any(p => p.IsShadowProperty))
                     {
                         string message;
-                        var referencingFk = model.GetReferencingForeignKeys(key).FirstOrDefault();
+                        var referencingFk = key.FindReferencingForeignKeys().FirstOrDefault();
                         if (referencingFk != null)
                         {
-                            message = Strings.ReferencedShadowKey(
+                            message = CoreStrings.ReferencedShadowKey(
                                 Property.Format(key.Properties),
                                 entityType.Name,
                                 Property.Format(key.Properties.Where(p => p.IsShadowProperty)),
                                 Property.Format(referencingFk.Properties),
-                                referencingFk.EntityType.Name);
+                                referencingFk.DeclaringEntityType.Name);
                         }
                         else
                         {
-                            message = Strings.ShadowKey(
+                            message = CoreStrings.ShadowKey(
                                 Property.Format(key.Properties),
                                 entityType.Name,
                                 Property.Format(key.Properties.Where(p => p.IsShadowProperty)));
@@ -50,124 +62,22 @@ namespace Microsoft.Data.Entity.Internal
             }
         }
 
-        protected void EnsureValidForeignKeyChains(IModel model)
+        protected virtual void EnsureNonNullPrimaryKeys([NotNull] IModel model)
         {
-            var verifiedProperties = new Dictionary<IProperty, IProperty>();
-            foreach (var entityType in model.EntityTypes)
+            Check.NotNull(model, nameof(model));
+
+            var entityTypeWithNullPk = model.GetEntityTypes().FirstOrDefault(et => et.FindPrimaryKey() == null);
+            if (entityTypeWithNullPk != null)
             {
-                foreach (var foreignKey in entityType.GetForeignKeys())
-                {
-                    foreach (var referencedProperty in foreignKey.Properties)
-                    {
-                        string errorMessage;
-                        VerifyRootPrincipal(referencedProperty, verifiedProperties, ImmutableList<IForeignKey>.Empty, out errorMessage);
-                        if (errorMessage != null)
-                        {
-                            ShowError(errorMessage);
-                        }
-                    }
-                }
+                ShowError(CoreStrings.EntityRequiresKey(entityTypeWithNullPk.Name));
             }
         }
 
-        private IProperty VerifyRootPrincipal(
-            IProperty principalProperty,
-            Dictionary<IProperty, IProperty> verifiedProperties,
-            ImmutableList<IForeignKey> visitedForeignKeys,
-            out string errorMessage)
-        {
-            errorMessage = null;
-            IProperty rootPrincipal;
-            if (verifiedProperties.TryGetValue(principalProperty, out rootPrincipal))
-            {
-                return rootPrincipal;
-            }
-
-            var rootPrincipals = new Dictionary<IProperty, IForeignKey>();
-            foreach (var foreignKey in principalProperty.EntityType.GetForeignKeys())
-            {
-                for (var index = 0; index < foreignKey.Properties.Count; index++)
-                {
-                    if (principalProperty == foreignKey.Properties[index])
-                    {
-                        var nextPrincipalProperty = foreignKey.PrincipalKey.Properties[index];
-                        if (visitedForeignKeys.Contains(foreignKey))
-                        {
-                            var cycleStart = visitedForeignKeys.IndexOf(foreignKey);
-                            var cycle = visitedForeignKeys.GetRange(cycleStart, visitedForeignKeys.Count - cycleStart);
-                            errorMessage = Strings.CircularDependency(cycle.Select(fk => fk.ToString()).Join());
-                            continue;
-                        }
-                        else
-                        {
-                            rootPrincipal = VerifyRootPrincipal(nextPrincipalProperty, verifiedProperties, visitedForeignKeys.Add(foreignKey), out errorMessage);
-                            if (rootPrincipal == null)
-                            {
-                                if (principalProperty.IsValueGeneratedOnAdd)
-                                {
-                                    rootPrincipals[principalProperty] = foreignKey;
-                                }
-                                continue;
-                            }
-
-                            if (principalProperty.IsValueGeneratedOnAdd)
-                            {
-                                ShowError(Strings.ForeignKeyValueGenerationOnAdd(
-                                    principalProperty.Name,
-                                    principalProperty.EntityType.DisplayName(),
-                                    Property.Format(foreignKey.Properties)));
-                                return principalProperty;
-                            }
-                        }
-
-                        rootPrincipals[rootPrincipal] = foreignKey;
-                    }
-                }
-            }
-
-            if (rootPrincipals.Count == 0)
-            {
-                if (errorMessage != null)
-                {
-                    return null;
-                }
-
-                if (!principalProperty.IsValueGeneratedOnAdd)
-                {
-                    ShowError(Strings.PrincipalKeyNoValueGenerationOnAdd(principalProperty.Name, principalProperty.EntityType.DisplayName()));
-                    return null;
-                }
-
-                return principalProperty;
-            }
-
-            if (rootPrincipals.Count > 1)
-            {
-                var firstRoot = rootPrincipals.Keys.ElementAt(0);
-                var secondRoot = rootPrincipals.Keys.ElementAt(1);
-                ShowWarning(Strings.MultipleRootPrincipals(
-                    rootPrincipals[firstRoot].EntityType.DisplayName(),
-                    Property.Format(rootPrincipals[firstRoot].Properties),
-                    firstRoot.EntityType.DisplayName(),
-                    firstRoot.Name,
-                    Property.Format(rootPrincipals[secondRoot].Properties),
-                    secondRoot.EntityType.DisplayName(),
-                    secondRoot.Name));
-
-                return firstRoot;
-            }
-
-            errorMessage = null;
-            rootPrincipal = rootPrincipals.Keys.Single();
-            verifiedProperties[principalProperty] = rootPrincipal;
-            return rootPrincipal;
-        }
-
-        protected virtual void ShowError(string message)
+        protected virtual void ShowError([NotNull] string message)
         {
             throw new InvalidOperationException(message);
         }
 
-        protected abstract void ShowWarning(string message);
+        protected abstract void ShowWarning([NotNull] string message);
     }
 }

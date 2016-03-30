@@ -1,28 +1,29 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using Microsoft.Data.Entity.ChangeTracking.Internal;
 using Microsoft.Data.Entity.Internal;
 using Microsoft.Data.Entity.Metadata;
-using Microsoft.Data.Entity.Relational.Update;
+using Microsoft.Data.Entity.Storage;
+using Microsoft.Data.Entity.Update;
 using Xunit;
 
-namespace Microsoft.Data.Entity.Relational.Tests.Update
+namespace Microsoft.Data.Entity.Tests.Update
 {
     public class ModificationCommandTest
     {
         [Fact]
         public void ModificationCommand_initialized_correctly_for_added_entities_with_temp_generated_key()
         {
-            var entry = Createentry(EntityState.Added, generateKeyValues: true);
-            entry.MarkAsTemporary(entry.EntityType.GetPrimaryKey().Properties[0]);
+            var entry = CreateEntry(EntityState.Added, generateKeyValues: true);
+            entry.MarkAsTemporary(entry.EntityType.FindPrimaryKey().Properties[0]);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
             command.AddEntry(entry);
 
             Assert.Equal("T1", command.TableName);
-            Assert.Null(command.SchemaName);
+            Assert.Null(command.Schema);
             Assert.Equal(EntityState.Added, command.EntityState);
             Assert.Equal(2, command.ColumnModifications.Count);
 
@@ -35,7 +36,6 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.True(columnMod.IsKey);
             Assert.True(columnMod.IsRead);
             Assert.False(columnMod.IsWrite);
-            Assert.IsType<GenericBoxedValueReader<int>>(columnMod.BoxedValueReader);
 
             columnMod = command.ColumnModifications[1];
 
@@ -46,20 +46,19 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.False(columnMod.IsKey);
             Assert.False(columnMod.IsRead);
             Assert.True(columnMod.IsWrite);
-            Assert.Null(columnMod.BoxedValueReader);
         }
 
         [Fact]
         public void ModificationCommand_initialized_correctly_for_added_entities_with_non_temp_generated_key()
         {
-            var entry = Createentry(EntityState.Added, generateKeyValues: true);
-            entry.MarkAsTemporary(entry.EntityType.GetPrimaryKey().Properties[0], isTemporary: false);
+            var entry = CreateEntry(EntityState.Added, generateKeyValues: true);
+            entry.MarkAsTemporary(entry.EntityType.FindPrimaryKey().Properties[0], isTemporary: false);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
             command.AddEntry(entry);
 
             Assert.Equal("T1", command.TableName);
-            Assert.Null(command.SchemaName);
+            Assert.Null(command.Schema);
             Assert.Equal(EntityState.Added, command.EntityState);
             Assert.Equal(2, command.ColumnModifications.Count);
 
@@ -72,7 +71,6 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.True(columnMod.IsKey);
             Assert.False(columnMod.IsRead);
             Assert.True(columnMod.IsWrite);
-            Assert.Null(columnMod.BoxedValueReader);
 
             columnMod = command.ColumnModifications[1];
 
@@ -83,19 +81,18 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.False(columnMod.IsKey);
             Assert.False(columnMod.IsRead);
             Assert.True(columnMod.IsWrite);
-            Assert.Null(columnMod.BoxedValueReader);
         }
 
         [Fact]
         public void ModificationCommand_initialized_correctly_for_added_entities_with_explicitly_specified_key_value()
         {
-            var entry = Createentry(EntityState.Added);
+            var entry = CreateEntry(EntityState.Added);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
             command.AddEntry(entry);
 
             Assert.Equal("T1", command.TableName);
-            Assert.Null(command.SchemaName);
+            Assert.Null(command.Schema);
             Assert.Equal(EntityState.Added, command.EntityState);
             Assert.Equal(2, command.ColumnModifications.Count);
 
@@ -108,7 +105,6 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.True(columnMod.IsKey);
             Assert.False(columnMod.IsRead);
             Assert.True(columnMod.IsWrite);
-            Assert.Null(columnMod.BoxedValueReader);
 
             columnMod = command.ColumnModifications[1];
 
@@ -119,19 +115,18 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.False(columnMod.IsKey);
             Assert.False(columnMod.IsRead);
             Assert.True(columnMod.IsWrite);
-            Assert.Null(columnMod.BoxedValueReader);
         }
 
         [Fact]
         public void ModificationCommand_initialized_correctly_for_modified_entities_with_identity_key()
         {
-            var entry = Createentry(EntityState.Modified, generateKeyValues: true);
+            var entry = CreateEntry(EntityState.Modified, generateKeyValues: true);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
             command.AddEntry(entry);
 
             Assert.Equal("T1", command.TableName);
-            Assert.Null(command.SchemaName);
+            Assert.Null(command.Schema);
             Assert.Equal(EntityState.Modified, command.EntityState);
             Assert.Equal(2, command.ColumnModifications.Count);
 
@@ -144,7 +139,6 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.True(columnMod.IsKey);
             Assert.False(columnMod.IsRead);
             Assert.False(columnMod.IsWrite);
-            Assert.Null(columnMod.BoxedValueReader);
 
             columnMod = command.ColumnModifications[1];
 
@@ -155,19 +149,18 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.False(columnMod.IsKey);
             Assert.False(columnMod.IsRead);
             Assert.True(columnMod.IsWrite);
-            Assert.Null(columnMod.BoxedValueReader);
         }
 
         [Fact]
         public void ModificationCommand_initialized_correctly_for_modified_entities_with_client_generated_key()
         {
-            var entry = Createentry(EntityState.Modified);
+            var entry = CreateEntry(EntityState.Modified);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
             command.AddEntry(entry);
 
             Assert.Equal("T1", command.TableName);
-            Assert.Null(command.SchemaName);
+            Assert.Null(command.Schema);
             Assert.Equal(EntityState.Modified, command.EntityState);
             Assert.Equal(2, command.ColumnModifications.Count);
 
@@ -180,7 +173,6 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.True(columnMod.IsKey);
             Assert.False(columnMod.IsRead);
             Assert.False(columnMod.IsWrite);
-            Assert.Null(columnMod.BoxedValueReader);
 
             columnMod = command.ColumnModifications[1];
 
@@ -191,19 +183,18 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.False(columnMod.IsKey);
             Assert.False(columnMod.IsRead);
             Assert.True(columnMod.IsWrite);
-            Assert.Null(columnMod.BoxedValueReader);
         }
 
         [Fact]
         public void ModificationCommand_initialized_correctly_for_modified_entities_with_concurrency_token()
         {
-            var entry = Createentry(EntityState.Modified, computeNonKeyValue: true);
+            var entry = CreateEntry(EntityState.Modified, computeNonKeyValue: true);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
             command.AddEntry(entry);
 
             Assert.Equal("T1", command.TableName);
-            Assert.Null(command.SchemaName);
+            Assert.Null(command.Schema);
             Assert.Equal(EntityState.Modified, command.EntityState);
             Assert.Equal(2, command.ColumnModifications.Count);
 
@@ -216,7 +207,6 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.True(columnMod.IsKey);
             Assert.False(columnMod.IsRead);
             Assert.False(columnMod.IsWrite);
-            Assert.Null(columnMod.BoxedValueReader);
 
             columnMod = command.ColumnModifications[1];
 
@@ -227,19 +217,18 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.False(columnMod.IsKey);
             Assert.True(columnMod.IsRead);
             Assert.False(columnMod.IsWrite);
-            Assert.IsType<GenericBoxedValueReader<string>>(columnMod.BoxedValueReader);
         }
 
         [Fact]
         public void ModificationCommand_initialized_correctly_for_deleted_entities()
         {
-            var entry = Createentry(EntityState.Deleted);
+            var entry = CreateEntry(EntityState.Deleted);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
             command.AddEntry(entry);
 
             Assert.Equal("T1", command.TableName);
-            Assert.Null(command.SchemaName);
+            Assert.Null(command.Schema);
             Assert.Equal(EntityState.Deleted, command.EntityState);
             Assert.Equal(1, command.ColumnModifications.Count);
 
@@ -252,19 +241,18 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.True(columnMod.IsKey);
             Assert.False(columnMod.IsRead);
             Assert.False(columnMod.IsWrite);
-            Assert.Null(columnMod.BoxedValueReader);
         }
 
         [Fact]
         public void ModificationCommand_initialized_correctly_for_deleted_entities_with_concurrency_token()
         {
-            var entry = Createentry(EntityState.Deleted, computeNonKeyValue: true);
+            var entry = CreateEntry(EntityState.Deleted, computeNonKeyValue: true);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
             command.AddEntry(entry);
 
             Assert.Equal("T1", command.TableName);
-            Assert.Null(command.SchemaName);
+            Assert.Null(command.Schema);
             Assert.Equal(EntityState.Deleted, command.EntityState);
             Assert.Equal(2, command.ColumnModifications.Count);
 
@@ -277,7 +265,6 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.True(columnMod.IsKey);
             Assert.False(columnMod.IsRead);
             Assert.False(columnMod.IsWrite);
-            Assert.Null(columnMod.BoxedValueReader);
 
             columnMod = command.ColumnModifications[1];
 
@@ -288,40 +275,39 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
             Assert.False(columnMod.IsKey);
             Assert.False(columnMod.IsRead);
             Assert.False(columnMod.IsWrite);
-            Assert.Null(columnMod.BoxedValueReader);
         }
 
         [Fact]
         public void ModificationCommand_throws_for_unchanged_entities()
         {
-            var entry = Createentry(EntityState.Unchanged);
+            var entry = CreateEntry(EntityState.Unchanged);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
 
             Assert.Equal(
-                Strings.ModificationFunctionInvalidEntityState(EntityState.Unchanged),
+                RelationalStrings.ModificationFunctionInvalidEntityState(EntityState.Unchanged),
                 Assert.Throws<NotSupportedException>(() => command.AddEntry(entry)).Message);
         }
 
         [Fact]
         public void ModificationCommand_throws_for_unknown_entities()
         {
-            var entry = Createentry(EntityState.Detached);
+            var entry = CreateEntry(EntityState.Detached);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
 
             Assert.Equal(
-                Strings.ModificationFunctionInvalidEntityState(EntityState.Detached),
+                RelationalStrings.ModificationFunctionInvalidEntityState(EntityState.Detached),
                 Assert.Throws<NotSupportedException>(() => command.AddEntry(entry)).Message);
         }
 
         [Fact]
         public void RequiresResultPropagation_false_for_Delete_operation()
         {
-            var entry = Createentry(
+            var entry = CreateEntry(
                 EntityState.Deleted, generateKeyValues: true, computeNonKeyValue: true);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
             command.AddEntry(entry);
 
             Assert.False(command.RequiresResultPropagation);
@@ -330,10 +316,10 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
         [Fact]
         public void RequiresResultPropagation_true_for_Insert_operation_if_store_generated_columns_exist()
         {
-            var entry = Createentry(
+            var entry = CreateEntry(
                 EntityState.Added, generateKeyValues: true, computeNonKeyValue: true);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
             command.AddEntry(entry);
 
             Assert.True(command.RequiresResultPropagation);
@@ -342,9 +328,9 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
         [Fact]
         public void RequiresResultPropagation_false_for_Insert_operation_if_no_store_generated_columns_exist()
         {
-            var entry = Createentry(EntityState.Added);
+            var entry = CreateEntry(EntityState.Added);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
             command.AddEntry(entry);
 
             Assert.False(command.RequiresResultPropagation);
@@ -353,10 +339,10 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
         [Fact]
         public void RequiresResultPropagation_true_for_Update_operation_if_non_key_store_generated_columns_exist()
         {
-            var entry = Createentry(
+            var entry = CreateEntry(
                 EntityState.Modified, generateKeyValues: true, computeNonKeyValue: true);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
             command.AddEntry(entry);
 
             Assert.True(command.RequiresResultPropagation);
@@ -365,9 +351,9 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
         [Fact]
         public void RequiresResultPropagation_false_for_Update_operation_if_no_non_key_store_generated_columns_exist()
         {
-            var entry = Createentry(EntityState.Modified, generateKeyValues: true);
+            var entry = CreateEntry(EntityState.Modified, generateKeyValues: true);
 
-            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.Relational(), new BoxedValueReaderSource());
+            var command = new ModificationCommand("T1", null, new ParameterNameGenerator(), p => p.TestProvider());
             command.AddEntry(entry);
 
             Assert.False(command.RequiresResultPropagation);
@@ -381,31 +367,33 @@ namespace Microsoft.Data.Entity.Relational.Tests.Update
 
         private static IModel BuildModel(bool generateKeyValues, bool computeNonKeyValue)
         {
-            var model = new Entity.Metadata.Model();
+            var model = new Entity.Metadata.Internal.Model();
             var entityType = model.AddEntityType(typeof(T1));
 
-            var key = entityType.GetOrAddProperty("Id", typeof(int));
-            key.GenerateValueOnAdd = generateKeyValues;
-            key.Relational().Column = "Col1";
+            var key = entityType.AddProperty("Id", typeof(int));
+            key.IsShadowProperty = false;
+            key.ValueGenerated = generateKeyValues ? ValueGenerated.OnAdd : ValueGenerated.Never;
+            key.Relational().ColumnName = "Col1";
             entityType.GetOrSetPrimaryKey(key);
 
-            var nonKey = entityType.GetOrAddProperty("Name", typeof(string));
+            var nonKey = entityType.AddProperty("Name", typeof(string));
+            nonKey.IsShadowProperty = false;
             nonKey.IsConcurrencyToken = computeNonKeyValue;
 
-            nonKey.Relational().Column = "Col2";
-            nonKey.IsStoreComputed = computeNonKeyValue;
+            nonKey.Relational().ColumnName = "Col2";
+            nonKey.ValueGenerated = computeNonKeyValue ? ValueGenerated.OnAddOrUpdate : ValueGenerated.Never;
 
             return model;
         }
 
-        private static InternalEntityEntry Createentry(
+        private static InternalEntityEntry CreateEntry(
             EntityState entityState,
             bool generateKeyValues = false,
             bool computeNonKeyValue = false)
         {
             var model = BuildModel(generateKeyValues, computeNonKeyValue);
 
-            return RelationalTestHelpers.Instance.CreateInternalEntry(model, entityState, new T1 { Id = 1, Name = "Test" });
+            return RelationalTestHelpers.Instance.CreateInternalEntry(model, entityState, new T1 { Id = 1, Name = computeNonKeyValue ? null : "Test" });
         }
     }
 }

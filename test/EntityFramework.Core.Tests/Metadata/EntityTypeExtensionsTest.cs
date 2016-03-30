@@ -1,43 +1,119 @@
-// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.Collections.Generic;
 using System.Linq;
-using Microsoft.Data.Entity.Metadata;
-using Moq;
+using System.Reflection;
+using Microsoft.Data.Entity.Metadata.Internal;
 using Xunit;
 
-namespace Microsoft.Data.Entity.Tests.Metadata
+namespace Microsoft.Data.Entity.Metadata.Tests
 {
     public class EntityTypeExtensionsTest
     {
         [Fact]
         public void Can_get_all_properties_and_navigations()
         {
-            var typeMock = new Mock<IEntityType>();
+            var entityType = new Model().AddEntityType(typeof(SelfRef));
+            var pk = entityType.GetOrSetPrimaryKey(entityType.AddProperty(SelfRef.IdProperty));
+            var fkProp = entityType.AddProperty(SelfRef.SelfRefIdProperty);
 
-            var property1 = Mock.Of<IProperty>();
-            var property2 = Mock.Of<IProperty>();
-            var navigation1 = Mock.Of<INavigation>();
-            var navigation2 = Mock.Of<INavigation>();
-
-            typeMock.Setup(m => m.GetProperties()).Returns(new List<IProperty> { property1, property2 });
-            typeMock.Setup(m => m.GetNavigations()).Returns(new List<INavigation> { navigation1, navigation2 });
+            var fk = entityType.AddForeignKey(new[] { fkProp }, pk, entityType);
+            fk.IsUnique = true;
+            var dependentToPrincipal = fk.HasDependentToPrincipal(nameof(SelfRef.SelfRefPrincipal));
+            var principalToDependent = fk.HasPrincipalToDependent(nameof(SelfRef.SelfRefDependent));
 
             Assert.Equal(
-                new IPropertyBase[] { property1, property2, navigation1, navigation2 },
-                typeMock.Object.GetPropertiesAndNavigations().ToArray());
+                new IPropertyBase[] { pk.Properties.Single(), fkProp, principalToDependent, dependentToPrincipal },
+                entityType.GetPropertiesAndNavigations().ToArray());
         }
 
         [Fact]
         public void Can_get_referencing_foreign_keys()
         {
-            var modelMock = new Mock<Model>();
-            var entityType = new EntityType("Customer", modelMock.Object);
+            var model = new Model();
+            var entityType = model.AddEntityType("Customer");
+            var idProperty = entityType.AddProperty("id", typeof(int));
+            var fkProperty = entityType.AddProperty("fk", typeof(int));
+            var fk = entityType.AddForeignKey(fkProperty, entityType.SetPrimaryKey(idProperty), entityType);
 
-            entityType.GetReferencingForeignKeys();
+            Assert.Same(fk, entityType.GetReferencingForeignKeys().Single());
+        }
 
-            modelMock.Verify(m => m.GetReferencingForeignKeys(entityType), Times.Once());
+        [Fact]
+        public void Can_get_root_type()
+        {
+            var model = new Model();
+            var a = model.AddEntityType("A");
+            var b = model.AddEntityType("B");
+            var c = model.AddEntityType("C");
+            b.BaseType = a;
+            c.BaseType = b;
+
+            Assert.Same(a, a.RootType());
+            Assert.Same(a, b.RootType());
+            Assert.Same(a, c.RootType());
+        }
+
+        [Fact]
+        public void Can_get_derived_types()
+        {
+            var model = new Model();
+            var a = model.AddEntityType("A");
+            var b = model.AddEntityType("B");
+            var c = model.AddEntityType("C");
+            var d = model.AddEntityType("D");
+            b.BaseType = a;
+            c.BaseType = b;
+            d.BaseType = a;
+
+            Assert.Equal(new[] { b, d, c }, a.GetDerivedTypes().ToArray());
+            Assert.Equal(new[] { c }, b.GetDerivedTypes().ToArray());
+            Assert.Equal(new[] { b, d }, a.GetDirectlyDerivedTypes().ToArray());
+        }
+
+        [Fact]
+        public void Can_determine_whether_IsAssignableFrom()
+        {
+            var model = new Model();
+            var a = model.AddEntityType("A");
+            var b = model.AddEntityType("B");
+            var c = model.AddEntityType("C");
+            var d = model.AddEntityType("D");
+            b.BaseType = a;
+            c.BaseType = b;
+            d.BaseType = a;
+
+            Assert.True(a.IsAssignableFrom(a));
+            Assert.True(a.IsAssignableFrom(b));
+            Assert.True(a.IsAssignableFrom(c));
+            Assert.False(b.IsAssignableFrom(a));
+            Assert.False(c.IsAssignableFrom(a));
+            Assert.False(b.IsAssignableFrom(d));
+        }
+
+        [Fact]
+        public void Can_get_proper_table_name_for_generic_entityType()
+        {
+            var entityType = new Model().AddEntityType(typeof(A<int>));
+
+            Assert.Equal(
+                "A<int>",
+                ((IEntityType)entityType).DisplayName());
+        }
+
+        private class A<T>
+        {
+        }
+
+        private class SelfRef
+        {
+            public static readonly PropertyInfo IdProperty = typeof(SelfRef).GetProperty("Id");
+            public static readonly PropertyInfo SelfRefIdProperty = typeof(SelfRef).GetProperty("SelfRefId");
+
+            public int Id { get; set; }
+            public SelfRef SelfRefPrincipal { get; set; }
+            public SelfRef SelfRefDependent { get; set; }
+            public int? SelfRefId { get; set; }
         }
     }
 }
