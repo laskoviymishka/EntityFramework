@@ -180,14 +180,20 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
                     };
             }
 
-            foreach (var migration in migrationsToApply)
+            for (var i = 0; i < migrationsToApply.Count; i++)
             {
-                yield return () =>
-                    {
-                        _logger.LogInformation(RelationalStrings.ApplyingMigration(migration.GetId()));
+                var migration = migrationsToApply[i];
 
-                        return GenerateUpSql(migration);
-                    };
+                yield return () =>
+                {
+                    _logger.LogInformation(RelationalStrings.ApplyingMigration(migration.GetId()));
+
+                    return GenerateUpSql(
+                        migration,
+                        i != migrationsToApply.Count - 1
+                            ? migrationsToApply[i + 1]
+                            : null);
+                };
             }
         }
 
@@ -224,24 +230,25 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
                 var migrationsToApply = migrations.Where(
                     m => (string.Compare(m.Key, fromMigration, StringComparison.OrdinalIgnoreCase) > 0)
                          && (string.Compare(m.Key, toMigration, StringComparison.OrdinalIgnoreCase) <= 0))
-                    .Select(m => _migrationsAssembly.CreateMigration(m.Value, _activeProvider));
-                var checkFirst = true;
-                foreach (var migration in migrationsToApply)
-                {
-                    if (checkFirst)
-                    {
-                        if (migration.GetId() == migrations.Keys.First())
-                        {
-                            builder.AppendLine(_historyRepository.GetCreateIfNotExistsScript());
-                            builder.Append(_sqlGenerationHelper.BatchTerminator);
-                        }
+                    .Select(m => _migrationsAssembly.CreateMigration(m.Value, _activeProvider))
+                    .ToList();
 
-                        checkFirst = false;
+                for (var i = 0; i < migrationsToApply.Count; i++)
+                {
+                    var migration = migrationsToApply[i];
+                    var previousMigration = i != migrationsToApply.Count - 1
+                        ? migrationsToApply[i + 1]
+                        : null;
+
+                    if ((i == 0) && (migration.GetId() == migrations.Keys.First()))
+                    {
+                        builder.AppendLine(_historyRepository.GetCreateIfNotExistsScript());
+                        builder.Append(_sqlGenerationHelper.BatchTerminator);
                     }
 
                     _logger.LogDebug(RelationalStrings.GeneratingUp(migration.GetId()));
 
-                    foreach (var command in GenerateUpSql(migration))
+                    foreach (var command in GenerateUpSql(migration, previousMigration))
                     {
                         if (idempotent)
                         {
@@ -303,14 +310,22 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
             return builder.ToString();
         }
 
-        protected virtual IReadOnlyList<IRelationalCommand> GenerateUpSql([NotNull] Migration migration)
+        protected virtual IReadOnlyList<IRelationalCommand> GenerateUpSql(
+            [NotNull] Migration migration,
+            [CanBeNull] Migration previousMigration)
         {
             Check.NotNull(migration, nameof(migration));
 
             var commands = new List<IRelationalCommand>();
             commands.AddRange(_migrationsSqlGenerator.Generate(migration.UpOperations, migration.TargetModel));
             commands.Add(
-                _rawSqlCommandBuilder.Build(_historyRepository.GetInsertScript(new HistoryRow(migration.GetId(), ProductInfo.GetVersion()))));
+                _rawSqlCommandBuilder.Build(
+                    _historyRepository.GetInsertScript(
+                        new HistoryRow(
+                            migration.GetId(),
+                            ProductInfo.GetVersion(),
+                            GenerateScript(migration.GetId(),
+                            previousMigration?.GetId())))));
 
             return commands;
         }

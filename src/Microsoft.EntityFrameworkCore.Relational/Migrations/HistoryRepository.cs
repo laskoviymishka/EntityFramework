@@ -31,6 +31,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         private readonly LazyRef<IModel> _model;
         private readonly LazyRef<string> _migrationIdColumnName;
         private readonly LazyRef<string> _productVersionColumnName;
+        private readonly LazyRef<string> _downScriptColumnName;
 
         protected HistoryRepository(
             [NotNull] IDatabaseCreator databaseCreator,
@@ -79,6 +80,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 () => annotations.For(entityType.Value.FindProperty(nameof(HistoryRow.MigrationId))).ColumnName);
             _productVersionColumnName = new LazyRef<string>(
                 () => annotations.For(entityType.Value.FindProperty(nameof(HistoryRow.ProductVersion))).ColumnName);
+            _downScriptColumnName = new LazyRef<string>(
+                () => annotations.For(entityType.Value.FindProperty(nameof(HistoryRow.DownScript))).ColumnName);
         }
 
         protected virtual ISqlGenerationHelper SqlGenerationHelper { get; }
@@ -86,6 +89,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         protected virtual string TableSchema { get; }
         protected virtual string MigrationIdColumnName => _migrationIdColumnName.Value;
         protected virtual string ProductVersionColumnName => _productVersionColumnName.Value;
+        protected virtual string DownScriptColumnName => _downScriptColumnName.Value;
 
         protected abstract string ExistsSql { get; }
 
@@ -132,7 +136,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 {
                     while (reader.DbDataReader.Read())
                     {
-                        rows.Add(new HistoryRow(reader.DbDataReader.GetString(0), reader.DbDataReader.GetString(1)));
+                        rows.Add(new HistoryRow(reader.DbDataReader.GetString(0), reader.DbDataReader.GetString(1), reader.DbDataReader.GetString(2)));
                     }
                 }
             }
@@ -153,7 +157,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 {
                     while (await reader.DbDataReader.ReadAsync(cancellationToken))
                     {
-                        rows.Add(new HistoryRow(reader.DbDataReader.GetString(0), reader.DbDataReader.GetString(1)));
+                        rows.Add(new HistoryRow(reader.DbDataReader.GetString(0), reader.DbDataReader.GetString(1), reader.DbDataReader.GetString(2)));
                     }
                 }
             }
@@ -167,6 +171,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 .Append(SqlGenerationHelper.DelimitIdentifier(MigrationIdColumnName))
                 .Append(", ")
                 .AppendLine(SqlGenerationHelper.DelimitIdentifier(ProductVersionColumnName))
+                .Append(", ")
+                .AppendLine(SqlGenerationHelper.DelimitIdentifier(DownScriptColumnName))
                 .Append("FROM ")
                 .AppendLine(SqlGenerationHelper.DelimitIdentifier(TableName, TableSchema))
                 .Append("ORDER BY ")
@@ -184,11 +190,15 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 .Append(SqlGenerationHelper.DelimitIdentifier(MigrationIdColumnName))
                 .Append(", ")
                 .Append(SqlGenerationHelper.DelimitIdentifier(ProductVersionColumnName))
+                .Append(", ")
+                .AppendLine(SqlGenerationHelper.DelimitIdentifier(DownScriptColumnName))
                 .AppendLine(")")
                 .Append("VALUES ('")
                 .Append(SqlGenerationHelper.EscapeLiteral(row.MigrationId))
                 .Append("', '")
                 .Append(SqlGenerationHelper.EscapeLiteral(row.ProductVersion))
+                .Append("', '")
+                .Append(SqlGenerationHelper.EscapeLiteral(row.DownScript))
                 .AppendLine("');")
                 .ToString();
         }

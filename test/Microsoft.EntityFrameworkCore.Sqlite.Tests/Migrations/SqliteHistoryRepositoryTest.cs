@@ -63,11 +63,11 @@ namespace Microsoft.EntityFrameworkCore.Sqlite.Tests.Migrations
         public void GetInsertScript_works()
         {
             var sql = CreateHistoryRepository().GetInsertScript(
-                new HistoryRow("Migration1", "7.0.0"));
+                new HistoryRow("Migration1", "7.0.0", "Sample Down Script"));
 
             Assert.Equal(
-                "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\")" + EOL +
-                "VALUES ('Migration1', '7.0.0');" + EOL,
+                "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\", \"DownScript\")" + EOL +
+                "VALUES ('Migration1', '7.0.0', 'Sample Down Script');" + EOL,
                 sql);
         }
 
