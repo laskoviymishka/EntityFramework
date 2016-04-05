@@ -99,7 +99,7 @@ namespace Microsoft.EntityFrameworkCore.Sqlite.Tests.Migrations
             };
             if (autoincrement)
             {
-                addIdColumn.AddAnnotation(SqliteAnnotationNames.Prefix + SqliteAnnotationNames.Autoincrement, true);
+                addIdColumn.AddAnnotation(SqliteFullAnnotationNames.Instance.Autoincrement, true);
             }
 
             Generate(
@@ -261,14 +261,12 @@ namespace Microsoft.EntityFrameworkCore.Sqlite.Tests.Migrations
         {
             var ex = Assert.Throws<NotSupportedException>(() => base.AddPrimaryKeyOperation_with_name());
             Assert.Equal(SqliteStrings.InvalidMigrationOperation, ex.Message);
-            ;
         }
 
         public override void AddPrimaryKeyOperation_without_name()
         {
             var ex = Assert.Throws<NotSupportedException>(() => base.AddPrimaryKeyOperation_without_name());
             Assert.Equal(SqliteStrings.InvalidMigrationOperation, ex.Message);
-            ;
         }
 
         public override void AddUniqueConstraintOperation_with_name()

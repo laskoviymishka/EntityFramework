@@ -19,7 +19,10 @@ namespace Microsoft.EntityFrameworkCore.Storage
     internal static class RelationalLoggerExtensions
     {
         public static void LogCommandExecuted(
-            [NotNull] this ISensitiveDataLogger logger, [NotNull] DbCommand command, long? elapsedMilliseconds)
+            [NotNull] this ISensitiveDataLogger logger,
+            [NotNull] DbCommand command,
+            long startTimestamp,
+            long currentTimestamp)
         {
             Check.NotNull(logger, nameof(logger));
             Check.NotNull(command, nameof(command));
@@ -31,6 +34,7 @@ namespace Microsoft.EntityFrameworkCore.Storage
                         var logParameterValues
                             = command.Parameters.Count > 0
                               && logger.LogSensitiveData;
+                        var elapsedMilliseconds = DeriveTimespan(startTimestamp, currentTimestamp);
 
                         return new DbCommandLogData(
                             command.CommandText.TrimEnd(),
@@ -42,15 +46,19 @@ namespace Microsoft.EntityFrameworkCore.Storage
                             elapsedMilliseconds);
                     },
                 state =>
-                    RelationalStrings.RelationalLoggerExecutedCommand(
-                        string.Format($"{elapsedMilliseconds:N0}"),
-                        state.Parameters
-                            .Select(kv => $"{kv.Key}='{FormatParameterValue(kv.Value)}'")
-                            .Join(),
-                        state.CommandType,
-                        state.CommandTimeout,
-                        Environment.NewLine,
-                        state.CommandText));
+                    {
+                        var elapsedMilliseconds = DeriveTimespan(startTimestamp, currentTimestamp);
+
+                        return RelationalStrings.RelationalLoggerExecutedCommand(
+                            string.Format($"{elapsedMilliseconds:N0}"),
+                            state.Parameters
+                                .Select(kv => $"{kv.Key}='{FormatParameterValue(kv.Value)}'")
+                                .Join(),
+                            state.CommandType,
+                            state.CommandTimeout,
+                            Environment.NewLine,
+                            state.CommandText);
+                    });
         }
 
         public static object FormatParameterValue(object parameterValue)
@@ -62,6 +70,7 @@ namespace Microsoft.EntityFrameworkCore.Storage
             var stringValueBuilder = new StringBuilder();
             var buffer = (byte[])parameterValue;
             stringValueBuilder.Append("0x");
+
             for (var i = 0; i < buffer.Length; i++)
             {
                 if (i > 31)
@@ -71,6 +80,7 @@ namespace Microsoft.EntityFrameworkCore.Storage
                 }
                 stringValueBuilder.Append(buffer[i].ToString("X2", CultureInfo.InvariantCulture));
             }
+
             return stringValueBuilder.ToString();
         }
 
@@ -79,7 +89,7 @@ namespace Microsoft.EntityFrameworkCore.Storage
         {
             if (logger.IsEnabled(LogLevel.Information))
             {
-                logger.Log(LogLevel.Information, (int)eventId, state(), null, (s, _) => formatter((TState)s));
+                logger.Log(LogLevel.Information, (int)eventId, state(), null, (s, _) => formatter(s));
             }
         }
 
@@ -97,8 +107,11 @@ namespace Microsoft.EntityFrameworkCore.Storage
         {
             if (logger.IsEnabled(LogLevel.Debug))
             {
-                logger.Log(LogLevel.Debug, (int)eventId, state, null, (s, __) => formatter((TState)s));
+                logger.Log(LogLevel.Debug, (int)eventId, state, null, (s, __) => formatter(s));
             }
         }
+
+        private static long DeriveTimespan(long startTimestamp, long currentTimestamp)
+            => (currentTimestamp - startTimestamp) / TimeSpan.TicksPerMillisecond;
     }
 }

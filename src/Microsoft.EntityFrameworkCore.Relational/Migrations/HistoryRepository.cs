@@ -153,7 +153,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             {
                 var command = _rawSqlCommandBuilder.Build(GetAppliedMigrationsSql);
 
-                using (var reader = await command.ExecuteReaderAsync(_connection))
+                using (var reader = await command.ExecuteReaderAsync(_connection, cancellationToken: cancellationToken))
                 {
                     while (await reader.DbDataReader.ReadAsync(cancellationToken))
                     {
@@ -180,7 +180,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 .Append(";")
                 .ToString();
 
-        public virtual string GetInsertScript([NotNull] HistoryRow row)
+        public virtual string GetInsertScript(HistoryRow row)
         {
             Check.NotNull(row, nameof(row));
 
@@ -203,7 +203,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 .ToString();
         }
 
-        public virtual string GetDeleteScript([NotNull] string migrationId)
+        public virtual string GetDeleteScript(string migrationId)
         {
             Check.NotEmpty(migrationId, nameof(migrationId));
 

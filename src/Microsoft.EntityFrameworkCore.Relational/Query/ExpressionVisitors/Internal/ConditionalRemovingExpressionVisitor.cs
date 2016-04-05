@@ -3,14 +3,13 @@
 
 using System.Linq;
 using System.Linq.Expressions;
-using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Query.Expressions;
 
 namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
 {
     public class ConditionalRemovingExpressionVisitor : ExpressionVisitorBase
     {
-        public override Expression Visit([CanBeNull] Expression node)
+        public override Expression Visit(Expression node)
         {
             var selectExpression = node as SelectExpression;
 
@@ -22,8 +21,8 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
                 if (conditionalExpression?.Type == typeof(bool)
                     && conditionalExpression.IfTrue.NodeType == ExpressionType.Constant
                     && conditionalExpression.IfFalse.NodeType == ExpressionType.Constant
-                    && (bool)(conditionalExpression.IfTrue as ConstantExpression).Value
-                    && !(bool)(conditionalExpression.IfFalse as ConstantExpression).Value)
+                    && (bool)((ConstantExpression)conditionalExpression.IfTrue).Value
+                    && !(bool)((ConstantExpression)conditionalExpression.IfFalse).Value)
                 {
                     return Visit(conditionalExpression.Test);
                 }

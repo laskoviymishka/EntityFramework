@@ -10,9 +10,41 @@ using Xunit;
 namespace Microsoft.EntityFrameworkCore.FunctionalTests
 {
     public abstract class InheritanceRelationshipsQueryTestBase<TTestStore, TFixture> : IClassFixture<TFixture>, IDisposable
-    where TTestStore : TestStore
-    where TFixture : InheritanceRelationshipsQueryFixtureBase<TTestStore>, new()
+        where TTestStore : TestStore
+        where TFixture : InheritanceRelationshipsQueryFixtureBase<TTestStore>, new()
     {
+        [Fact]
+        public virtual void Changes_in_derived_related_entities_are_detected()
+        {
+            using (var context = CreateContext())
+            {
+                context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.TrackAll;
+
+                var derivedEntity = context.BaseEntities.Include(e => e.BaseCollectionOnBase)
+                    .Single(e => e.Name == "Derived1(4)") as DerivedInheritanceRelationshipEntity;
+
+                var firstRelatedEntity = derivedEntity.BaseCollectionOnBase.Cast<DerivedCollectionOnBase>().First();
+
+                var originalValue = firstRelatedEntity.DerivedProperty;
+                Assert.NotEqual(0, originalValue);
+
+                var entry = context.ChangeTracker.Entries<DerivedCollectionOnBase>()
+                    .Single(e => e.Entity == firstRelatedEntity);
+
+                Assert.IsType<DerivedCollectionOnBase>(entry.Entity);
+
+                Assert.Equal(
+                    "Microsoft.EntityFrameworkCore.FunctionalTests.TestModels.InheritanceRelationships.DerivedCollectionOnBase",
+                    entry.Metadata.Name);
+
+                firstRelatedEntity.DerivedProperty = originalValue + 1;
+                context.ChangeTracker.DetectChanges();
+
+                Assert.Equal(EntityState.Modified, entry.State);
+                Assert.Equal(originalValue, entry.Property(e => e.DerivedProperty).OriginalValue);
+                Assert.Equal(originalValue + 1, entry.Property(e => e.DerivedProperty).CurrentValue);
+            }
+        }
 
         [Fact]
         public virtual void Entity_can_make_separate_relationships_with_base_type_and_derived_type_both()
@@ -194,6 +226,7 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
                 var result = query.ToList();
 
                 Assert.Equal(6, result.Count);
+                Assert.Equal(3, result.SelectMany(e => e.BaseCollectionOnBase.OfType<DerivedCollectionOnBase>()).Count(e => e.DerivedProperty != 0));
             }
         }
 
@@ -231,6 +264,7 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
                 var result = query.ToList();
 
                 Assert.Equal(6, result.Count);
+                Assert.Equal(3, result.SelectMany(e => e.BaseCollectionOnBase.OfType<DerivedCollectionOnBase>()).Count(e => e.DerivedProperty != 0));
             }
         }
 
@@ -474,6 +508,7 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
                 var result = query.ToList();
 
                 Assert.Equal(3, result.Count);
+                Assert.Equal(2, result.SelectMany(e => e.BaseCollectionOnBase.OfType<DerivedCollectionOnBase>()).Count(e => e.DerivedProperty != 0));
             }
         }
 
@@ -594,7 +629,7 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
         {
             using (var context = CreateContext())
             {
-                var query = context.BaseEntities.Include(e => e.BaseReferenceOnBase.NestedCollection); 
+                var query = context.BaseEntities.Include(e => e.BaseReferenceOnBase.NestedCollection);
                 var result = query.ToList();
 
                 Assert.Equal(6, result.Count);
@@ -660,6 +695,7 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
                 var result = query.ToList();
 
                 Assert.Equal(6, result.Count);
+                Assert.Equal(3, result.SelectMany(e => e.BaseCollectionOnBase.OfType<DerivedCollectionOnBase>()).Count(e => e.DerivedProperty != 0));
             }
         }
 
@@ -723,6 +759,7 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
                 var result = query.ToList();
 
                 Assert.Equal(6, result.Count);
+                Assert.Equal(3, result.SelectMany(e => e.BaseCollectionOnBase.OfType<DerivedCollectionOnBase>()).Count(e => e.DerivedProperty != 0));
             }
         }
 

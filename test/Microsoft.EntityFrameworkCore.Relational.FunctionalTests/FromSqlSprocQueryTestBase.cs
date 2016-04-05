@@ -1,4 +1,4 @@
-// Copyright (c) .NET Foundation. All rights reserved.
+﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -47,6 +47,27 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
 
                 Assert.Equal(10, actual.Length);
                 Assert.True(actual.Any(r => r == "Côte de Blaye"));
+            }
+        }
+
+        [Fact]
+        public virtual void From_sql_queryable_stored_procedure_reprojection()
+        {
+            using (var context = CreateContext())
+            {
+                var actual = context
+                    .Set<MostExpensiveProduct>()
+                    .FromSql(TenMostExpensiveProductsSproc)
+                    .Select(mep =>
+                        new MostExpensiveProduct
+                        {
+                            TenMostExpensiveProducts = "Foo",
+                            UnitPrice = mep.UnitPrice
+                        })
+                    .ToArray();
+
+                Assert.Equal(10, actual.Length);
+                Assert.True(actual.All(mep => mep.TenMostExpensiveProducts == "Foo"));
             }
         }
 

@@ -16,17 +16,15 @@ namespace Microsoft.EntityFrameworkCore.Scaffolding.Internal.Configuration
 
             AttributeBody =
                 attributeArguments == null || attributeArguments.Length == 0
-                ? StripAttribute(attributeName)
-                : StripAttribute(attributeName) + "(" + string.Join(", ", attributeArguments) + ")";
+                    ? StripAttribute(attributeName)
+                    : StripAttribute(attributeName) + "(" + string.Join(", ", attributeArguments) + ")";
         }
 
         public virtual string AttributeBody { get; }
 
         protected static string StripAttribute([NotNull] string attributeName)
-        {
-            return attributeName.EndsWith("Attribute", StringComparison.Ordinal)
+            => attributeName.EndsWith("Attribute", StringComparison.Ordinal)
                 ? attributeName.Substring(0, attributeName.Length - 9)
                 : attributeName;
-        }
     }
 }

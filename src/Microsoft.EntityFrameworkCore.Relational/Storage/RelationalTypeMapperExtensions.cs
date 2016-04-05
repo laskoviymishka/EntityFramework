@@ -28,28 +28,29 @@ namespace Microsoft.EntityFrameworkCore.Storage
             Check.NotNull(property, nameof(property));
 
             var mapping = typeMapper.FindMapping(property);
-            if(mapping != null)
-            {
-                return mapping;
-            }
-
-            throw new NotSupportedException(RelationalStrings.UnsupportedType(property));
-        }
-
-        public static RelationalTypeMapping GetMapping(
-            [NotNull] this IRelationalTypeMapper typeMapper,
-            [NotNull] Type clrType)
-        {
-            Check.NotNull(typeMapper, nameof(typeMapper));
-            Check.NotNull(clrType, nameof(clrType));
-
-            var mapping = typeMapper.FindMapping(clrType);
             if (mapping != null)
             {
                 return mapping;
             }
 
-            throw new NotSupportedException(RelationalStrings.UnsupportedType(clrType));
+            throw new InvalidOperationException(RelationalStrings.UnsupportedType(property));
+        }
+
+        public static RelationalTypeMapping GetMapping(
+            [NotNull] this IRelationalTypeMapper typeMapper,
+            [NotNull] Type clrType,
+            bool unicode = true)
+        {
+            Check.NotNull(typeMapper, nameof(typeMapper));
+            Check.NotNull(clrType, nameof(clrType));
+
+            var mapping = typeMapper.FindMapping(clrType, unicode);
+            if (mapping != null)
+            {
+                return mapping;
+            }
+
+            throw new InvalidOperationException(RelationalStrings.UnsupportedType(clrType));
         }
 
         public static RelationalTypeMapping GetMapping(
@@ -65,11 +66,11 @@ namespace Microsoft.EntityFrameworkCore.Storage
                 return mapping;
             }
 
-            throw new NotSupportedException(RelationalStrings.UnsupportedType(typeName));
+            throw new InvalidOperationException(RelationalStrings.UnsupportedType(typeName));
         }
 
         public static bool IsTypeMapped(
-            [NotNull] this IRelationalTypeMapper typeMapper, 
+            [NotNull] this IRelationalTypeMapper typeMapper,
             [NotNull] Type clrType)
         {
             Check.NotNull(typeMapper, nameof(typeMapper));

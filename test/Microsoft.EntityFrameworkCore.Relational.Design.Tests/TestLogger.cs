@@ -36,18 +36,16 @@ namespace Microsoft.EntityFrameworkCore.Relational.Design
 
     public class TestLogger : ILogger
     {
-        public IDisposable BeginScopeImpl(object state) => new NullScope();
+        public IDisposable BeginScope<TState>(TState state) => new NullScope();
         public string FullLog => _sb.ToString();
         private readonly StringBuilder _sb = new StringBuilder();
 
         public bool IsEnabled(LogLevel logLevel) => true;
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
-        {
-            _sb.Append(logLevel)
+            => _sb.Append(logLevel)
                 .Append(": ")
                 .Append(formatter(state, exception));
-        }
 
         public class NullScope : IDisposable
         {

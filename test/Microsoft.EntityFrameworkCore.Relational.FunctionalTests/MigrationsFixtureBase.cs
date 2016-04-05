@@ -1,7 +1,6 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
@@ -12,6 +11,16 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
         public static string ActiveProvider { get; set; }
 
         public abstract MigrationsContext CreateContext();
+
+        public abstract EmptyMigrationsContext CreateEmptyContext();
+
+        public class EmptyMigrationsContext : DbContext
+        {
+            public EmptyMigrationsContext(DbContextOptions options)
+                : base(options)
+            {
+            }
+        }
 
         public class MigrationsContext : DbContext
         {
@@ -42,9 +51,7 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
             }
 
             protected override void Down(MigrationBuilder migrationBuilder)
-            {
-                migrationBuilder.DropTable("Table1");
-            }
+                => migrationBuilder.DropTable("Table1");
         }
 
         [DbContext(typeof(MigrationsContext))]
@@ -52,18 +59,14 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
         private class Migration2 : Migration
         {
             protected override void Up(MigrationBuilder migrationBuilder)
-            {
-                migrationBuilder.RenameTable(
+                => migrationBuilder.RenameTable(
                     name: "Table1",
                     newName: "Table2");
-            }
 
             protected override void Down(MigrationBuilder migrationBuilder)
-            {
-                migrationBuilder.RenameTable(
+                => migrationBuilder.RenameTable(
                     name: "Table2",
                     newName: "Table1");
-            }
         }
     }
 }

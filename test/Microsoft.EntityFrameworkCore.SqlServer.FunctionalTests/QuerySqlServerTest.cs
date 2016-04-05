@@ -24,6 +24,16 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests
             //TestSqlLoggerFactory.CaptureOutput(testOutputHelper);
         }
 
+        public override void Queryable_reprojection()
+        {
+            base.Queryable_reprojection();
+
+            Assert.Equal(
+                @"SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]",
+                Sql);
+        }
+
         public override void Default_if_empty_top_level()
         {
             base.Default_if_empty_top_level();
@@ -3067,6 +3077,42 @@ WHERE 1 = 0",
                 Sql);
         }
 
+        public override void Where_ternary_boolean_condition()
+        {
+            base.Where_ternary_boolean_condition();
+
+            Assert.Contains(
+                    @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ((@__flag_0 = 1) AND ([p].[UnitsInStock] >= 20)) OR ((@__flag_0 <> 1) AND ([p].[UnitsInStock] < 20))",
+                    Sql);
+        }
+
+        public override void Where_ternary_boolean_condition_with_another_condition()
+        {
+            base.Where_ternary_boolean_condition_with_another_condition();
+
+            Assert.Equal(
+                    @"@__productId_0: 15
+@__flag_1: True
+
+SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE ([p].[ProductID] < @__productId_0) AND (((@__flag_1 = 1) AND ([p].[UnitsInStock] >= 20)) OR ((@__flag_1 <> 1) AND ([p].[UnitsInStock] < 20)))",
+                    Sql);
+        }
+
+        public override void Where_ternary_boolean_condition_with_false_as_result()
+        {
+            base.Where_ternary_boolean_condition_with_false_as_result();
+
+            Assert.Contains(
+                    @"SELECT [p].[ProductID], [p].[Discontinued], [p].[ProductName], [p].[UnitsInStock]
+FROM [Products] AS [p]
+WHERE (@__flag_0 = 1) AND ([p].[UnitsInStock] >= 20)",
+                    Sql);
+        }
+
         public override void Where_concat_string_int_comparison1()
         {
             base.Where_concat_string_int_comparison1();
@@ -3098,7 +3144,7 @@ WHERE (CAST(@__i_0 AS nvarchar(max)) + [c].[CustomerID]) = [c].[CompanyName]",
             base.Where_concat_string_int_comparison3();
 
             Assert.Equal(
-    @"@__i_0: 10
+                @"@__i_0: 10
 @__j_1: 21
 
 SELECT [c].[CustomerID]
@@ -3801,7 +3847,7 @@ WHERE FLOOR([od].[UnitPrice]) > 10.0",
             base.Where_query_composition4();
 
             Assert.StartsWith(
-                 @"SELECT [c1].[CustomerID], [c1].[Address], [c1].[City], [c1].[CompanyName], [c1].[ContactName], [c1].[ContactTitle], [c1].[Country], [c1].[Fax], [c1].[Phone], [c1].[PostalCode], [c1].[Region]
+                @"SELECT [c1].[CustomerID], [c1].[Address], [c1].[City], [c1].[CompanyName], [c1].[ContactName], [c1].[ContactTitle], [c1].[Country], [c1].[Fax], [c1].[Phone], [c1].[PostalCode], [c1].[Region]
 FROM [Customers] AS [c1]
 
 SELECT 1
@@ -3810,7 +3856,7 @@ ORDER BY [c].[CustomerID]
 
 SELECT [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region]
 FROM [Customers] AS [c0]",
-                 Sql);
+                Sql);
         }
 
         public override void Where_math_power()
@@ -4723,7 +4769,25 @@ ORDER BY COALESCE([c].[Region], N'ZZ')",
                 Sql);
         }
 
-        private static string FileLineEnding = @"
+        public override void Does_not_change_ordering_of_projection_with_complex_projections()
+        {
+            base.Does_not_change_ordering_of_projection_with_complex_projections();
+
+            Assert.StartsWith(
+                @"SELECT [e].[CustomerID], (
+    SELECT COUNT(*)
+    FROM [Orders] AS [o1]
+    WHERE [e].[CustomerID] = [o1].[CustomerID]
+)
+FROM [Customers] AS [e]
+WHERE [e].[ContactTitle] = N'Owner'
+
+SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
+FROM [Orders] AS [o]",
+                Sql);
+        }
+
+        private static readonly string FileLineEnding = @"
 ";
 
         private static string Sql => TestSqlLoggerFactory.Sql.Replace(Environment.NewLine, FileLineEnding);

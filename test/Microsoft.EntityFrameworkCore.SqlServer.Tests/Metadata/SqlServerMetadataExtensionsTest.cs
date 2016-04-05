@@ -29,7 +29,6 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests.Metadata
             property.Relational().ColumnName = "Eman";
 
             Assert.Equal("Name", property.Name);
-            Assert.Equal("Name", ((IProperty)property).Name);
             Assert.Equal("Eman", property.Relational().ColumnName);
             Assert.Equal("Eman", property.SqlServer().ColumnName);
             Assert.Equal("Eman", ((IProperty)property).SqlServer().ColumnName);
@@ -37,7 +36,6 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests.Metadata
             property.SqlServer().ColumnName = "MyNameIs";
 
             Assert.Equal("Name", property.Name);
-            Assert.Equal("Name", ((IProperty)property).Name);
             Assert.Equal("Eman", property.Relational().ColumnName);
             Assert.Equal("MyNameIs", property.SqlServer().ColumnName);
             Assert.Equal("MyNameIs", ((IProperty)property).SqlServer().ColumnName);
@@ -45,7 +43,6 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests.Metadata
             property.SqlServer().ColumnName = null;
 
             Assert.Equal("Name", property.Name);
-            Assert.Equal("Name", ((IProperty)property).Name);
             Assert.Equal("Eman", property.Relational().ColumnName);
             Assert.Equal("Eman", property.SqlServer().ColumnName);
             Assert.Equal("Eman", ((IProperty)property).SqlServer().ColumnName);
@@ -66,7 +63,6 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests.Metadata
             entityType.Relational().TableName = "Customizer";
 
             Assert.Equal("Customer", entityType.DisplayName());
-            Assert.Equal("Customer", ((IEntityType)entityType).DisplayName());
             Assert.Equal("Customizer", entityType.Relational().TableName);
             Assert.Equal("Customizer", entityType.SqlServer().TableName);
             Assert.Equal("Customizer", ((IEntityType)entityType).SqlServer().TableName);
@@ -74,7 +70,6 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests.Metadata
             entityType.SqlServer().TableName = "Custardizer";
 
             Assert.Equal("Customer", entityType.DisplayName());
-            Assert.Equal("Customer", ((IEntityType)entityType).DisplayName());
             Assert.Equal("Customizer", entityType.Relational().TableName);
             Assert.Equal("Custardizer", entityType.SqlServer().TableName);
             Assert.Equal("Custardizer", ((IEntityType)entityType).SqlServer().TableName);
@@ -82,7 +77,6 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests.Metadata
             entityType.SqlServer().TableName = null;
 
             Assert.Equal("Customer", entityType.DisplayName());
-            Assert.Equal("Customer", ((IEntityType)entityType).DisplayName());
             Assert.Equal("Customizer", entityType.Relational().TableName);
             Assert.Equal("Customizer", entityType.SqlServer().TableName);
             Assert.Equal("Customizer", ((IEntityType)entityType).SqlServer().TableName);
@@ -163,27 +157,60 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests.Metadata
                 .Property(e => e.Name)
                 .Metadata;
 
-            Assert.Null(property.Relational().GeneratedValueSql);
-            Assert.Null(property.SqlServer().GeneratedValueSql);
-            Assert.Null(((IProperty)property).SqlServer().GeneratedValueSql);
+            Assert.Null(property.Relational().DefaultValueSql);
+            Assert.Null(property.SqlServer().DefaultValueSql);
+            Assert.Null(((IProperty)property).SqlServer().DefaultValueSql);
 
-            property.Relational().GeneratedValueSql = "newsequentialid()";
+            property.Relational().DefaultValueSql = "newsequentialid()";
 
-            Assert.Equal("newsequentialid()", property.Relational().GeneratedValueSql);
-            Assert.Equal("newsequentialid()", property.SqlServer().GeneratedValueSql);
-            Assert.Equal("newsequentialid()", ((IProperty)property).SqlServer().GeneratedValueSql);
+            Assert.Equal("newsequentialid()", property.Relational().DefaultValueSql);
+            Assert.Equal("newsequentialid()", property.SqlServer().DefaultValueSql);
+            Assert.Equal("newsequentialid()", ((IProperty)property).SqlServer().DefaultValueSql);
 
-            property.SqlServer().GeneratedValueSql = "expressyourself()";
+            property.SqlServer().DefaultValueSql = "expressyourself()";
 
-            Assert.Equal("newsequentialid()", property.Relational().GeneratedValueSql);
-            Assert.Equal("expressyourself()", property.SqlServer().GeneratedValueSql);
-            Assert.Equal("expressyourself()", ((IProperty)property).SqlServer().GeneratedValueSql);
+            Assert.Equal("newsequentialid()", property.Relational().DefaultValueSql);
+            Assert.Equal("expressyourself()", property.SqlServer().DefaultValueSql);
+            Assert.Equal("expressyourself()", ((IProperty)property).SqlServer().DefaultValueSql);
 
-            property.SqlServer().GeneratedValueSql = null;
+            property.SqlServer().DefaultValueSql = null;
 
-            Assert.Equal("newsequentialid()", property.Relational().GeneratedValueSql);
-            Assert.Equal("newsequentialid()", property.SqlServer().GeneratedValueSql);
-            Assert.Equal("newsequentialid()", ((IProperty)property).SqlServer().GeneratedValueSql);
+            Assert.Equal("newsequentialid()", property.Relational().DefaultValueSql);
+            Assert.Equal("newsequentialid()", property.SqlServer().DefaultValueSql);
+            Assert.Equal("newsequentialid()", ((IProperty)property).SqlServer().DefaultValueSql);
+        }
+
+        [Fact]
+        public void Can_get_and_set_column_computed_expression()
+        {
+            var modelBuilder = new ModelBuilder(new ConventionSet());
+
+            var property = modelBuilder
+                .Entity<Customer>()
+                .Property(e => e.Name)
+                .Metadata;
+
+            Assert.Null(property.Relational().ComputedValueSql);
+            Assert.Null(property.SqlServer().ComputedValueSql);
+            Assert.Null(((IProperty)property).SqlServer().ComputedValueSql);
+
+            property.Relational().ComputedValueSql = "newsequentialid()";
+
+            Assert.Equal("newsequentialid()", property.Relational().ComputedValueSql);
+            Assert.Equal("newsequentialid()", property.SqlServer().ComputedValueSql);
+            Assert.Equal("newsequentialid()", ((IProperty)property).SqlServer().ComputedValueSql);
+
+            property.SqlServer().ComputedValueSql = "expressyourself()";
+
+            Assert.Equal("newsequentialid()", property.Relational().ComputedValueSql);
+            Assert.Equal("expressyourself()", property.SqlServer().ComputedValueSql);
+            Assert.Equal("expressyourself()", ((IProperty)property).SqlServer().ComputedValueSql);
+
+            property.SqlServer().ComputedValueSql = null;
+
+            Assert.Equal("newsequentialid()", property.Relational().ComputedValueSql);
+            Assert.Equal("newsequentialid()", property.SqlServer().ComputedValueSql);
+            Assert.Equal("newsequentialid()", ((IProperty)property).SqlServer().ComputedValueSql);
         }
 
         [Fact]
@@ -200,23 +227,23 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests.Metadata
             Assert.Null(property.SqlServer().DefaultValue);
             Assert.Null(((IProperty)property).SqlServer().DefaultValue);
 
-            property.Relational().DefaultValue = new Byte[] { 69, 70, 32, 82, 79, 67, 75, 83 };
+            property.Relational().DefaultValue = new byte[] { 69, 70, 32, 82, 79, 67, 75, 83 };
 
-            Assert.Equal(new Byte[] { 69, 70, 32, 82, 79, 67, 75, 83 }, property.Relational().DefaultValue);
-            Assert.Equal(new Byte[] { 69, 70, 32, 82, 79, 67, 75, 83 }, property.SqlServer().DefaultValue);
-            Assert.Equal(new Byte[] { 69, 70, 32, 82, 79, 67, 75, 83 }, ((IProperty)property).SqlServer().DefaultValue);
+            Assert.Equal(new byte[] { 69, 70, 32, 82, 79, 67, 75, 83 }, property.Relational().DefaultValue);
+            Assert.Equal(new byte[] { 69, 70, 32, 82, 79, 67, 75, 83 }, property.SqlServer().DefaultValue);
+            Assert.Equal(new byte[] { 69, 70, 32, 82, 79, 67, 75, 83 }, ((IProperty)property).SqlServer().DefaultValue);
 
-            property.SqlServer().DefaultValue = new Byte[] { 69, 70, 32, 83, 79, 67, 75, 83 };
+            property.SqlServer().DefaultValue = new byte[] { 69, 70, 32, 83, 79, 67, 75, 83 };
 
-            Assert.Equal(new Byte[] { 69, 70, 32, 82, 79, 67, 75, 83 }, property.Relational().DefaultValue);
-            Assert.Equal(new Byte[] { 69, 70, 32, 83, 79, 67, 75, 83 }, property.SqlServer().DefaultValue);
-            Assert.Equal(new Byte[] { 69, 70, 32, 83, 79, 67, 75, 83 }, ((IProperty)property).SqlServer().DefaultValue);
+            Assert.Equal(new byte[] { 69, 70, 32, 82, 79, 67, 75, 83 }, property.Relational().DefaultValue);
+            Assert.Equal(new byte[] { 69, 70, 32, 83, 79, 67, 75, 83 }, property.SqlServer().DefaultValue);
+            Assert.Equal(new byte[] { 69, 70, 32, 83, 79, 67, 75, 83 }, ((IProperty)property).SqlServer().DefaultValue);
 
             property.SqlServer().DefaultValue = null;
 
-            Assert.Equal(new Byte[] { 69, 70, 32, 82, 79, 67, 75, 83 }, property.Relational().DefaultValue);
-            Assert.Equal(new Byte[] { 69, 70, 32, 82, 79, 67, 75, 83 }, property.SqlServer().DefaultValue);
-            Assert.Equal(new Byte[] { 69, 70, 32, 82, 79, 67, 75, 83 }, ((IProperty)property).SqlServer().DefaultValue);
+            Assert.Equal(new byte[] { 69, 70, 32, 82, 79, 67, 75, 83 }, property.Relational().DefaultValue);
+            Assert.Equal(new byte[] { 69, 70, 32, 82, 79, 67, 75, 83 }, property.SqlServer().DefaultValue);
+            Assert.Equal(new byte[] { 69, 70, 32, 82, 79, 67, 75, 83 }, ((IProperty)property).SqlServer().DefaultValue);
         }
 
         [Fact]
@@ -473,7 +500,6 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests.Metadata
             Assert.Equal(sequence2.MaxValue, sequence.MaxValue);
             Assert.Same(sequence2.ClrType, sequence.ClrType);
         }
-
 
         [Fact]
         public void Can_get_multiple_sequences()

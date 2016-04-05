@@ -3,9 +3,9 @@
 
 using System.Data.SqlClient;
 using System.Linq;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Microbenchmarks.Core;
 using Microsoft.EntityFrameworkCore.Microbenchmarks.Core.Models.Orders;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Xunit;
 
@@ -31,10 +31,7 @@ namespace Microsoft.EntityFrameworkCore.Microbenchmarks.Models.Orders
 
         public string ConnectionString { get; }
 
-        public virtual OrdersContext CreateContext()
-        {
-            return new OrdersContext(ConnectionString);
-        }
+        public virtual OrdersContext CreateContext() => new OrdersContext(ConnectionString);
 
         protected virtual void OnDatabaseCreated(OrdersContext context)
         {

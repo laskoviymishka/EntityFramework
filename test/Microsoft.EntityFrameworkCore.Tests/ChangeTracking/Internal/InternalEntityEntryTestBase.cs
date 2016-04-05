@@ -95,7 +95,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
             entry.SetEntityState(EntityState.Modified);
 
             Assert.False(entry.IsModified(keyProperty));
-            Assert.True(entry.IsModified(nonKeyProperty));
+            Assert.NotEqual(nonKeyProperty.IsShadowProperty, entry.IsModified(nonKeyProperty));
 
             entry.SetEntityState(EntityState.Unchanged, true);
 
@@ -203,14 +203,14 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
 
             Assert.Equal(
                 CoreStrings.KeyReadOnly("Id", entityType.DisplayName()),
-                Assert.Throws<NotSupportedException>(() => entry.SetPropertyModified(keyProperty)).Message);
+                Assert.Throws<InvalidOperationException>(() => entry.SetPropertyModified(keyProperty)).Message);
 
             Assert.Equal(EntityState.Unchanged, entry.EntityState);
             Assert.False(entry.IsModified(keyProperty));
 
             Assert.Equal(
                 CoreStrings.KeyReadOnly("Id", entityType.DisplayName()),
-                Assert.Throws<NotSupportedException>(() => entry[keyProperty] = 2).Message);
+                Assert.Throws<InvalidOperationException>(() => entry[keyProperty] = 2).Message);
 
             Assert.Equal(EntityState.Unchanged, entry.EntityState);
             Assert.False(entry.IsModified(keyProperty));
@@ -587,7 +587,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
         }
 
         private static object[] CreateValueBuffer(IUpdateEntry entry)
-            => entry.EntityType.GetProperties().Select(p => entry.GetCurrentValue(p)).ToArray();
+            => entry.EntityType.GetProperties().Select(entry.GetCurrentValue).ToArray();
 
         [Fact]
         public virtual void All_original_values_can_be_accessed_for_entity_that_does_full_change_tracking_if_eager_values_on()
@@ -788,7 +788,6 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
             var model = BuildModel();
             GenericNullOriginalValuesTest(model, model.FindEntityType(typeof(SomeEntity).FullName), new SomeEntity { Id = 1 });
         }
-
 
         protected void GenericNullOriginalValuesTest(IModel model, IEntityType entityType, object entity)
         {
@@ -1308,21 +1307,11 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
             public event PropertyChangingEventHandler PropertyChanging;
             public event PropertyChangedEventHandler PropertyChanged;
 
-            private void NotifyChanged([CallerMemberName] string propertyName = "")
-            {
-                if (PropertyChanged != null)
-                {
-                    PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-                }
-            }
+            private void NotifyChanged([CallerMemberName] string propertyName = "") 
+                => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
-            private void NotifyChanging([CallerMemberName] string propertyName = "")
-            {
-                if (PropertyChanging != null)
-                {
-                    PropertyChanging(this, new PropertyChangingEventArgs(propertyName));
-                }
-            }
+            private void NotifyChanging([CallerMemberName] string propertyName = "") 
+                => PropertyChanging?.Invoke(this, new PropertyChangingEventArgs(propertyName));
         }
 
         protected class ChangedOnlyEntity : INotifyPropertyChanged, ISomeEntity
@@ -1358,13 +1347,8 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
 
             public event PropertyChangedEventHandler PropertyChanged;
 
-            private void NotifyChanged([CallerMemberName] string propertyName = "")
-            {
-                if (PropertyChanged != null)
-                {
-                    PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-                }
-            }
+            private void NotifyChanged([CallerMemberName] string propertyName = "") 
+                => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
 }

@@ -119,6 +119,9 @@ namespace Microsoft.EntityFrameworkCore.Commands
                     rootNamespace));
         }
 
+        public virtual void DropDatabase([CanBeNull] string contextName, [NotNull] Func<string, string, bool> confirmCheck)
+            => _contextOperations.Value.DropDatabase(contextName, confirmCheck);
+
         public virtual MigrationFiles AddMigration(
             [NotNull] string name,
             [CanBeNull] string outputDir,
@@ -135,8 +138,8 @@ namespace Microsoft.EntityFrameworkCore.Commands
             [CanBeNull] string contextType)
             => _migrationsOperations.Value.ScriptMigration(fromMigration, toMigration, idempotent, contextType);
 
-        public virtual MigrationFiles RemoveMigration([CanBeNull] string contextType)
-            => _migrationsOperations.Value.RemoveMigration(contextType);
+        public virtual MigrationFiles RemoveMigration([CanBeNull] string contextType, bool force)
+            => _migrationsOperations.Value.RemoveMigration(contextType, force);
 
         public virtual IEnumerable<Type> GetContextTypes()
             => _contextOperations.Value.GetContextTypes();

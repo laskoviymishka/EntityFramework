@@ -5,7 +5,6 @@ using System;
 using Microsoft.EntityFrameworkCore.FunctionalTests;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Tests;
 using Microsoft.EntityFrameworkCore.ValueGeneration.Internal;
 using Xunit;
 
@@ -38,10 +37,8 @@ namespace Microsoft.EntityFrameworkCore.InMemory.Tests
             Assert.Equal((sbyte?)1, CreateAndUseFactory(entityType.FindProperty("NullableSByte")));
         }
 
-        private static object CreateAndUseFactory(IProperty property)
-        {
-            return new InMemoryIntegerValueGeneratorFactory().Create(property).Next();
-        }
+        private static object CreateAndUseFactory(IProperty property) 
+            => new InMemoryIntegerValueGeneratorFactory().Create(property).Next();
 
         [Fact]
         public void Throws_for_non_integer_property()

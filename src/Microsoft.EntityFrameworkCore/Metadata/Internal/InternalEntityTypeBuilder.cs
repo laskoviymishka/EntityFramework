@@ -532,7 +532,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 var indexesToDetach = propertyToDetach.FindContainingIndexes().ToList();
                 if (indexesToDetach.Count > 0)
                 {
-                    detachedIndexes.Add(DetachIndexes(indexesToDetach.OfType<Index>()));
+                    detachedIndexes.Add(DetachIndexes(indexesToDetach));
                 }
             }
 
@@ -1001,8 +1001,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 
             var newRelationship = Relationship(principalEntityTypeBuilder, principalKey, configurationSource);
             var relationship = newRelationship.HasForeignKey(dependentProperties, configurationSource);
-            if (relationship == null
-                && newRelationship != null
+            if (relationship == null 
                 && newRelationship.Metadata.Builder != null)
             {
                 RemoveForeignKey(newRelationship.Metadata, configurationSource);
@@ -1228,7 +1227,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             {
                 newRelationship = newRelationship.Navigations(
                     navigationToPrincipalName == "" ? null : navigationToPrincipalName,
-                    navigationToDependentName == "" ? null : navigationToDependentName, 
+                    navigationToDependentName == "" ? null : navigationToDependentName,
                     configurationSource);
             }
             relationship = newRelationship ?? relationship;
@@ -1388,8 +1387,10 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 for (var i = 0; i < principalKey.Properties.Count; i++)
                 {
                     IProperty keyProperty = principalKey.Properties[i];
+                    var propertyName = (keyProperty.Name.StartsWith(baseName, StringComparison.OrdinalIgnoreCase) ? "" : baseName)
+                                       + keyProperty.Name;
                     fkProperties[i] = CreateUniqueProperty(
-                        baseName + keyProperty.Name,
+                        propertyName,
                         isRequired ?? false ? keyProperty.ClrType : keyProperty.ClrType.MakeNullable(),
                         this,
                         isRequired);
@@ -1462,7 +1463,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                     else if (type != null)
                     {
                         // TODO: Log that shadow property is created by convention
-                        propertyBuilder = Property(propertyName, type, ConfigurationSource.Convention);
+                        propertyBuilder = Property(propertyName, type.MakeNullable(), ConfigurationSource.Convention);
                     }
                     else
                     {

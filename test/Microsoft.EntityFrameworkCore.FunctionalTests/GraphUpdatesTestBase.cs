@@ -833,7 +833,7 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
 
                 Assert.Equal(
                     CoreStrings.KeyReadOnly("Id", typeof(RequiredSingle1).Name),
-                    Assert.Throws<NotSupportedException>(() => context.SaveChanges()).Message);
+                    Assert.Throws<InvalidOperationException>(() => context.SaveChanges()).Message);
             }
         }
 
@@ -2890,7 +2890,6 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
 
             using (var context = CreateContext())
             {
-
                 Assert.Null(root.RequiredSingle);
 
                 Assert.Empty(context.RequiredSingle1s.Where(e => e.Id == removedId));
@@ -3159,7 +3158,6 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
                 Assert.Empty(context.RequiredNonPkSingleAk2s.Where(e => e.Id == orphanedId));
             }
         }
-
 
         [ConditionalFact]
         public virtual void Required_many_to_one_dependents_are_cascade_detached_when_Added()

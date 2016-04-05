@@ -73,28 +73,28 @@ namespace Microsoft.EntityFrameworkCore.Design.Internal
                     {
                         TargetDir = TargetDir,
                         References =
-                                {
-                                    BuildReference.ByName("System.Diagnostics.DiagnosticSource", copyLocal: true),
-                                    BuildReference.ByName("System.Interactive.Async", copyLocal: true),
-                                    BuildReference.ByName("System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
-                                    BuildReference.ByName("Microsoft.AspNetCore.Hosting.Abstractions", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.EntityFrameworkCore", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.EntityFrameworkCore.Commands", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational.Design", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.EntityFrameworkCore.SqlServer", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.Caching.Memory", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.Configuration.Abstractions", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.DependencyInjection", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.DependencyInjection.Abstractions", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.FileProviders.Abstractions", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.Logging", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.Options", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.PlatformAbstractions", copyLocal: true),
-                                    BuildReference.ByName("Remotion.Linq", copyLocal: true)
-                                },
+                        {
+                            BuildReference.ByName("System.Diagnostics.DiagnosticSource", copyLocal: true),
+                            BuildReference.ByName("System.Interactive.Async", copyLocal: true),
+                            BuildReference.ByName("System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
+                            BuildReference.ByName("Microsoft.AspNetCore.Hosting.Abstractions", copyLocal: true),
+                            BuildReference.ByName("Microsoft.EntityFrameworkCore", copyLocal: true),
+                            BuildReference.ByName("Microsoft.EntityFrameworkCore.Commands", copyLocal: true),
+                            BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational", copyLocal: true),
+                            BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational.Design", copyLocal: true),
+                            BuildReference.ByName("Microsoft.EntityFrameworkCore.SqlServer", copyLocal: true),
+                            BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions", copyLocal: true),
+                            BuildReference.ByName("Microsoft.Extensions.Caching.Memory", copyLocal: true),
+                            BuildReference.ByName("Microsoft.Extensions.Configuration.Abstractions", copyLocal: true),
+                            BuildReference.ByName("Microsoft.Extensions.DependencyInjection", copyLocal: true),
+                            BuildReference.ByName("Microsoft.Extensions.DependencyInjection.Abstractions", copyLocal: true),
+                            BuildReference.ByName("Microsoft.Extensions.FileProviders.Abstractions", copyLocal: true),
+                            BuildReference.ByName("Microsoft.Extensions.Logging", copyLocal: true),
+                            BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions", copyLocal: true),
+                            BuildReference.ByName("Microsoft.Extensions.Options", copyLocal: true),
+                            BuildReference.ByName("Microsoft.Extensions.PlatformAbstractions", copyLocal: true),
+                            BuildReference.ByName("Remotion.Linq", copyLocal: true)
+                        },
                         Sources = { @"
                             using Microsoft.EntityFrameworkCore;
                             using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -127,10 +127,7 @@ namespace Microsoft.EntityFrameworkCore.Design.Internal
                     Executor = new OperationExecutorWrapper(TargetDir, build.TargetName, TargetDir, TargetDir, "SimpleProject");
                 }
 
-                public string TargetDir
-                {
-                    get { return _directory.Path; }
-                }
+                public string TargetDir => _directory.Path;
 
                 public OperationExecutorWrapper Executor { get; }
 
@@ -152,28 +149,28 @@ namespace Microsoft.EntityFrameworkCore.Design.Internal
                 {
                     TargetDir = targetDir,
                     References =
-                            {
-                                BuildReference.ByName("System.Diagnostics.DiagnosticSource", copyLocal: true),
-                                BuildReference.ByName("System.Interactive.Async", copyLocal: true),
-                                BuildReference.ByName("System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
-                                BuildReference.ByName("Microsoft.AspNetCore.Hosting.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore", copyLocal: true),
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore.Commands", copyLocal: true),
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational", copyLocal: true),
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational.Design", copyLocal: true),
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore.SqlServer", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Caching.Memory", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Configuration.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.DependencyInjection", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.DependencyInjection.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.FileProviders.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Logging", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Options", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.PlatformAbstractions", copyLocal: true),
-                                BuildReference.ByName("Remotion.Linq", copyLocal: true)
-                            },
+                    {
+                        BuildReference.ByName("System.Diagnostics.DiagnosticSource", copyLocal: true),
+                        BuildReference.ByName("System.Interactive.Async", copyLocal: true),
+                        BuildReference.ByName("System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
+                        BuildReference.ByName("Microsoft.AspNetCore.Hosting.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.Commands", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational.Design", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.SqlServer", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Caching.Memory", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Configuration.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.DependencyInjection", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.DependencyInjection.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.FileProviders.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Logging", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Options", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.PlatformAbstractions", copyLocal: true),
+                        BuildReference.ByName("Remotion.Linq", copyLocal: true)
+                    },
                     Sources = { @"
                         using Microsoft.EntityFrameworkCore;
                         using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -241,12 +238,12 @@ namespace Microsoft.EntityFrameworkCore.Design.Internal
                 {
                     TargetDir = targetDir,
                     References =
-                            {
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore", copyLocal: true),
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore.Commands", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions", copyLocal: true)
-                            },
+                    {
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.Commands", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions", copyLocal: true)
+                    },
                     Sources = { @"
                         using Microsoft.EntityFrameworkCore;
 
@@ -266,23 +263,23 @@ namespace Microsoft.EntityFrameworkCore.Design.Internal
                 {
                     TargetDir = targetDir,
                     References =
-                            {
-                                BuildReference.ByName("System.Reflection.Metadata", copyLocal: true),
-                                BuildReference.ByName("Microsoft.AspNetCore.Hosting.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore"),
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational", copyLocal: true),
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational.Design", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Configuration.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.DependencyInjection", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.DependencyInjection.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.FileProviders.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Logging", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Options", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.PlatformAbstractions", copyLocal: true),
-                                BuildReference.ByPath(contextsBuild.TargetPath)
-                            },
+                    {
+                        BuildReference.ByName("System.Reflection.Metadata", copyLocal: true),
+                        BuildReference.ByName("Microsoft.AspNetCore.Hosting.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore"),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational.Design", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Configuration.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.DependencyInjection", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.DependencyInjection.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.FileProviders.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Logging", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Options", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.PlatformAbstractions", copyLocal: true),
+                        BuildReference.ByPath(contextsBuild.TargetPath)
+                    },
                     Sources = { @"
                         using Microsoft.EntityFrameworkCore;
                         using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -342,28 +339,28 @@ namespace Microsoft.EntityFrameworkCore.Design.Internal
                 {
                     TargetDir = targetDir,
                     References =
-                                {
-                                    BuildReference.ByName("System.Diagnostics.DiagnosticSource", copyLocal: true),
-                                    BuildReference.ByName("System.Interactive.Async", copyLocal: true),
-                                    BuildReference.ByName("System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
-                                    BuildReference.ByName("Microsoft.AspNetCore.Hosting.Abstractions", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.EntityFrameworkCore", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.EntityFrameworkCore.Commands", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational.Design", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.EntityFrameworkCore.SqlServer", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.Caching.Memory", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.Configuration.Abstractions", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.DependencyInjection", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.DependencyInjection.Abstractions", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.FileProviders.Abstractions", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.Logging", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.Options", copyLocal: true),
-                                    BuildReference.ByName("Microsoft.Extensions.PlatformAbstractions", copyLocal: true),
-                                    BuildReference.ByName("Remotion.Linq", copyLocal: true)
-                                },
+                    {
+                        BuildReference.ByName("System.Diagnostics.DiagnosticSource", copyLocal: true),
+                        BuildReference.ByName("System.Interactive.Async", copyLocal: true),
+                        BuildReference.ByName("System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
+                        BuildReference.ByName("Microsoft.AspNetCore.Hosting.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.Commands", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational.Design", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.SqlServer", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Caching.Memory", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Configuration.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.DependencyInjection", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.DependencyInjection.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.FileProviders.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Logging", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Options", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.PlatformAbstractions", copyLocal: true),
+                        BuildReference.ByName("Remotion.Linq", copyLocal: true)
+                    },
                     Sources = { @"
                             using Microsoft.EntityFrameworkCore;
                             using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -420,28 +417,28 @@ namespace Microsoft.EntityFrameworkCore.Design.Internal
                 {
                     TargetDir = targetDir,
                     References =
-                            {
-                                BuildReference.ByName("System.Diagnostics.DiagnosticSource", copyLocal: true),
-                                BuildReference.ByName("System.Interactive.Async", copyLocal: true),
-                                BuildReference.ByName("System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
-                                BuildReference.ByName("Microsoft.AspNetCore.Hosting.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore", copyLocal: true),
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore.Commands", copyLocal: true),
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational", copyLocal: true),
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational.Design", copyLocal: true),
-                                BuildReference.ByName("Microsoft.EntityFrameworkCore.SqlServer", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Caching.Memory", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Configuration.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.DependencyInjection", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.DependencyInjection.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.FileProviders.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Logging", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.Options", copyLocal: true),
-                                BuildReference.ByName("Microsoft.Extensions.PlatformAbstractions", copyLocal: true),
-                                BuildReference.ByName("Remotion.Linq", copyLocal: true)
-                            },
+                    {
+                        BuildReference.ByName("System.Diagnostics.DiagnosticSource", copyLocal: true),
+                        BuildReference.ByName("System.Interactive.Async", copyLocal: true),
+                        BuildReference.ByName("System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
+                        BuildReference.ByName("Microsoft.AspNetCore.Hosting.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.Commands", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational.Design", copyLocal: true),
+                        BuildReference.ByName("Microsoft.EntityFrameworkCore.SqlServer", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Caching.Memory", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Configuration.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.DependencyInjection", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.DependencyInjection.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.FileProviders.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Logging", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.Options", copyLocal: true),
+                        BuildReference.ByName("Microsoft.Extensions.PlatformAbstractions", copyLocal: true),
+                        BuildReference.ByName("Remotion.Linq", copyLocal: true)
+                    },
                     Sources = { @"
                             using Microsoft.EntityFrameworkCore;
                             using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -483,6 +480,16 @@ namespace Microsoft.EntityFrameworkCore.Design.Internal
                         CommandsStrings.MigrationsAssemblyMismatch(build.TargetName, "UnknownAssembly"),
                         ex.Message);
                 }
+            }
+        }
+
+        [ConditionalFact]
+        public void Assembly_load_errors_are_wrapped()
+        {
+            var targetDir = AppDomain.CurrentDomain.BaseDirectory;
+            using (var executor = new OperationExecutorWrapper(targetDir, "Unknown", targetDir, targetDir, "Unknown"))
+            {
+                Assert.Throws<WrappedOperationException>(() => executor.GetContextTypes());
             }
         }
     }

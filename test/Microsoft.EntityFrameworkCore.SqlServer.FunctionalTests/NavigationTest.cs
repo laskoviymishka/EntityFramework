@@ -5,8 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
-using Microsoft.EntityFrameworkCore.FunctionalTests;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -84,20 +82,16 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests
         public DbSet<Person> People { get; set; }
         public Func<ModelBuilder, int> ConfigAction { get; set; }
 
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            ConfigAction.Invoke(modelBuilder);
-        }
+        protected override void OnModelCreating(ModelBuilder modelBuilder) => ConfigAction.Invoke(modelBuilder);
     }
 
     public class NavigationTestFixture
     {
         private readonly DbContextOptions _options;
-        private readonly IServiceProvider _serviceProvider;
 
         public NavigationTestFixture()
         {
-            _serviceProvider = new ServiceCollection()
+            var serviceProvider = new ServiceCollection()
                 .AddEntityFrameworkSqlServer()
                 .BuildServiceProvider();
 
@@ -110,7 +104,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests
 
             _options = new DbContextOptionsBuilder()
                 .UseSqlServer(connStrBuilder.ConnectionString)
-                .UseInternalServiceProvider(_serviceProvider)
+                .UseInternalServiceProvider(serviceProvider)
                 .Options;
         }
 

@@ -28,9 +28,7 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
 
         public virtual IReadOnlyList<IRelationalParameter> RelationalParameters { get; }
 
-        public virtual void AddDbParameter(
-            [NotNull] DbCommand command,
-            [CanBeNull] object value)
+        public virtual void AddDbParameter(DbCommand command, object value)
         {
             Check.NotNull(command, nameof(command));
             Check.NotNull(value, nameof(value));
@@ -39,7 +37,7 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
 
             if (innerValues != null)
             {
-                if(innerValues.Length < RelationalParameters.Count)
+                if (innerValues.Length < RelationalParameters.Count)
                 {
                     throw new InvalidOperationException(
                         RelationalStrings.MissingParameterValue(

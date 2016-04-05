@@ -11,7 +11,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Expressions
 {
     public class ExplicitCastExpression : Expression
     {
-        private Type _type;
+        private readonly Type _type;
 
         public ExplicitCastExpression([NotNull] Expression operand, [NotNull] Type type)
         {
@@ -43,11 +43,11 @@ namespace Microsoft.EntityFrameworkCore.Query.Expressions
         {
             var newOperand = visitor.Visit(Operand);
 
-            return (newOperand != Operand)
+            return newOperand != Operand
                 ? new ExplicitCastExpression(newOperand, _type)
                 : this;
         }
 
-        public override string ToString() => "CAST(" + Operand.ToString() + " AS " + _type.Name + ")";
+        public override string ToString() => "CAST(" + Operand + " AS " + _type.Name + ")";
     }
 }

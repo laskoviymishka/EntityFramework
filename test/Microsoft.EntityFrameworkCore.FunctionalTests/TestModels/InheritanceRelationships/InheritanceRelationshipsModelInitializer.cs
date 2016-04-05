@@ -72,14 +72,14 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests.TestModels.InheritanceRe
 
             context.BaseCollectionsOnBase.AddRange(bcob11, bcob12, bcob21, bcob31, bcob32);
 
-            var dcob11 = new DerivedCollectionOnBase { Name = "DCOB11", NestedReference = nrd2, NestedCollection = new List<NestedCollectionBase> { ncd21 } };
-            var dcob12 = new DerivedCollectionOnBase { Name = "DCOB12", NestedReference = nrb3, NestedCollection = new List<NestedCollectionBase> { ncb31 } };
-            var dcob21 = new DerivedCollectionOnBase { Name = "DCOB21" };
-            var dcob31 = new DerivedCollectionOnBase { Name = "DCOB31", NestedReference = nrd3, NestedCollection = new List<NestedCollectionBase> { ncd31, ncd32 } };
-            var dcob32 = new DerivedCollectionOnBase { Name = "DCOB32" };
-            var dcob41 = new DerivedCollectionOnBase { Name = "DCOB41" };
-            var dcob51 = new DerivedCollectionOnBase { Name = "DCOB51 (dangling)", NestedReference = nrd4, NestedCollection = new List<NestedCollectionBase> { ncd41, ncd42 } };
-            var dcob52 = new DerivedCollectionOnBase { Name = "DCOB52 (dangling)" };
+            var dcob11 = new DerivedCollectionOnBase { Name = "DCOB11", NestedReference = nrd2, NestedCollection = new List<NestedCollectionBase> { ncd21 }, DerivedProperty = 1 };
+            var dcob12 = new DerivedCollectionOnBase { Name = "DCOB12", NestedReference = nrb3, NestedCollection = new List<NestedCollectionBase> { ncb31 }, DerivedProperty = 2 };
+            var dcob21 = new DerivedCollectionOnBase { Name = "DCOB21", DerivedProperty = 3 };
+            var dcob31 = new DerivedCollectionOnBase { Name = "DCOB31", NestedReference = nrd3, NestedCollection = new List<NestedCollectionBase> { ncd31, ncd32 }, DerivedProperty = 4 };
+            var dcob32 = new DerivedCollectionOnBase { Name = "DCOB32", DerivedProperty = 5 };
+            var dcob41 = new DerivedCollectionOnBase { Name = "DCOB41", DerivedProperty = 6 };
+            var dcob51 = new DerivedCollectionOnBase { Name = "DCOB51 (dangling)", NestedReference = nrd4, NestedCollection = new List<NestedCollectionBase> { ncd41, ncd42 }, DerivedProperty = 7 };
+            var dcob52 = new DerivedCollectionOnBase { Name = "DCOB52 (dangling)", DerivedProperty = 8 };
 
             context.BaseCollectionsOnBase.AddRange(dcob11, dcob12, dcob21, dcob31, dcob32, dcob41, dcob51, dcob52);
 
@@ -150,7 +150,6 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests.TestModels.InheritanceRe
                 BaseReferenceOnBase = drob2,
                 ReferenceOnBase = rob2,
                 CollectionOnBase = new List<CollectionOnBase> { cob21 }
-
             };
 
             var baseEntity3 = new BaseInheritanceRelationshipEntity
@@ -158,7 +157,7 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests.TestModels.InheritanceRe
                 Name = "Base3",
                 DerivedReferenceOnBase = drob2,
                 BaseCollectionOnBase = new List<BaseCollectionOnBase> { dcob21 },
-                DerivedCollectionOnBase = new List<DerivedCollectionOnBase> { dcob21 },
+                DerivedCollectionOnBase = new List<DerivedCollectionOnBase> { dcob21 }
             };
 
             context.BaseEntities.AddRange(baseEntity1, baseEntity2, baseEntity3);
@@ -173,13 +172,12 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests.TestModels.InheritanceRe
                 BaseCollectionOnBase = new List<BaseCollectionOnBase> { dcob11, dcob12 },
                 DerivedCollectionOnBase = new List<DerivedCollectionOnBase> { dcob31, dcob32 },
                 CollectionOnBase = new List<CollectionOnBase> { cob31, cob32 },
-
                 BaseReferenceOnDerived = brod1,
                 DerivedReferenceOnDerived = drod1,
                 ReferenceOnDerived = rod1,
                 BaseCollectionOnDerived = new List<BaseCollectionOnDerived> { bcod11 },
                 DerivedCollectionOnDerived = new List<DerivedCollectionOnDerived> { dcod11, dcod12 },
-                CollectionOnDerived = new List<CollectionOnDerived> { cod11 },
+                CollectionOnDerived = new List<CollectionOnDerived> { cod11 }
             };
 
             var derivedEntity2 = new DerivedInheritanceRelationshipEntity
@@ -189,10 +187,9 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests.TestModels.InheritanceRe
                 ReferenceOnBase = rob4,
                 BaseReferenceOnBase = brob2,
                 CollectionOnBase = new List<CollectionOnBase> { cob41 },
-
                 BaseReferenceOnDerived = drod2,
                 ReferenceOnDerived = rod2,
-                CollectionOnDerived = new List<CollectionOnDerived> { cod21, cod22 },
+                CollectionOnDerived = new List<CollectionOnDerived> { cod21, cod22 }
             };
 
             var derivedEntity3 = new DerivedInheritanceRelationshipEntity
@@ -202,10 +199,9 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests.TestModels.InheritanceRe
                 DerivedReferenceOnBase = drob4,
                 BaseCollectionOnBase = new List<BaseCollectionOnBase> { bcob21 },
                 DerivedCollectionOnBase = new List<DerivedCollectionOnBase> { dcob41 },
-
                 DerivedReferenceOnDerived = drod2,
                 BaseCollectionOnDerived = new List<BaseCollectionOnDerived> { dcod11, dcod12 },
-                DerivedCollectionOnDerived = new List<DerivedCollectionOnDerived> { dcod21 },
+                DerivedCollectionOnDerived = new List<DerivedCollectionOnDerived> { dcod21 }
             };
 
             context.BaseEntities.AddRange(derivedEntity1, derivedEntity2, derivedEntity3);
@@ -214,7 +210,7 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests.TestModels.InheritanceRe
             baseEntity2.DerivedSefReferenceOnBase = derivedEntity2;
             baseEntity3.DerivedSefReferenceOnBase = derivedEntity3;
 
-            var principalEntity1 = new PrincipalEntity { Name = "PE1"};
+            var principalEntity1 = new PrincipalEntity { Name = "PE1" };
             var principalEntity2 = new PrincipalEntity { Name = "PE2" };
 
             context.PrincipalEntities.AddRange(principalEntity1, principalEntity2);

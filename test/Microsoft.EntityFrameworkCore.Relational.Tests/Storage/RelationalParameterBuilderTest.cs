@@ -46,7 +46,8 @@ namespace Microsoft.EntityFrameworkCore.Storage
             parameterBuilder.AddParameter(
                 "InvariantName",
                 "Name",
-                type);
+                type,
+                unicode: true);
 
             Assert.Equal(1, parameterBuilder.Parameters.Count);
 
@@ -97,17 +98,19 @@ namespace Microsoft.EntityFrameworkCore.Storage
             parameterBuilder.AddCompositeParameter(
                 "CompositeInvariant",
                 builder =>
-                {
-                    builder.AddParameter(
-                        "FirstInvariant",
-                        "FirstName",
-                        typeof(int));
+                    {
+                        builder.AddParameter(
+                            "FirstInvariant",
+                            "FirstName",
+                            typeof(int),
+                            unicode: true);
 
-                    builder.AddParameter(
-                        "SecondInvariant",
-                        "SecondName",
-                        typeof(string));
-                });
+                        builder.AddParameter(
+                            "SecondInvariant",
+                            "SecondName",
+                            typeof(string),
+                            unicode: true);
+                    });
 
             Assert.Equal(1, parameterBuilder.Parameters.Count);
 

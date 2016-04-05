@@ -35,7 +35,7 @@ namespace Microsoft.EntityFrameworkCore.Query
         public static bool IsPropertyMethod([CanBeNull] MethodInfo methodInfo) =>
             methodInfo != null
             && methodInfo.IsGenericMethod
-            // string comparison because MethodInfo.Equals is not .NET Native-safe
+                // string comparison because MethodInfo.Equals is not .NET Native-safe
             && methodInfo.Name == nameof(EF.Property)
             && methodInfo.DeclaringType?.FullName == _efTypeName;
 
@@ -145,7 +145,7 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
             Check.NotNull(queryModel, nameof(queryModel));
 
-            using (QueryCompilationContext.Logger.BeginScopeImpl(this))
+            using (QueryCompilationContext.Logger.BeginScope(this))
             {
                 QueryCompilationContext.Logger
                     .LogDebug(
@@ -179,7 +179,7 @@ namespace Microsoft.EntityFrameworkCore.Query
         {
             Check.NotNull(queryModel, nameof(queryModel));
 
-            using (QueryCompilationContext.Logger.BeginScopeImpl(this))
+            using (QueryCompilationContext.Logger.BeginScope(this))
             {
                 QueryCompilationContext.Logger
                     .LogDebug(
@@ -408,7 +408,6 @@ namespace Microsoft.EntityFrameworkCore.Query
 
                     boundNavigationsList.Add(navigation);
                 }
-
             }
 
             return boundNavigationsList;
@@ -540,9 +539,7 @@ namespace Microsoft.EntityFrameworkCore.Query
 
             if (_blockTaskExpressions)
             {
-                _expression
-                    = _taskBlockingExpressionVisitor
-                        .Visit(_expression);
+                _expression = _taskBlockingExpressionVisitor.Visit(_expression);
             }
         }
 
@@ -699,8 +696,16 @@ namespace Microsoft.EntityFrameworkCore.Query
                     innerSequenceExpression.Type.GetSequenceType(),
                     groupJoinClause.JoinClause.ItemName);
 
-            _queryCompilationContext.QuerySourceMapping
-                .AddMapping(groupJoinClause.JoinClause, innerItemParameter);
+            if (!_queryCompilationContext.QuerySourceMapping.ContainsMapping(groupJoinClause.JoinClause))
+            {
+                _queryCompilationContext.QuerySourceMapping
+                    .AddMapping(groupJoinClause.JoinClause, innerItemParameter);
+            }
+            else
+            {
+                _queryCompilationContext.QuerySourceMapping
+                    .ReplaceMapping(groupJoinClause.JoinClause, innerItemParameter);
+            }
 
             var innerKeySelectorExpression
                 = ReplaceClauseReferences(groupJoinClause.JoinClause.InnerKeySelector, groupJoinClause);
@@ -792,7 +797,8 @@ namespace Microsoft.EntityFrameworkCore.Query
 
             var sequenceType = _expression.Type.GetSequenceType();
 
-            if (selectClause.Selector.Type == sequenceType)
+            if (selectClause.Selector.Type == sequenceType
+                && selectClause.Selector is QuerySourceReferenceExpression)
             {
                 return;
             }
@@ -804,21 +810,20 @@ namespace Microsoft.EntityFrameworkCore.Query
                         .Visit(selectClause.Selector),
                     inProjection: true);
 
-            if (selector.Type != sequenceType)
-            {
-                if (!queryModel.ResultOperators
+            if ((selector.Type != sequenceType
+                || !(selectClause.Selector is QuerySourceReferenceExpression))
+                && !queryModel.ResultOperators
                     .Select(ro => ro.GetType())
                     .Any(t =>
                         t == typeof(GroupResultOperator)
                         || t == typeof(AllResultOperator)))
-                {
-                    _expression
-                        = Expression.Call(
-                            LinqOperatorProvider.Select
-                                .MakeGenericMethod(CurrentParameter.Type, selector.Type),
-                            _expression,
-                            Expression.Lambda(selector, CurrentParameter));
-                }
+            {
+                _expression
+                    = Expression.Call(
+                        LinqOperatorProvider.Select
+                            .MakeGenericMethod(CurrentParameter.Type, selector.Type),
+                        _expression,
+                        Expression.Lambda(selector, CurrentParameter));
             }
         }
 
@@ -950,7 +955,7 @@ namespace Microsoft.EntityFrameworkCore.Query
 
             if (!inProjection
                 && expression.Type != typeof(string)
-                    && expression.Type != typeof(byte[])
+                && expression.Type != typeof(byte[])
                 && _expression?.Type.TryGetElementType(typeof(IAsyncEnumerable<>)) != null)
             {
                 var elementType = expression.Type.TryGetElementType(typeof(IEnumerable<>));

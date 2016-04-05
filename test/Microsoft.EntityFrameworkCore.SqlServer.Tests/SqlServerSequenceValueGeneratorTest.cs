@@ -50,7 +50,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests
 
             var state = new SqlServerSequenceValueGeneratorState(
                 new Sequence(
-                    new Model(), RelationalAnnotationNames.Prefix, "Foo")
+                    new Model(), RelationalFullAnnotationNames.Instance.SequencePrefix, "Foo")
                 {
                     IncrementBy = blockSize
                 });
@@ -97,7 +97,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests
 
             var state = new SqlServerSequenceValueGeneratorState(
                 new Sequence(
-                    new Model(), RelationalAnnotationNames.Prefix, "Foo")
+                    new Model(), RelationalFullAnnotationNames.Instance.SequencePrefix, "Foo")
                 {
                     IncrementBy = blockSize
                 });
@@ -133,7 +133,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests
         {
             var state = new SqlServerSequenceValueGeneratorState(
                 new Sequence(
-                    new Model(), RelationalAnnotationNames.Prefix, "Foo")
+                    new Model(), RelationalFullAnnotationNames.Instance.SequencePrefix, "Foo")
                 {
                     IncrementBy = 4
                 });
@@ -181,11 +181,20 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests
                     _commandBuilder = commandBuilder;
                 }
 
-                public string CommandText { get { throw new NotImplementedException(); } }
+                public string CommandText
+                {
+                    get { throw new NotImplementedException(); }
+                }
 
-                public IReadOnlyList<IRelationalParameter> Parameters { get { throw new NotImplementedException(); } }
+                public IReadOnlyList<IRelationalParameter> Parameters
+                {
+                    get { throw new NotImplementedException(); }
+                }
 
-                public IReadOnlyDictionary<string, object> ParameterValues { get { throw new NotImplementedException(); } }
+                public IReadOnlyDictionary<string, object> ParameterValues
+                {
+                    get { throw new NotImplementedException(); }
+                }
 
                 public int ExecuteNonQuery(IRelationalConnection connection, IReadOnlyDictionary<string, object> parameterValues = null, bool manageConnection = true)
                 {

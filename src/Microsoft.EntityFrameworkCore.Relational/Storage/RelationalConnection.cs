@@ -6,15 +6,16 @@ using System.Data;
 using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
-#if NET451
-using System.Transactions;
-#endif
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Internal;
+using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Utilities;
 using Microsoft.Extensions.Logging;
 using IsolationLevel = System.Data.IsolationLevel;
+#if NET451
+using System.Transactions;
+#endif
 
 namespace Microsoft.EntityFrameworkCore.Storage
 {
@@ -269,9 +270,9 @@ namespace Microsoft.EntityFrameworkCore.Storage
                         _connection.Value.DataSource
                     },
                     state =>
-                    RelationalStrings.RelationalLoggerClosingConnection(
-                        state.Database,
-                        state.DataSource));
+                        RelationalStrings.RelationalLoggerClosingConnection(
+                            state.Database,
+                            state.DataSource));
 
                 _connection.Value.Close();
                 _openedInternally = false;
@@ -279,6 +280,8 @@ namespace Microsoft.EntityFrameworkCore.Storage
         }
 
         public virtual bool IsMultipleActiveResultSetsEnabled => false;
+
+        public virtual IValueBufferCursor ActiveCursor { get; set; }
 
         public virtual void Dispose()
         {

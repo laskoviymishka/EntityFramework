@@ -288,7 +288,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
             }
 
             public InternalEntityEntry StartTrackingFromQuery(
-                IEntityType entityType,
+                IEntityType baseEntityType,
                 object entity,
                 ValueBuffer valueBuffer)
             {
@@ -1018,8 +1018,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                // Product ends up modified because when category is attached the FK of product is changed
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
 
                 context.Attach(category);
 
@@ -1027,7 +1026,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1073,8 +1072,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                // Product ends up modified because when category is attached the FK of product is changed
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
 
                 context.Attach(category);
 
@@ -1082,7 +1080,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1136,8 +1134,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                // Product ends up modified because when category is attached the FK of product is changed
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1193,8 +1190,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                // Product ends up modified because when category is attached the FK of product is changed
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1248,8 +1244,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                // Product ends up modified because when category is attached the FK of product is changed
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1303,8 +1298,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                // Product ends up modified because when category is attached the FK of product is changed
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1366,8 +1360,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                // Product ends up modified because when category is attached the FK of product is changed
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1490,8 +1483,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                // Product ends up modified because when category is attached the FK of product is changed
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1552,8 +1544,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                // Product ends up modified because when category is attached the FK of product is changed
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1676,8 +1667,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 Assert.Same(product, category.Products.Single());
                 Assert.Same(category, product.Category);
                 Assert.Equal(EntityState.Unchanged, context.Entry(category).State);
-                // Product ends up modified because when category is attached the FK of product is changed
-                Assert.Equal(EntityState.Modified, context.Entry(product).State);
+                Assert.Equal(EntityState.Unchanged, context.Entry(product).State);
             }
         }
 
@@ -1915,7 +1905,8 @@ namespace Microsoft.EntityFrameworkCore.Tests
         public void Can_start_with_custom_services_by_passing_in_base_service_provider()
         {
             var factory = Mock.Of<INavigationFixer>();
-            var serviceCollection = new ServiceCollection()
+
+            var provider = new ServiceCollection()
                 .AddSingleton<IDbSetFinder, DbSetFinder>()
                 .AddSingleton<IDbSetSource, DbSetSource>()
                 .AddSingleton<IEntityMaterializerSource, EntityMaterializerSource>()
@@ -1924,11 +1915,8 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 .AddSingleton<DatabaseProviderSelector>()
                 .AddScoped<IDbSetInitializer, DbSetInitializer>()
                 .AddScoped<IDbContextServices, DbContextServices>()
-                .AddSingleton(factory);
-
-            serviceCollection.AddLogging();
-
-            var provider = serviceCollection.BuildServiceProvider();
+                .AddSingleton(factory)
+                .AddLogging().BuildServiceProvider();
 
             using (var context = new EarlyLearningCenter(provider))
             {
@@ -2202,10 +2190,10 @@ namespace Microsoft.EntityFrameworkCore.Tests
         [Fact]
         public void Can_use_derived_context_with_external_services()
         {
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddLogging();
-            serviceCollection.AddMemoryCache();
-            var appServiceProivder = serviceCollection.BuildServiceProvider();
+            var appServiceProivder = new ServiceCollection()
+                .AddLogging()
+                .AddMemoryCache()
+                .BuildServiceProvider();
 
             var loggerFactory = new WrappingLoggerFactory(appServiceProivder.GetService<ILoggerFactory>());
             var memoryCache = appServiceProivder.GetService<IMemoryCache>();
@@ -2261,10 +2249,10 @@ namespace Microsoft.EntityFrameworkCore.Tests
         [Fact]
         public void Can_use_derived_context_with_options_and_external_services()
         {
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddLogging();
-            serviceCollection.AddMemoryCache();
-            var appServiceProivder = serviceCollection.BuildServiceProvider();
+            var appServiceProivder = new ServiceCollection()
+                .AddLogging()
+                .AddMemoryCache()
+                .BuildServiceProvider();
 
             var loggerFactory = new WrappingLoggerFactory(appServiceProivder.GetService<ILoggerFactory>());
             var memoryCache = appServiceProivder.GetService<IMemoryCache>();
@@ -2334,10 +2322,10 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 .AddEntityFrameworkInMemoryDatabase()
                 .BuildServiceProvider();
 
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddLogging();
-            serviceCollection.AddMemoryCache();
-            var appServiceProivder = serviceCollection.BuildServiceProvider();
+            var appServiceProivder = new ServiceCollection()
+                .AddLogging()
+                .AddMemoryCache()
+                .BuildServiceProvider();
 
             var loggerFactory = new WrappingLoggerFactory(appServiceProivder.GetService<ILoggerFactory>());
             var memoryCache = appServiceProivder.GetService<IMemoryCache>();
@@ -2408,10 +2396,10 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 .AddEntityFrameworkInMemoryDatabase()
                 .BuildServiceProvider();
 
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddLogging();
-            serviceCollection.AddMemoryCache();
-            var appServiceProivder = serviceCollection.BuildServiceProvider();
+            var appServiceProivder = new ServiceCollection()
+                .AddLogging()
+                .AddMemoryCache()
+                .BuildServiceProvider();
 
             var loggerFactory = new WrappingLoggerFactory(appServiceProivder.GetService<ILoggerFactory>());
             var memoryCache = appServiceProivder.GetService<IMemoryCache>();
@@ -2478,10 +2466,10 @@ namespace Microsoft.EntityFrameworkCore.Tests
         [Fact]
         public void Can_use_derived_context_with_options_and_external_services_no_OnConfiguring()
         {
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddLogging();
-            serviceCollection.AddMemoryCache();
-            var appServiceProivder = serviceCollection.BuildServiceProvider();
+            var appServiceProivder = new ServiceCollection()
+                .AddLogging()
+                .AddMemoryCache()
+                .BuildServiceProvider();
 
             var loggerFactory = new WrappingLoggerFactory(appServiceProivder.GetService<ILoggerFactory>());
             var memoryCache = appServiceProivder.GetService<IMemoryCache>();
@@ -2558,10 +2546,10 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 .AddEntityFrameworkInMemoryDatabase()
                 .BuildServiceProvider();
 
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddLogging();
-            serviceCollection.AddMemoryCache();
-            var appServiceProivder = serviceCollection.BuildServiceProvider();
+            var appServiceProivder = new ServiceCollection()
+                .AddLogging()
+                .AddMemoryCache()
+                .BuildServiceProvider();
 
             var loggerFactory = new WrappingLoggerFactory(appServiceProivder.GetService<ILoggerFactory>());
             var memoryCache = appServiceProivder.GetService<IMemoryCache>();
@@ -2628,10 +2616,10 @@ namespace Microsoft.EntityFrameworkCore.Tests
         [Fact]
         public void Can_use_non_derived_context_with_options_and_external_services()
         {
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddLogging();
-            serviceCollection.AddMemoryCache();
-            var appServiceProivder = serviceCollection.BuildServiceProvider();
+            var appServiceProivder = new ServiceCollection()
+                .AddLogging()
+                .AddMemoryCache()
+                .BuildServiceProvider();
 
             var loggerFactory = new WrappingLoggerFactory(appServiceProivder.GetService<ILoggerFactory>());
             var memoryCache = appServiceProivder.GetService<IMemoryCache>();
@@ -2708,10 +2696,10 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 .AddEntityFrameworkInMemoryDatabase()
                 .BuildServiceProvider();
 
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddLogging();
-            serviceCollection.AddMemoryCache();
-            var appServiceProivder = serviceCollection.BuildServiceProvider();
+            var appServiceProivder = new ServiceCollection()
+                .AddLogging()
+                .AddMemoryCache()
+                .BuildServiceProvider();
 
             var loggerFactory = new WrappingLoggerFactory(appServiceProivder.GetService<ILoggerFactory>());
             var memoryCache = appServiceProivder.GetService<IMemoryCache>();
@@ -3603,12 +3591,12 @@ namespace Microsoft.EntityFrameworkCore.Tests
         {
             var appServiceProivder = addSingletonFirst
                 ? new ServiceCollection()
-                .AddEntityFrameworkInMemoryDatabase()
+                    .AddEntityFrameworkInMemoryDatabase()
                     .AddSingleton<ConstructorTestContextWithOC1A>()
                     .AddDbContext<ConstructorTestContextWithOC1A>((p, b) => b.UseInternalServiceProvider(p))
                     .BuildServiceProvider()
                 : new ServiceCollection()
-                .AddEntityFrameworkInMemoryDatabase()
+                    .AddEntityFrameworkInMemoryDatabase()
                     .AddDbContext<ConstructorTestContextWithOC1A>((p, b) => b.UseInternalServiceProvider(p))
                     .AddSingleton<ConstructorTestContextWithOC1A>()
                     .BuildServiceProvider();
@@ -3685,7 +3673,6 @@ namespace Microsoft.EntityFrameworkCore.Tests
 
                 context2.Dispose();
                 Assert.Throws<ObjectDisposedException>(() => context2.Model);
-
             }
 
             using (var serviceScope = appServiceProivder
@@ -3743,7 +3730,6 @@ namespace Microsoft.EntityFrameworkCore.Tests
 
                 context2.Dispose();
                 Assert.Throws<ObjectDisposedException>(() => context2.Model);
-
             }
 
             using (var serviceScope = appServiceProivder
@@ -3916,7 +3902,6 @@ namespace Microsoft.EntityFrameworkCore.Tests
 
                 context2.Dispose();
                 Assert.Throws<ObjectDisposedException>(() => context2.Model);
-
             }
 
             using (var serviceScope = appServiceProivder
@@ -3991,7 +3976,6 @@ namespace Microsoft.EntityFrameworkCore.Tests
 
                 context2.Dispose();
                 Assert.Throws<ObjectDisposedException>(() => context2.Model);
-
             }
 
             using (var serviceScope = appServiceProivder
@@ -4007,6 +3991,113 @@ namespace Microsoft.EntityFrameworkCore.Tests
                 context.Dispose();
                 Assert.Throws<ObjectDisposedException>(() => context.Model);
             }
+        }
+
+        [Fact]
+        public void Can_use_logger_before_context_exists_and_after_disposed()
+        {
+            var appServiceProivder = new ServiceCollection()
+                .AddEntityFrameworkInMemoryDatabase()
+                .AddDbContext<DbContext>((p, b) => b.UseInMemoryDatabase().UseInternalServiceProvider(p))
+                .BuildServiceProvider();
+
+            Assert.NotNull(appServiceProivder.GetService<ILogger<Random>>());
+
+            using (var serviceScope = appServiceProivder
+                .GetRequiredService<IServiceScopeFactory>()
+                .CreateScope())
+            {
+                var context = serviceScope.ServiceProvider.GetService<DbContext>();
+                var _ = context.Model;
+
+                Assert.NotNull(context.GetService<ILogger<Random>>());
+            }
+
+            Assert.NotNull(appServiceProivder.GetService<ILogger<Random>>());
+        }
+
+        [Fact]
+        public void Can_use_logger_before_context_exists_and_after_disposed_when_logger_factory_replaced()
+        {
+            WrappingLoggerFactory loggerFactory = null;
+
+            var appServiceProivder = new ServiceCollection()
+                .AddEntityFrameworkInMemoryDatabase()
+                .AddDbContext<DbContext>((p, b) =>
+                    b.UseInMemoryDatabase()
+                        .UseInternalServiceProvider(p)
+                        .UseLoggerFactory(loggerFactory = new WrappingLoggerFactory(p.GetService<ILoggerFactory>())))
+                .BuildServiceProvider();
+
+            Assert.NotNull(appServiceProivder.GetService<ILogger<Random>>());
+            Assert.Null(loggerFactory);
+
+            using (var serviceScope = appServiceProivder
+                .GetRequiredService<IServiceScopeFactory>()
+                .CreateScope())
+            {
+                var context = serviceScope.ServiceProvider.GetService<DbContext>();
+                var _ = context.Model;
+
+                Assert.NotNull(context.GetService<ILogger<Random>>());
+
+                Assert.Equal(1, loggerFactory.CreatedLoggers.Count(n => n == "System.Random"));
+            }
+
+            Assert.NotNull(appServiceProivder.GetService<ILogger<Random>>());
+            Assert.Equal(1, loggerFactory.CreatedLoggers.Count(n => n == "System.Random"));
+        }
+
+        [Fact]
+        public void Can_use_memory_cache_before_context_exists_and_after_disposed()
+        {
+            var appServiceProivder = new ServiceCollection()
+                .AddEntityFrameworkInMemoryDatabase()
+                .AddDbContext<DbContext>((p, b) => b.UseInMemoryDatabase().UseInternalServiceProvider(p))
+                .BuildServiceProvider();
+
+            var memoryCache = appServiceProivder.GetService<IMemoryCache>();
+            Assert.NotNull(memoryCache);
+
+            using (var serviceScope = appServiceProivder
+                .GetRequiredService<IServiceScopeFactory>()
+                .CreateScope())
+            {
+                var context = serviceScope.ServiceProvider.GetService<DbContext>();
+                var _ = context.Model;
+
+                Assert.Same(memoryCache, context.GetService<IMemoryCache>());
+            }
+
+            Assert.Same(memoryCache, appServiceProivder.GetService<IMemoryCache>());
+        }
+
+        [Fact]
+        public void Can_use_memory_cache_before_context_exists_and_after_disposed_when_logger_factory_replaced()
+        {
+            var replacecMemoryCache = new MemoryCache(new MemoryCacheOptions());
+            var appServiceProivder = new ServiceCollection()
+                .AddEntityFrameworkInMemoryDatabase()
+                .AddDbContext<DbContext>((p, b) =>
+                    b.UseInMemoryDatabase()
+                        .UseInternalServiceProvider(p)
+                        .UseMemoryCache(replacecMemoryCache))
+                .BuildServiceProvider();
+
+            var memoryCache = appServiceProivder.GetService<IMemoryCache>();
+            Assert.NotSame(replacecMemoryCache, memoryCache);
+
+            using (var serviceScope = appServiceProivder
+                .GetRequiredService<IServiceScopeFactory>()
+                .CreateScope())
+            {
+                var context = serviceScope.ServiceProvider.GetService<DbContext>();
+                var _ = context.Model;
+
+                Assert.Same(replacecMemoryCache, context.GetService<IDbContextServices>().MemoryCache);
+            }
+
+            Assert.Same(memoryCache, appServiceProivder.GetService<IMemoryCache>());
         }
 
         [Fact]
@@ -4251,7 +4342,6 @@ namespace Microsoft.EntityFrameworkCore.Tests
 
             public DbSet<Product> Products { get; set; }
         }
-
 
         private class ConstructorTestContextNoConfiguration : DbContext
         {

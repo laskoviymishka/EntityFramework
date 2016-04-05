@@ -4,7 +4,6 @@
 using System;
 using Microsoft.EntityFrameworkCore.FunctionalTests;
 using Microsoft.EntityFrameworkCore.FunctionalTests.TestModels.Northwind;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit.Abstractions;
@@ -57,7 +56,7 @@ namespace Microsoft.EntityFrameworkCore.InMemory.FunctionalTests
 
             public bool IsEnabled(LogLevel logLevel) => TestOutputHelper != null;
 
-            public IDisposable BeginScopeImpl(object state) => new NullDisposable();
+            public IDisposable BeginScope<TState>(TState state) => new NullDisposable();
 
             private class NullDisposable : IDisposable
             {

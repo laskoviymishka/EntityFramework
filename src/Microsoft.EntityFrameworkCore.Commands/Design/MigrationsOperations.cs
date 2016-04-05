@@ -21,7 +21,6 @@ namespace Microsoft.EntityFrameworkCore.Design
 {
     public class MigrationsOperations
     {
-        private readonly ILoggerProvider _loggerProvider;
         private readonly LazyRef<ILogger> _logger;
         private readonly Assembly _assembly;
         private readonly string _projectDir;
@@ -50,7 +49,6 @@ namespace Microsoft.EntityFrameworkCore.Design
             var loggerFactory = new LoggerFactory();
             loggerFactory.AddProvider(loggerProvider);
 
-            _loggerProvider = loggerProvider;
             _logger = new LazyRef<ILogger>(() => loggerFactory.CreateCommandsLogger());
             _assembly = assembly;
             _projectDir = projectDir;
@@ -141,7 +139,7 @@ namespace Microsoft.EntityFrameworkCore.Design
         }
 
         public virtual MigrationFiles RemoveMigration(
-            [CanBeNull] string contextType)
+            [CanBeNull] string contextType, bool force)
         {
             using (var context = _contextOperations.CreateContext(contextType))
             {
@@ -150,7 +148,7 @@ namespace Microsoft.EntityFrameworkCore.Design
 
                 var scaffolder = services.GetRequiredService<MigrationsScaffolder>();
 
-                var files = scaffolder.RemoveMigration(_projectDir, _rootNamespace);
+                var files = scaffolder.RemoveMigration(_projectDir, _rootNamespace, force);
 
                 _logger.Value.LogInformation(CommandsStrings.Done);
 
@@ -170,7 +168,7 @@ namespace Microsoft.EntityFrameworkCore.Design
             var options = services.GetRequiredService<IDbContextOptions>();
             var contextType = services.GetRequiredService<ICurrentDbContext>().Context.GetType();
             var migrationsAssemblyName = RelationalOptionsExtension.Extract(options).MigrationsAssembly
-                ?? contextType.GetTypeInfo().Assembly.GetName().Name;
+                                         ?? contextType.GetTypeInfo().Assembly.GetName().Name;
             if (assemblyName.Name != migrationsAssemblyName
                 && assemblyName.FullName != migrationsAssemblyName)
             {

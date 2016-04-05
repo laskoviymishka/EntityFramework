@@ -1,9 +1,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using Microsoft.EntityFrameworkCore.FunctionalTests;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests.TestModels;
 using Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests.Utilities;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,13 +11,12 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests
 {
     public class MappingQuerySqlServerFixture : MappingQueryFixtureBase
     {
-        private readonly IServiceProvider _serviceProvider;
         private readonly DbContextOptions _options;
         private readonly SqlServerTestStore _testDatabase;
 
         public MappingQuerySqlServerFixture()
         {
-            _serviceProvider = new ServiceCollection()
+            var serviceProvider = new ServiceCollection()
                 .AddEntityFrameworkSqlServer()
                 .AddSingleton<ILoggerFactory>(new TestSqlLoggerFactory())
                 .BuildServiceProvider();
@@ -29,7 +26,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests
             _options = new DbContextOptionsBuilder()
                 .UseModel(CreateModel())
                 .UseSqlServer(_testDatabase.ConnectionString)
-                .UseInternalServiceProvider(_serviceProvider)
+                .UseInternalServiceProvider(serviceProvider)
                 .Options;
         }
 

@@ -4,7 +4,6 @@
 using System;
 using Microsoft.EntityFrameworkCore.CrossStore.FunctionalTests.TestModels;
 using Microsoft.EntityFrameworkCore.FunctionalTests;
-using Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests;
 using Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -31,9 +30,7 @@ namespace Microsoft.EntityFrameworkCore.CrossStore.FunctionalTests
             return _sharedCrossStoreFixture.CreateTestStore(testStoreType);
         }
 
-        public override CrossStoreContext CreateContext(TestStore testStore)
-        {
-            return _sharedCrossStoreFixture.CreateContext(testStore);
-        }
+        public override CrossStoreContext CreateContext(TestStore testStore) 
+            => _sharedCrossStoreFixture.CreateContext(testStore);
     }
 }

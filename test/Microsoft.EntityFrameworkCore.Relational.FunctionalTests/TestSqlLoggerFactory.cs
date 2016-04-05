@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
@@ -21,7 +20,7 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
     public class TestSqlLoggerFactory : ILoggerFactory
     {
         private static SqlLogger _logger;
-        private static string EOL = Environment.NewLine;
+        private static readonly string EOL = Environment.NewLine;
 
         public ILogger CreateLogger(string name) => Logger;
 
@@ -149,7 +148,7 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
 
             public bool IsEnabled(LogLevel logLevel) => true;
 
-            public IDisposable BeginScopeImpl(object state) => SqlLoggerData._log.Indent();
+            public IDisposable BeginScope<TState>(TState state) => SqlLoggerData._log.Indent();
 
             // ReSharper disable once MemberCanBeMadeStatic.Local
             public void ResetLoggerData()

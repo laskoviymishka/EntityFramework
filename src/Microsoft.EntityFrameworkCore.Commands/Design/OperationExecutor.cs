@@ -37,30 +37,36 @@ namespace Microsoft.EntityFrameworkCore.Design
             var rootNamespace = (string)args["rootNamespace"];
 
             var assemblyLoader = new AssemblyLoader();
-            var startupAssembly = assemblyLoader.Load(startupTargetName);
 
-            Assembly assembly;
-            try
-            {
-                assembly = assemblyLoader.Load(targetName);
-            }
-            catch (Exception ex)
-            {
-                throw new OperationException(CommandsStrings.UnreferencedAssembly(targetName, startupTargetName), ex);
-            }
-
+            // NOTE: LazyRef is used so any exceptions get passed to the resultHandler
+            var startupAssembly = new LazyRef<Assembly>(
+                () => assemblyLoader.Load(startupTargetName));
+            var assembly = new LazyRef<Assembly>(
+                () =>
+                    {
+                        try
+                        {
+                            return assemblyLoader.Load(targetName);
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new OperationException(
+                                CommandsStrings.UnreferencedAssembly(targetName, startupTargetName),
+                                ex);
+                        }
+                    });
             _contextOperations = new LazyRef<DbContextOperations>(
                 () => new DbContextOperations(
                     loggerProvider,
-                    assembly,
-                    startupAssembly,
+                    assembly.Value,
+                    startupAssembly.Value,
                     environment,
                     startupProjectDir));
             _databaseOperations = new LazyRef<DatabaseOperations>(
                 () => new DatabaseOperations(
                     assemblyLoader,
                     loggerProvider,
-                    startupAssembly,
+                    startupAssembly.Value,
                     environment,
                     projectDir,
                     startupProjectDir,
@@ -69,8 +75,8 @@ namespace Microsoft.EntityFrameworkCore.Design
                 () => new MigrationsOperations(
                     assemblyLoader,
                     loggerProvider,
-                    assembly,
-                    startupAssembly,
+                    assembly.Value,
+                    startupAssembly.Value,
                     environment,
                     projectDir,
                     startupProjectDir,
@@ -195,15 +201,16 @@ namespace Microsoft.EntityFrameworkCore.Design
                 Check.NotNull(args, nameof(args));
 
                 var contextType = (string)args["contextType"];
+                var force = args.Contains("force") && (bool)args["force"];
 
-                Execute(() => executor.RemoveMigrationImpl(contextType));
+                Execute(() => executor.RemoveMigrationImpl(contextType, force));
             }
         }
 
-        private IEnumerable<string> RemoveMigrationImpl([CanBeNull] string contextType)
+        private IEnumerable<string> RemoveMigrationImpl([CanBeNull] string contextType, bool force)
         {
             var files = _migrationsOperations.Value
-                .RemoveMigration(contextType);
+                .RemoveMigration(contextType, force);
 
             if (files.MigrationFile != null)
             {
@@ -280,7 +287,6 @@ namespace Microsoft.EntityFrameworkCore.Design
                     ["SafeName"] = nameGroups.Count(g => g.Key == m.Name) == 1
                         ? m.Name
                         : m.Id
-
                 });
         }
 
@@ -323,8 +329,8 @@ namespace Microsoft.EntityFrameworkCore.Design
             Check.NotNull(tableFilters, nameof(tableFilters));
 
             var files = _databaseOperations.Value.ReverseEngineerAsync(
-                    provider, connectionString, outputDir, dbContextClassName,
-                    schemaFilters, tableFilters, useDataAnnotations, overwriteFiles).Result;
+                provider, connectionString, outputDir, dbContextClassName,
+                schemaFilters, tableFilters, useDataAnnotations, overwriteFiles).Result;
 
             // NOTE: First file will be opened in VS
             yield return files.ContextFile;

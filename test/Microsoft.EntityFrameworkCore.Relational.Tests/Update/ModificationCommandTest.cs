@@ -5,6 +5,7 @@ using System;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Tests;
 using Microsoft.EntityFrameworkCore.Update;
@@ -287,7 +288,7 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Update
 
             Assert.Equal(
                 RelationalStrings.ModificationFunctionInvalidEntityState(EntityState.Unchanged),
-                Assert.Throws<NotSupportedException>(() => command.AddEntry(entry)).Message);
+                Assert.Throws<ArgumentException>(() => command.AddEntry(entry)).Message);
         }
 
         [Fact]
@@ -299,7 +300,7 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Update
 
             Assert.Equal(
                 RelationalStrings.ModificationFunctionInvalidEntityState(EntityState.Detached),
-                Assert.Throws<NotSupportedException>(() => command.AddEntry(entry)).Message);
+                Assert.Throws<ArgumentException>(() => command.AddEntry(entry)).Message);
         }
 
         [Fact]
@@ -368,7 +369,7 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Update
 
         private static IModel BuildModel(bool generateKeyValues, bool computeNonKeyValue)
         {
-            var model = new EntityFrameworkCore.Metadata.Internal.Model();
+            var model = new Model();
             var entityType = model.AddEntityType(typeof(T1));
 
             var key = entityType.AddProperty("Id", typeof(int));

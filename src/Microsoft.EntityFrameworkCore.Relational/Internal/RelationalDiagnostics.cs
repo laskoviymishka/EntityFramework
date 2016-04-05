@@ -15,21 +15,48 @@ namespace Microsoft.EntityFrameworkCore.Internal
         public const string AfterExecuteCommand = NamePrefix + nameof(AfterExecuteCommand);
         public const string CommandExecutionError = NamePrefix + nameof(CommandExecutionError);
 
-        public static void WriteCommand(
+        public static void WriteCommandBefore(
             this DiagnosticSource diagnosticSource,
-            string diagnosticName,
-            DbCommand command,
-            string executeMethod,
+            DbCommand command, string executeMethod,
+            Guid instanceId,
+            long startTimestamp,
             bool async)
         {
-            if (diagnosticSource.IsEnabled(diagnosticName))
+            if (diagnosticSource.IsEnabled(BeforeExecuteCommand))
             {
                 diagnosticSource.Write(
-                    diagnosticName,
-                    new RelationalDiagnosticSourceMessage
+                    BeforeExecuteCommand,
+                    new RelationalDiagnosticSourceBeforeMessage
                     {
                         Command = command,
                         ExecuteMethod = executeMethod,
+                        InstanceId = instanceId,
+                        Timestamp = startTimestamp,
+                        IsAsync = async
+                    });
+            }
+        }
+
+        public static void WriteCommandAfter(
+            this DiagnosticSource diagnosticSource,
+            DbCommand command,
+            string executeMethod,
+            Guid instanceId,
+            long startTimestamp,
+            long currentTimestamp,
+            bool async = false)
+        {
+            if (diagnosticSource.IsEnabled(AfterExecuteCommand))
+            {
+                diagnosticSource.Write(
+                    AfterExecuteCommand,
+                    new RelationalDiagnosticSourceAfterMessage
+                    {
+                        Command = command,
+                        ExecuteMethod = executeMethod,
+                        InstanceId = instanceId,
+                        Timestamp = currentTimestamp,
+                        Duration = currentTimestamp - startTimestamp,
                         IsAsync = async
                     });
             }
@@ -39,19 +66,25 @@ namespace Microsoft.EntityFrameworkCore.Internal
             this DiagnosticSource diagnosticSource,
             DbCommand command,
             string executeMethod,
-            bool async,
-            Exception exception)
+            Guid instanceId,
+            long startTimestamp,
+            long currentTimestamp,
+            Exception exception,
+            bool async)
         {
             if (diagnosticSource.IsEnabled(CommandExecutionError))
             {
                 diagnosticSource.Write(
                     CommandExecutionError,
-                    new RelationalDiagnosticSourceMessage
+                    new RelationalDiagnosticSourceAfterMessage
                     {
                         Command = command,
                         ExecuteMethod = executeMethod,
-                        IsAsync = async,
-                        Exception = exception
+                        InstanceId = instanceId,
+                        Timestamp = currentTimestamp,
+                        Duration = currentTimestamp - startTimestamp,
+                        Exception = exception,
+                        IsAsync = async
                     });
             }
         }

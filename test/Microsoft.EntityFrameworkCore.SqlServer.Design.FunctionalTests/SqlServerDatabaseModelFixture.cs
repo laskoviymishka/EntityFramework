@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
-using Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests;
 using Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests.Utilities;
 using Microsoft.Extensions.Logging;
 
@@ -63,7 +62,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Design.FunctionalTests
 
         public class TestLogger : ILogger
         {
-            public IDisposable BeginScopeImpl(object state) => NullScope.Instance;
+            public IDisposable BeginScope<TState>(TState state) => NullScope.Instance;
 
             public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
                 => Items.Add(new { logLevel, eventId, state, exception });

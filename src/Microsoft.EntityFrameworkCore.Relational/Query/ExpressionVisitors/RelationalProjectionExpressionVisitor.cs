@@ -98,6 +98,8 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors
                 && !(node is ConstantExpression)
                 && (selectExpression != null))
             {
+                var existingProjectionsCount = selectExpression.Projection.Count;
+
                 var sqlExpression
                     = _sqlTranslatingExpressionVisitorFactory
                         .Create(QueryModelVisitor, selectExpression, inProjection: true)
@@ -112,6 +114,8 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors
                 }
                 else
                 {
+                    selectExpression.RemoveRangeFromProjection(existingProjectionsCount);
+
                     if (!(node is NewExpression))
                     {
                         AliasExpression aliasExpression;
@@ -173,10 +177,7 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors
 
                                 return Expression.Convert(readValueExpression, node.Type);
                             }
-                            else
-                            {
-                                return node;
-                            }
+                            return node;
                         }
                     }
                 }

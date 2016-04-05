@@ -1,4 +1,4 @@
-// Copyright (c) .NET Foundation. All rights reserved.
+﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -36,8 +36,8 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests
         {
             await AssertQuery<Customer>(
                 cs => cs.Where(c => c.ContactName.Contains("M")), // case-insensitive
-                cs => cs.Where(c => c.ContactName.Contains("M") 
-                                     || c.ContactName.Contains("m")), // case-sensitive
+                cs => cs.Where(c => c.ContactName.Contains("M")
+                                    || c.ContactName.Contains("m")), // case-sensitive
                 entryCount: 34);
         }
 
@@ -60,10 +60,27 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests
                 await Single_Predicate_Cancellation(Fixture.CancelQuery()));
         }
 
+        [Fact]
+        public async Task Concurrent_async_queries_are_serialized()
+        {
+            using (var context = CreateContext())
+            {
+                var task1 = context.Customers.Where(c => c.City == "México D.F.").ToListAsync();
+                var task2 = context.Customers.Where(c => c.City == "London").ToListAsync();
+                var task3 = context.Customers.Where(c => c.City == "Sao Paulo").ToListAsync();
+
+                var tasks = await Task.WhenAll(task1, task2, task3);
+
+                Assert.Equal(5, tasks[0].Count);
+                Assert.Equal(6, tasks[1].Count);
+                Assert.Equal(4, tasks[2].Count);
+            }
+        }
+
         public AsyncQuerySqlServerTest(NorthwindQuerySqlServerFixture fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
-           // TestSqlLoggerFactory.CaptureOutput(testOutputHelper);
+            // TestSqlLoggerFactory.CaptureOutput(testOutputHelper);
         }
     }
 }

@@ -56,7 +56,7 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Metadata
 
             var property = modelBuilder.Model.FindEntityType(typeof(Customer)).FindProperty("Name");
 
-            Assert.Equal("CherryCoke", property.Relational().GeneratedValueSql);
+            Assert.Equal("CherryCoke", property.Relational().DefaultValueSql);
             Assert.Equal(ValueGenerated.OnAdd, property.ValueGenerated);
         }
 
@@ -73,7 +73,7 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Metadata
 
             var property = modelBuilder.Model.FindEntityType(typeof(Customer)).FindProperty("Name");
 
-            Assert.Equal("CherryCoke", property.Relational().GeneratedValueSql);
+            Assert.Equal("CherryCoke", property.Relational().DefaultValueSql);
             Assert.Equal(ValueGenerated.OnAddOrUpdate, property.ValueGenerated);
         }
 
@@ -89,7 +89,7 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Metadata
 
             var property = modelBuilder.Model.FindEntityType(typeof(Customer)).FindProperty("Name");
 
-            Assert.Equal("CherryCoke", property.Relational().GeneratedValueSql);
+            Assert.Equal("CherryCoke", property.Relational().ComputedValueSql);
             Assert.Equal(ValueGenerated.OnAddOrUpdate, property.ValueGenerated);
         }
 
@@ -106,7 +106,7 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Metadata
 
             var property = modelBuilder.Model.FindEntityType(typeof(Customer)).FindProperty("Name");
 
-            Assert.Equal("CherryCoke", property.Relational().GeneratedValueSql);
+            Assert.Equal("CherryCoke", property.Relational().ComputedValueSql);
             Assert.Equal(ValueGenerated.Never, property.ValueGenerated);
         }
 
@@ -709,12 +709,12 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Metadata
 
             modelBuilder
                 .HasSequence<int>("Snook", b =>
-                {
-                    b.IncrementsBy(11)
-                        .StartsAt(1729)
-                        .HasMin(111)
-                        .HasMax(2222);
-                });
+                    {
+                        b.IncrementsBy(11)
+                            .StartsAt(1729)
+                            .HasMin(111)
+                            .HasMax(2222);
+                    });
 
             var sequence = modelBuilder.Model.Relational().FindSequence("Snook");
 
@@ -728,12 +728,12 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Metadata
 
             modelBuilder
                 .HasSequence(typeof(int), "Snook", b =>
-                {
-                    b.IncrementsBy(11)
-                        .StartsAt(1729)
-                        .HasMin(111)
-                        .HasMax(2222);
-                });
+                    {
+                        b.IncrementsBy(11)
+                            .StartsAt(1729)
+                            .HasMin(111)
+                            .HasMax(2222);
+                    });
 
             var sequence = modelBuilder.Model.Relational().FindSequence("Snook");
 
@@ -791,10 +791,7 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Metadata
             var modelBuilder = CreateConventionModelBuilder();
 
             modelBuilder
-                .HasSequence<int>("Snook", "Tasty", b =>
-                {
-                    b.IncrementsBy(11).StartsAt(1729).HasMin(111).HasMax(2222);
-                });
+                .HasSequence<int>("Snook", "Tasty", b => { b.IncrementsBy(11).StartsAt(1729).HasMin(111).HasMax(2222); });
 
             var sequence = modelBuilder.Model.Relational().FindSequence("Snook", "Tasty");
 
@@ -807,10 +804,7 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Metadata
             var modelBuilder = CreateConventionModelBuilder();
 
             modelBuilder
-                .HasSequence(typeof(int), "Snook", "Tasty", b =>
-                {
-                    b.IncrementsBy(11).StartsAt(1729).HasMin(111).HasMax(2222);
-                });
+                .HasSequence(typeof(int), "Snook", "Tasty", b => { b.IncrementsBy(11).StartsAt(1729).HasMin(111).HasMax(2222); });
 
             var sequence = modelBuilder.Model.Relational().FindSequence("Snook", "Tasty");
 

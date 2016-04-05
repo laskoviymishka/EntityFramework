@@ -49,7 +49,8 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         ///     <para>
         ///         For derived contexts to be registered in the <see cref="IServiceProvider" /> and resolve their services
         ///         from the <see cref="IServiceProvider" /> you must chain a call to the
-        ///         <see cref="Extensions.DependencyInjection.EntityFrameworkServiceCollectionExtensions.AddDbContext{TContext}(IServiceCollection, Action{DbContextOptionsBuilder})" />
+        ///         <see
+        ///             cref="Extensions.DependencyInjection.EntityFrameworkServiceCollectionExtensions.AddDbContext{TContext}(IServiceCollection, Action{DbContextOptionsBuilder})" />
         ///         method on the returned <see cref="IServiceCollection" />.
         ///     </para>
         /// </remarks>
@@ -126,10 +127,8 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         }
 
         private static IServiceCollection AddQuery(this IServiceCollection serviceCollection)
-        {
-            serviceCollection.AddMemoryCache();
-
-            return serviceCollection
+            => serviceCollection
+                .AddMemoryCache()
                 .AddSingleton(_ => MethodInfoBasedNodeTypeRegistry.CreateFromRelinqAssembly())
                 .AddScoped<ICompiledQueryCache, CompiledQueryCache>()
                 .AddScoped<IAsyncQueryProvider, EntityQueryProvider>()
@@ -158,7 +157,6 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
                 .AddScoped(p => GetProviderServices(p).ExpressionPrinter)
                 .AddScoped(p => GetProviderServices(p).ResultOperatorHandler)
                 .AddScoped(p => GetProviderServices(p).ProjectionExpressionVisitorFactory);
-        }
 
         private static IDbContextServices GetContextServices(IServiceProvider serviceProvider)
             => serviceProvider.GetRequiredService<IDbContextServices>();

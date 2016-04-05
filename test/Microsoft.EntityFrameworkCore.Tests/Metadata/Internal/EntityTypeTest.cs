@@ -1060,7 +1060,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
 
             Assert.Equal(
                 CoreStrings.IndexPropertiesWrongEntity("{'" + Customer.IdProperty.Name + "'}", typeof(Customer).Name),
-                Assert.Throws<ArgumentException>(() => entityType.AddIndex(new[] { idProperty })).Message);
+                Assert.Throws<InvalidOperationException>(() => entityType.AddIndex(new[] { idProperty })).Message);
         }
 
         [Fact]
@@ -1274,7 +1274,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
 
             Assert.Equal(
                 CoreStrings.KeyPropertiesWrongEntity("{'" + Customer.IdProperty.Name + "'}", typeof(Customer).Name),
-                Assert.Throws<ArgumentException>(() => entityType1.SetPrimaryKey(idProperty)).Message);
+                Assert.Throws<InvalidOperationException>(() => entityType1.SetPrimaryKey(idProperty)).Message);
         }
 
         [Fact]
@@ -1388,7 +1388,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
 
             Assert.Equal(
                 CoreStrings.KeyPropertiesWrongEntity("{'" + Customer.IdProperty.Name + "'}", typeof(Customer).Name),
-                Assert.Throws<ArgumentException>(() => entityType1.AddKey(idProperty)).Message);
+                Assert.Throws<InvalidOperationException>(() => entityType1.AddKey(idProperty)).Message);
         }
 
         [Fact]
@@ -1416,7 +1416,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
 
             Assert.Equal(
                 CoreStrings.KeyPropertiesWrongEntity("{'" + Customer.IdProperty.Name + "'}", typeof(Customer).Name),
-                Assert.Throws<ArgumentException>(() => entityType.AddKey(new[] { idProperty })).Message);
+                Assert.Throws<InvalidOperationException>(() => entityType.AddKey(new[] { idProperty })).Message);
         }
 
         [Fact]
@@ -1461,6 +1461,8 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             nameProperty.IsNullable = false;
 
             Assert.Null(entityType.RemoveKey(new[] { idProperty }));
+            Assert.False(idProperty.IsKey());
+            Assert.Empty(idProperty.FindContainingKeys());
 
             var key1 = entityType.GetOrSetPrimaryKey(new[] { idProperty, nameProperty });
             var key2 = entityType.GetOrAddKey(idProperty);
@@ -1468,6 +1470,8 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             Assert.NotNull(key1.Builder);
             Assert.NotNull(key2.Builder);
             Assert.Equal(new[] { key2, key1 }, entityType.GetKeys().ToArray());
+            Assert.True(idProperty.IsKey());
+            Assert.Equal(new[] { key1, key2 }, idProperty.FindContainingKeys().ToArray());
 
             Assert.Same(key1, entityType.RemoveKey(key1.Properties));
             Assert.Null(entityType.RemoveKey(key1.Properties));
@@ -1479,6 +1483,8 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             Assert.Null(key1.Builder);
             Assert.Null(key2.Builder);
             Assert.Empty(entityType.GetKeys());
+            Assert.False(idProperty.IsKey());
+            Assert.Empty(idProperty.FindContainingKeys());
         }
 
         [Fact]
@@ -1542,7 +1548,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
 
             Assert.Equal(
                 CoreStrings.KeyPropertyMustBeReadOnly(Customer.NameProperty.Name, typeof(Customer).FullName),
-                Assert.Throws<NotSupportedException>(() => nameProperty.IsReadOnlyAfterSave = false).Message);
+                Assert.Throws<InvalidOperationException>(() => nameProperty.IsReadOnlyAfterSave = false).Message);
 
             nameProperty.IsReadOnlyBeforeSave = true;
 
@@ -1673,7 +1679,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             Assert.Same(fk1, orderType.FindForeignKeys(customerFkProperty).Single());
             Assert.Same(fk1, orderType.FindForeignKey(customerFkProperty, customerKey1, baseType));
             Assert.Same(fk1, orderType.GetForeignKeys().Single());
-            
+
             var fk2 = orderType.AddForeignKey(customerFkProperty, customerKey1, customerType);
 
             Assert.Equal(2, orderType.FindForeignKeys(customerFkProperty).Count());
@@ -1694,7 +1700,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             Assert.Equal(
                 CoreStrings.DuplicateForeignKey(
                     "{'" + Order.CustomerIdProperty.Name + "'}",
-                    typeof(Order).Name, 
+                    typeof(Order).Name,
                     typeof(Order).Name,
                     "{'" + Customer.IdProperty.Name + "'}",
                     typeof(Customer).Name),
@@ -1712,7 +1718,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
 
             Assert.Equal(
                 CoreStrings.ForeignKeyPropertiesWrongEntity("{'" + Order.CustomerIdProperty.Name + "'}", typeof(Customer).Name),
-                Assert.Throws<ArgumentException>(() => entityType1.AddForeignKey(new[] { fkProperty }, entityType2.GetOrAddKey(idProperty), entityType2)).Message);
+                Assert.Throws<InvalidOperationException>(() => entityType1.AddForeignKey(new[] { fkProperty }, entityType2.GetOrAddKey(idProperty), entityType2)).Message);
         }
 
         [Fact]
@@ -1727,7 +1733,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
 
             Assert.Equal(
                 CoreStrings.ForeignKeyPropertiesWrongEntity("{'fk'}", typeof(Customer).Name),
-                Assert.Throws<ArgumentException>(() => entityType.AddForeignKey(new[] { fkProperty }, key, entityType)).Message);
+                Assert.Throws<InvalidOperationException>(() => entityType.AddForeignKey(new[] { fkProperty }, key, entityType)).Message);
         }
 
         [Fact]
@@ -1759,7 +1765,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
 
             Assert.Equal(
                 CoreStrings.ForeignKeyReferencedEntityKeyMismatch("{'" + Customer.IdProperty.Name + "'}", typeof(Customer).FullName),
-                Assert.Throws<ArgumentException>(() => entityType.AddForeignKey(new[] { fkProperty }, key, entityType)).Message);
+                Assert.Throws<InvalidOperationException>(() => entityType.AddForeignKey(new[] { fkProperty }, key, entityType)).Message);
         }
 
         [Fact]
@@ -1772,7 +1778,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
 
             Assert.Equal(
                 CoreStrings.EntityTypeModelMismatch(typeof(Customer).FullName, typeof(Order).FullName),
-                Assert.Throws<ArgumentException>(() => dependentEntityType.AddForeignKey(new[] { fkProperty }, principalEntityType.GetOrAddKey(idProperty), principalEntityType)).Message);
+                Assert.Throws<InvalidOperationException>(() => dependentEntityType.AddForeignKey(new[] { fkProperty }, principalEntityType.GetOrAddKey(idProperty), principalEntityType)).Message);
         }
 
         [Fact]
@@ -1841,6 +1847,8 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             var customerFk2 = orderType.AddProperty("IdAgain", typeof(int));
 
             Assert.Null(orderType.RemoveForeignKey(new[] { customerFk2 }, customerKey, customerType));
+            Assert.False(customerFk1.IsForeignKey());
+            Assert.Empty(customerFk1.FindContainingForeignKeys());
 
             var fk1 = orderType.AddForeignKey(customerFk1, customerKey, customerType);
             var fk2 = orderType.AddForeignKey(customerFk2, customerKey, customerType);
@@ -1848,11 +1856,15 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             Assert.NotNull(fk1.Builder);
             Assert.NotNull(fk2.Builder);
             Assert.Equal(new[] { fk1, fk2 }, orderType.GetForeignKeys().ToArray());
+            Assert.True(customerFk1.IsForeignKey());
+            Assert.Same(fk1, customerFk1.FindContainingForeignKeys().Single());
 
             Assert.Same(fk1, orderType.RemoveForeignKey(fk1.Properties, fk1.PrincipalKey, fk1.PrincipalEntityType));
             Assert.Null(orderType.RemoveForeignKey(fk1.Properties, fk1.PrincipalKey, fk1.PrincipalEntityType));
 
             Assert.Equal(new[] { fk2 }, orderType.GetForeignKeys().ToArray());
+            Assert.False(customerFk1.IsForeignKey());
+            Assert.Empty(customerFk1.FindContainingForeignKeys());
 
             Assert.Same(fk2, orderType.RemoveForeignKey(new[] { customerFk2 }, customerKey, customerType));
 
@@ -2242,6 +2254,8 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
 
             Assert.Equal(0, entityType.GetIndexes().Count());
             Assert.Null(entityType.RemoveIndex(new[] { property1 }));
+            Assert.False(property1.IsIndex());
+            Assert.Empty(property1.FindContainingIndexes());
 
             var index1 = entityType.GetOrAddIndex(property1);
 
@@ -2259,6 +2273,8 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             Assert.Same(index2, entityType.FindIndex(new[] { property1, property2 }));
             Assert.Same(property1, index2.Properties[0]);
             Assert.Same(property2, index2.Properties[1]);
+            Assert.True(property1.IsIndex());
+            Assert.Equal(new[] { index1, index2 }, property1.FindContainingIndexes().ToArray());
 
             Assert.Equal(2, entityType.GetIndexes().Count());
             Assert.Same(index1, entityType.GetIndexes().First());
@@ -2275,6 +2291,8 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             Assert.Null(index1.Builder);
             Assert.Null(index2.Builder);
             Assert.Equal(0, entityType.GetIndexes().Count());
+            Assert.False(property1.IsIndex());
+            Assert.Empty(property1.FindContainingIndexes());
         }
 
         [Fact]
@@ -2287,7 +2305,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             var property2 = entityType1.AddProperty(Customer.NameProperty);
 
             Assert.Equal(CoreStrings.IndexPropertiesWrongEntity("{'" + Customer.IdProperty.Name + "', '" + Customer.NameProperty.Name + "'}", typeof(Order).Name),
-                Assert.Throws<ArgumentException>(
+                Assert.Throws<InvalidOperationException>(
                     () => entityType2.AddIndex(new[] { property1, property2 })).Message);
         }
 
@@ -2919,21 +2937,11 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             public event PropertyChangingEventHandler PropertyChanging;
             public event PropertyChangedEventHandler PropertyChanged;
 
-            private void NotifyChanged([CallerMemberName] string propertyName = "")
-            {
-                if (PropertyChanged != null)
-                {
-                    PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-                }
-            }
+            private void NotifyChanged([CallerMemberName] string propertyName = "") 
+                => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
-            private void NotifyChanging([CallerMemberName] string propertyName = "")
-            {
-                if (PropertyChanging != null)
-                {
-                    PropertyChanging(this, new PropertyChangingEventArgs(propertyName));
-                }
-            }
+            private void NotifyChanging([CallerMemberName] string propertyName = "") 
+                => PropertyChanging?.Invoke(this, new PropertyChangingEventArgs(propertyName));
         }
 
         private class ChangedOnlyEntity : INotifyPropertyChanged
@@ -2969,13 +2977,8 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
 
             public event PropertyChangedEventHandler PropertyChanged;
 
-            private void NotifyChanged([CallerMemberName] string propertyName = "")
-            {
-                if (PropertyChanged != null)
-                {
-                    PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-                }
-            }
+            private void NotifyChanged([CallerMemberName] string propertyName = "") 
+                => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
         private class SelfRef

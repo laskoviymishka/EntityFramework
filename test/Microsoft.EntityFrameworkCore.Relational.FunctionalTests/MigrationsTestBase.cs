@@ -19,16 +19,15 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
         where TFixture : MigrationsFixtureBase, new()
     {
         private readonly TFixture _fixture;
-        private string _sql;
-        private string _activeProvider;
 
-        public MigrationsTestBase(TFixture fixture)
+        protected MigrationsTestBase(TFixture fixture)
         {
             _fixture = fixture;
         }
 
-        protected string Sql => _sql;
-        protected string ActiveProvider => _activeProvider;
+        protected string Sql { get; private set; }
+
+        protected string ActiveProvider { get; private set; }
 
         [Fact]
         public void Can_apply_all_migrations()
@@ -116,6 +115,28 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
         }
 
         [Fact]
+        public virtual void Can_generate_no_migration_script()
+        {
+            using (var db = _fixture.CreateEmptyContext())
+            {
+                var migrator = db.GetInfrastructure().GetRequiredService<IMigrator>();
+
+                SetSql(migrator.GenerateScript());
+            }
+        }
+
+        [Fact]
+        public virtual void Can_generate_migration_from_initial_database_to_initial()
+        {
+            using (var db = _fixture.CreateContext())
+            {
+                var migrator = db.GetInfrastructure().GetRequiredService<IMigrator>();
+
+                SetSql(migrator.GenerateScript(fromMigration: Migration.InitialDatabase, toMigration: Migration.InitialDatabase));
+            }
+        }
+
+        [Fact]
         public virtual void Can_generate_up_scripts()
         {
             using (var db = _fixture.CreateContext())
@@ -176,9 +197,8 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
 
                 migrator.GenerateScript(toMigration: "Migration1");
 
-                _activeProvider = MigrationsFixtureBase.ActiveProvider;
+                ActiveProvider = MigrationsFixtureBase.ActiveProvider;
             }
-
         }
 
         /// <remarks>
@@ -235,11 +255,11 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
                     ColumnWithDefaultToAlter = x.Column<int>(nullable: true, defaultValue: 1)
                 },
                 constraints: x =>
-                {
-                    x.PrimaryKey(
-                        name: "PK_CreatedTable",
-                        columns: t => t.Id);
-                });
+                    {
+                        x.PrimaryKey(
+                            name: "PK_CreatedTable",
+                            columns: t => t.Id);
+                    });
         }
 
         protected virtual Task AssertFirstMigrationAsync(DbConnection connection)
@@ -275,6 +295,6 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
         {
         }
 
-        private void SetSql(string value) => _sql = value.Replace(ProductInfo.GetVersion(), "7.0.0-test");
+        private void SetSql(string value) => Sql = value.Replace(ProductInfo.GetVersion(), "7.0.0-test");
     }
 }

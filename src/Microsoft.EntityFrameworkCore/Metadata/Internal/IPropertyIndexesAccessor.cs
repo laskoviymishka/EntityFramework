@@ -7,6 +7,6 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 {
     public interface IPropertyIndexesAccessor
     {
-        PropertyIndexes Indexes { get; [param: CanBeNull] set; }
+        PropertyIndexes PropertyIndexes { get; [param: CanBeNull] set; }
     }
 }

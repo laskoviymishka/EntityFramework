@@ -45,17 +45,20 @@ namespace Microsoft.EntityFrameworkCore.Design.Internal
             var services = ConfigureHostServices(new ServiceCollection());
 
             return Invoke(
-                    _startupType,
-                    new[] { "ConfigureServices", "Configure" + _environment + "Services" },
-                    services) as IServiceProvider
-                ?? services.BuildServiceProvider();
+                _startupType,
+                new[] { "ConfigureServices", "Configure" + _environment + "Services" },
+                services) as IServiceProvider
+                   ?? services.BuildServiceProvider();
         }
 
-        public virtual void ConfigureDesignTimeServices([NotNull] IServiceCollection services)
+        public virtual IServiceCollection ConfigureDesignTimeServices([NotNull] IServiceCollection services)
             => ConfigureDesignTimeServices(_startupType, services);
 
-        public virtual void ConfigureDesignTimeServices([CanBeNull] Type type, [NotNull] IServiceCollection services)
-            => Invoke(type, new[] { "ConfigureDesignTimeServices" }, services);
+        public virtual IServiceCollection ConfigureDesignTimeServices([CanBeNull] Type type, [NotNull] IServiceCollection services)
+        {
+            Invoke(type, new[] { "ConfigureDesignTimeServices" }, services);
+            return services;
+        }
 
         private object Invoke(Type type, string[] methodNames, IServiceCollection services)
         {
@@ -65,14 +68,14 @@ namespace Microsoft.EntityFrameworkCore.Design.Internal
             }
 
             MethodInfo method = null;
-            for (int i = 0; i < methodNames.Length; i++)
+            for (var i = 0; i < methodNames.Length; i++)
             {
                 method = type.GetTypeInfo().GetDeclaredMethod(methodNames[i]);
                 if (method != null)
                 {
                     break;
                 }
-                else if (i == methodNames.Length - 1)
+                if (i == methodNames.Length - 1)
                 {
                     return null;
                 }
@@ -84,7 +87,7 @@ namespace Microsoft.EntityFrameworkCore.Design.Internal
 
             var parameters = method.GetParameters();
             var arguments = new object[parameters.Length];
-            for (int i = 0; i < parameters.Length; i++)
+            for (var i = 0; i < parameters.Length; i++)
             {
                 var parameterType = parameters[i].ParameterType;
                 arguments[i] = parameterType == typeof(IServiceCollection)
@@ -97,7 +100,12 @@ namespace Microsoft.EntityFrameworkCore.Design.Internal
 
         protected virtual IServiceCollection ConfigureHostServices([NotNull] IServiceCollection services)
         {
-            services.AddSingleton<IHostingEnvironment>(new HostingEnvironment { EnvironmentName = _environment });
+            services.AddSingleton<IHostingEnvironment>(
+                new HostingEnvironment
+                {
+                    ContentRootPath = _startupProjectDir,
+                    EnvironmentName = _environment
+                });
 
             services.AddLogging();
             services.AddOptions();

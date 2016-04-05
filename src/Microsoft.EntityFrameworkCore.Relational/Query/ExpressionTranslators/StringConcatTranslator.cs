@@ -4,22 +4,24 @@
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Query.Expressions;
 
 namespace Microsoft.EntityFrameworkCore.Query.ExpressionTranslators
 {
     public class StringConcatTranslator : IExpressionFragmentTranslator
     {
-        private static MethodInfo _stringConcatMethodInfo = typeof(string).GetTypeInfo().GetDeclaredMethods(nameof(string.Concat))
-            .Where(m => m.GetParameters().Count() == 2 && m.GetParameters()[0].ParameterType == typeof(object) && m.GetParameters()[1].ParameterType == typeof(object))
-            .Single();
+        private static readonly MethodInfo _stringConcatMethodInfo = typeof(string).GetTypeInfo()
+            .GetDeclaredMethods(nameof(string.Concat))
+            .Single(m => m.GetParameters().Count() == 2
+                         && m.GetParameters()[0].ParameterType == typeof(object)
+                         && m.GetParameters()[1].ParameterType == typeof(object));
 
-
-        public virtual Expression Translate([NotNull] Expression expression)
+        public virtual Expression Translate(Expression expression)
         {
             var binaryExpression = expression as BinaryExpression;
-            if (binaryExpression != null && binaryExpression.NodeType == ExpressionType.Add && binaryExpression.Method == _stringConcatMethodInfo)
+            if (binaryExpression != null
+                && binaryExpression.NodeType == ExpressionType.Add
+                && binaryExpression.Method == _stringConcatMethodInfo)
             {
                 var newLeft = binaryExpression.Left.Type != typeof(string)
                     ? new ExplicitCastExpression(HandleNullTypedConstant(binaryExpression.Left.RemoveConvert()), typeof(string))
@@ -29,7 +31,8 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionTranslators
                     ? new ExplicitCastExpression(HandleNullTypedConstant(binaryExpression.Right.RemoveConvert()), typeof(string))
                     : binaryExpression.Right;
 
-                if (newLeft != binaryExpression.Left || newRight != binaryExpression.Right)
+                if (newLeft != binaryExpression.Left
+                    || newRight != binaryExpression.Right)
                 {
                     return Expression.Add(newLeft, newRight, _stringConcatMethodInfo);
                 }
@@ -42,11 +45,9 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionTranslators
         {
             var constantExpression = expression as ConstantExpression;
 
-            var newExpression = constantExpression != null && constantExpression.Type == typeof(object) && constantExpression.Value != null
+            return constantExpression != null && constantExpression.Type == typeof(object) && constantExpression.Value != null
                 ? Expression.Constant(constantExpression.Value)
                 : expression;
-
-            return newExpression;
         }
     }
 }

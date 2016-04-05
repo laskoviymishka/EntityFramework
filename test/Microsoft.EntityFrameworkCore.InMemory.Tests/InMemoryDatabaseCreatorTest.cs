@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore.InMemory.FunctionalTests;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Storage.Internal;
-using Microsoft.EntityFrameworkCore.Tests;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -111,10 +110,7 @@ namespace Microsoft.EntityFrameworkCore.InMemory.Tests
         {
             public DbSet<Fraggle> Fraggles { get; set; }
 
-            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseInMemoryDatabase();
-            }
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) => optionsBuilder.UseInMemoryDatabase();
         }
 
         private class Fraggle

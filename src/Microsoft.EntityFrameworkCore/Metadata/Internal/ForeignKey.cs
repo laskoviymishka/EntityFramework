@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Utilities;
 
 namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 {
-    public class ForeignKey 
+    public class ForeignKey
         : ConventionalAnnotatable, IMutableForeignKey, IDependentKeyValueFactorySource, IDependentsMapFactorySource
     {
         private DeleteBehavior? _deleteBehavior;
@@ -49,7 +49,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 
             if (!principalEntityType.GetKeys().Contains(principalKey))
             {
-                throw new ArgumentException(
+                throw new InvalidOperationException(
                     CoreStrings.ForeignKeyReferencedEntityKeyMismatch(
                         Property.Format(principalKey.Properties),
                         principalEntityType));

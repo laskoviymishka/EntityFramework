@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Threading;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Internal;
@@ -399,7 +398,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             {
                 if (FindProperty(property.Name) != property)
                 {
-                    throw new ArgumentException(CoreStrings.KeyPropertiesWrongEntity(Property.Format(properties), this.DisplayName()));
+                    throw new InvalidOperationException(CoreStrings.KeyPropertiesWrongEntity(Property.Format(properties), this.DisplayName()));
                 }
 
                 if (property.FindContainingForeignKeys().Any(k => k.DeclaringEntityType != this))
@@ -552,7 +551,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 if (actualProperty == null
                     || !actualProperty.DeclaringEntityType.IsAssignableFrom(property.DeclaringEntityType))
                 {
-                    throw new ArgumentException(CoreStrings.ForeignKeyPropertiesWrongEntity(Property.Format(properties), this.DisplayName()));
+                    throw new InvalidOperationException(CoreStrings.ForeignKeyPropertiesWrongEntity(Property.Format(properties), this.DisplayName()));
                 }
 
                 if (actualProperty.FindContainingKeys().Any(k => k.DeclaringEntityType != this))
@@ -583,7 +582,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 
             if (principalEntityType.Model != Model)
             {
-                throw new ArgumentException(CoreStrings.EntityTypeModelMismatch(this, principalEntityType));
+                throw new InvalidOperationException(CoreStrings.EntityTypeModelMismatch(this, principalEntityType));
             }
 
             _foreignKeys.Add(foreignKey);
@@ -646,7 +645,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             [NotNull] IKey principalKey,
             [NotNull] IEntityType principalEntityType)
             => FindForeignKey(new[] { property }, principalKey, principalEntityType);
-        
+
         public virtual ForeignKey FindForeignKey(
             [NotNull] IReadOnlyList<IProperty> properties,
             [NotNull] IKey principalKey,
@@ -658,7 +657,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             Check.NotNull(principalEntityType, nameof(principalEntityType));
 
             return FindDeclaredForeignKey(properties, principalKey, principalEntityType)
-               ?? _baseType?.FindForeignKey(properties, principalKey, principalEntityType);
+                   ?? _baseType?.FindForeignKey(properties, principalKey, principalEntityType);
         }
 
         public virtual IEnumerable<ForeignKey> GetDeclaredForeignKeys() => _foreignKeys;
@@ -910,7 +909,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             {
                 if (FindProperty(property.Name) != property)
                 {
-                    throw new ArgumentException(CoreStrings.IndexPropertiesWrongEntity(Property.Format(properties), this.DisplayName()));
+                    throw new InvalidOperationException(CoreStrings.IndexPropertiesWrongEntity(Property.Format(properties), this.DisplayName()));
                 }
             }
 
@@ -922,6 +921,21 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 
             var index = new Index(properties, this, configurationSource);
             _indexes.Add(properties, index);
+
+            foreach (var property in properties)
+            {
+                var currentIndexes = property.Indexes;
+                if (currentIndexes == null)
+                {
+                    property.Indexes = new IIndex[] { index };
+                }
+                else
+                {
+                    var newIndex = currentIndexes.ToList();
+                    newIndex.Add(index);
+                    property.Indexes = newIndex;
+                }
+            }
 
             return index;
         }
@@ -975,6 +989,16 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         {
             _indexes.Remove(index.Properties);
             index.Builder = null;
+
+            foreach (var property in index.Properties)
+            {
+                property.Indexes =
+                    property.Indexes != null
+                    && property.Indexes.Count > 1
+                        ? property.Indexes.Where(k => k != index).ToList()
+                        : null;
+            }
+
             return index;
         }
 
@@ -1112,7 +1136,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         {
             foreach (var indexedProperty in this.GetPropertiesAndNavigations().OfType<IPropertyIndexesAccessor>())
             {
-                indexedProperty.Indexes = null;
+                indexedProperty.PropertyIndexes = null;
             }
 
             // This path should only kick in when the model is still mutable and therefore access does not need
@@ -1120,33 +1144,35 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             _counts = null;
         }
 
-        public virtual PropertyCounts Counts => LazyInitializer.EnsureInitialized(ref _counts, CalculateCounts);
+        public virtual PropertyCounts Counts 
+            => NonCapturingLazyInitializer.EnsureInitialized(ref _counts, this, CalculateCounts);
 
-        private PropertyCounts CalculateCounts() => EntityTypeExtensions.CalculateCounts(this);
+        private static PropertyCounts CalculateCounts(EntityType entityType) 
+            => entityType.CalculateCounts();
 
         public virtual Func<InternalEntityEntry, ISnapshot> RelationshipSnapshotFactory
-            => LazyInitializer.EnsureInitialized(ref _relationshipSnapshotFactory, CreateRelationshipSnapshotFactory);
+            => NonCapturingLazyInitializer.EnsureInitialized(ref _relationshipSnapshotFactory, this, CreateRelationshipSnapshotFactory);
 
-        private Func<InternalEntityEntry, ISnapshot> CreateRelationshipSnapshotFactory()
-            => new RelationshipSnapshotFactoryFactory().Create(this);
+        private static Func<InternalEntityEntry, ISnapshot> CreateRelationshipSnapshotFactory(EntityType entityType)
+            => new RelationshipSnapshotFactoryFactory().Create(entityType);
 
         public virtual Func<InternalEntityEntry, ISnapshot> OriginalValuesFactory
-            => LazyInitializer.EnsureInitialized(ref _originalValuesFactory, CreateOriginalValuesFactory);
+            => NonCapturingLazyInitializer.EnsureInitialized(ref _originalValuesFactory, this, CreateOriginalValuesFactory);
 
-        private Func<InternalEntityEntry, ISnapshot> CreateOriginalValuesFactory()
-            => new OriginalValuesFactoryFactory().Create(this);
+        private static Func<InternalEntityEntry, ISnapshot> CreateOriginalValuesFactory(EntityType entityType)
+            => new OriginalValuesFactoryFactory().Create(entityType);
 
         public virtual Func<ValueBuffer, ISnapshot> ShadowValuesFactory
-            => LazyInitializer.EnsureInitialized(ref _shadowValuesFactory, CreateShadowValuesFactory);
+            => NonCapturingLazyInitializer.EnsureInitialized(ref _shadowValuesFactory, this, CreateShadowValuesFactory);
 
-        private Func<ValueBuffer, ISnapshot> CreateShadowValuesFactory()
-            => new ShadowValuesFactoryFactory().Create(this);
+        private static Func<ValueBuffer, ISnapshot> CreateShadowValuesFactory(EntityType entityType)
+            => new ShadowValuesFactoryFactory().Create(entityType);
 
         public virtual Func<ISnapshot> EmptyShadowValuesFactory
-            => LazyInitializer.EnsureInitialized(ref _emptyShadowValuesFactory, CreateEmptyShadowValuesFactory);
+            => NonCapturingLazyInitializer.EnsureInitialized(ref _emptyShadowValuesFactory, this, CreateEmptyShadowValuesFactory);
 
-        private Func<ISnapshot> CreateEmptyShadowValuesFactory()
-            => new EmptyShadowValuesFactoryFactory().CreateEmpty(this);
+        private static Func<ISnapshot> CreateEmptyShadowValuesFactory(EntityType entityType)
+            => new EmptyShadowValuesFactoryFactory().CreateEmpty(entityType);
 
         #endregion
 

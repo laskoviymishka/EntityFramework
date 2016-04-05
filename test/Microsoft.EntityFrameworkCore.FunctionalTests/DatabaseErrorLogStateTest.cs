@@ -216,7 +216,7 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
                 public string Name { get; set; }
             }
 
-            protected override void OnModelCreating(ModelBuilder modelBuilder) 
+            protected override void OnModelCreating(ModelBuilder modelBuilder)
                 => modelBuilder.Entity<Blog>().HasKey(b => b.Url);
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -241,7 +241,7 @@ namespace Microsoft.EntityFrameworkCore.FunctionalTests
 
             public class TestLogger : ILogger
             {
-                public IDisposable BeginScopeImpl(object state) => NullScope.Instance;
+                public IDisposable BeginScope<TState>(TState state) => NullScope.Instance;
 
                 public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
                 {

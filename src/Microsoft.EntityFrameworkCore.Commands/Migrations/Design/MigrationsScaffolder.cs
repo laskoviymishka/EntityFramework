@@ -59,7 +59,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Design
             _idGenerator = idGenerator;
             _migrationCodeGenerator = migrationCodeGenerator;
             _historyRepository = historyRepository;
-            _logger = new LazyRef<ILogger>(() => loggerFactory.CreateCommandsLogger());
+            _logger = new LazyRef<ILogger>(loggerFactory.CreateCommandsLogger);
             _activeProvider = providerServices.InvariantName;
         }
 
@@ -188,7 +188,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Design
                     : @namespace;
 
         // TODO: DRY (file names)
-        public virtual MigrationFiles RemoveMigration([NotNull] string projectDir, [NotNull] string rootNamespace)
+        public virtual MigrationFiles RemoveMigration([NotNull] string projectDir, [NotNull] string rootNamespace, bool force)
         {
             Check.NotEmpty(projectDir, nameof(projectDir));
             Check.NotEmpty(rootNamespace, nameof(rootNamespace));
@@ -214,7 +214,11 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Design
 
                 if (!_modelDiffer.HasDifferences(model, modelSnapshot.Model))
                 {
-                    if (_historyRepository.GetAppliedMigrations().Any(
+                    if (force)
+                    {
+                        _logger.Value.LogWarning(CommandsStrings.ForceRemoveMigration(migration.GetId()));
+                    }
+                    else if (_historyRepository.GetAppliedMigrations().Any(
                         e => e.MigrationId.Equals(migration.GetId(), StringComparison.OrdinalIgnoreCase)))
                     {
                         throw new InvalidOperationException(CommandsStrings.UnapplyMigration(migration.GetId()));
@@ -373,13 +377,12 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Design
             Directory.EnumerateFiles(projectDir, fileName, SearchOption.AllDirectories).FirstOrDefault();
 
         private bool ContainsForeignMigrations(string migrationsNamespace)
-            => Enumerable.Any(
-                from t in _migrationsAssembly.Assembly.GetConstructibleTypes()
+            => (from t in _migrationsAssembly.Assembly.GetConstructibleTypes()
                 where t.Namespace == migrationsNamespace
-                    && t.IsSubclassOf(typeof(Migration))
+                      && t.IsSubclassOf(typeof(Migration))
                 let contextTypeAttribute = t.GetCustomAttribute<DbContextAttribute>()
                 where contextTypeAttribute != null
-                    && contextTypeAttribute.ContextType != _contextType
-                select t);
+                      && contextTypeAttribute.ContextType != _contextType
+                select t).Any();
     }
 }

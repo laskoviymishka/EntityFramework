@@ -56,7 +56,7 @@ namespace Microsoft.EntityFrameworkCore
                 property.SetValueGenerated(ValueGenerated.OnAdd, ConfigurationSource.Convention);
             }
 
-            propertyBuilder.Metadata.Sqlite().GeneratedValueSql = sql;
+            propertyBuilder.Metadata.Sqlite().DefaultValueSql = sql;
 
             return propertyBuilder;
         }
@@ -87,6 +87,5 @@ namespace Microsoft.EntityFrameworkCore
             [NotNull] this PropertyBuilder<TProperty> propertyBuilder,
             [CanBeNull] object value)
             => (PropertyBuilder<TProperty>)((PropertyBuilder)propertyBuilder).ForSqliteHasDefaultValue(value);
-
     }
 }

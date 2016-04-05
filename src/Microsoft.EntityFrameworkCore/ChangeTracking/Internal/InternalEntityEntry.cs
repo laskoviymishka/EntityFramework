@@ -139,15 +139,16 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
                 if (oldState == EntityState.Added)
                 {
                     foreach (var property in EntityType.GetProperties()
-                        .Where(p => _stateData.IsPropertyFlagged(p.GetIndex(), PropertyFlag.TemporaryOrModified)))
+                        .Where(p =>
+                            {
+                                var propertyIndex = p.GetIndex();
+                                return _stateData.IsPropertyFlagged(propertyIndex, PropertyFlag.TemporaryOrModified)
+                                       && !_stateData.IsPropertyFlagged(propertyIndex, PropertyFlag.Unknown);
+                            }))
                     {
                         this[property] = property.ClrType.GetDefaultValue();
                     }
                 }
-                var propertyCount = EntityType.PropertyCount();
-
-                _stateData.FlagAllProperties(propertyCount, PropertyFlag.TemporaryOrModified, flagged: false);
-                _stateData.FlagAllProperties(propertyCount, PropertyFlag.Null, flagged: false);
 
                 StateManager.StopTracking(this);
             }
@@ -165,16 +166,24 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
         public virtual EntityState EntityState => _stateData.EntityState;
 
         public virtual bool IsModified(IProperty property)
-            => (_stateData.EntityState == EntityState.Modified)
-               && _stateData.IsPropertyFlagged(property.GetIndex(), PropertyFlag.TemporaryOrModified);
+        {
+            var propertyIndex = property.GetIndex();
+
+            return _stateData.EntityState == EntityState.Modified
+                   && _stateData.IsPropertyFlagged(propertyIndex, PropertyFlag.TemporaryOrModified)
+                   && !_stateData.IsPropertyFlagged(propertyIndex, PropertyFlag.Unknown);
+        }
 
         public virtual void SetPropertyModified(
-            [NotNull] IProperty property, 
+            [NotNull] IProperty property,
             bool changeState = true,
             bool isModified = true)
         {
             // TODO: Restore original value to reject changes when isModified is false
             // Issue #742
+
+            var propertyIndex = property.GetIndex();
+            _stateData.FlagProperty(propertyIndex, PropertyFlag.Unknown, false);
 
             var currentState = _stateData.EntityState;
 
@@ -193,14 +202,16 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
                 return;
             }
 
-            if (changeState && isModified && property.IsKey())
+            if (changeState
+                && isModified
+                && property.IsKey())
             {
-                throw new NotSupportedException(CoreStrings.KeyReadOnly(property.Name, EntityType.DisplayName()));
+                throw new InvalidOperationException(CoreStrings.KeyReadOnly(property.Name, EntityType.DisplayName()));
             }
 
             if (changeState)
             {
-                _stateData.FlagProperty(property.GetIndex(), PropertyFlag.TemporaryOrModified, isModified);
+                _stateData.FlagProperty(propertyIndex, PropertyFlag.TemporaryOrModified, isModified);
             }
 
             // Don't change entity state if it is Added or Deleted
@@ -219,7 +230,7 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
                     StateManager.Notify.StateChanged(this, currentState, skipInitialFixup: false, fromQuery: false);
                 }
             }
-            else if (changeState 
+            else if (changeState
                      && !isModified
                      && !_stateData.AnyPropertiesFlagged(PropertyFlag.TemporaryOrModified))
             {
@@ -252,6 +263,17 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
             _stateData.FlagProperty(property.GetIndex(), PropertyFlag.TemporaryOrModified, isTemporary);
         }
 
+        protected virtual void MarkShadowPropertiesNotSet([NotNull] IEntityType entityType)
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.IsShadowProperty)
+                {
+                    _stateData.FlagProperty(property.GetIndex(), PropertyFlag.Unknown, true);
+                }
+            }
+        }
+
         internal static readonly MethodInfo ReadShadowValueMethod
             = typeof(InternalEntityEntry).GetTypeInfo().GetDeclaredMethod(nameof(ReadShadowValue));
 
@@ -277,7 +299,7 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
 
         [UsedImplicitly]
         private T ReadStoreGeneratedValue<T>(T currentValue, int storeGeneratedIndex)
-            => _storeGeneratedValues.GetValue<T>(currentValue, storeGeneratedIndex);
+            => _storeGeneratedValues.GetValue(currentValue, storeGeneratedIndex);
 
         internal static readonly MethodInfo GetCurrentValueMethod
             = typeof(InternalEntityEntry).GetMethods()
@@ -389,22 +411,26 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
             {
                 var currentValue = this[propertyBase];
 
-                if (!Equals(currentValue, value))
+                var asProperty = propertyBase as IProperty;
+                var propertyIndex = asProperty?.GetIndex();
+
+                if (!Equals(currentValue, value)
+                    || (propertyIndex.HasValue
+                        && _stateData.IsPropertyFlagged(propertyIndex.Value, PropertyFlag.Unknown)))
                 {
                     var writeValue = true;
-                    var asProperty = propertyBase as IProperty;
 
                     if (asProperty != null
                         && !asProperty.IsNullable)
                     {
                         if (value == null)
                         {
-                            _stateData.FlagProperty(asProperty.GetIndex(), PropertyFlag.Null, isFlagged: true);
+                            _stateData.FlagProperty(propertyIndex.Value, PropertyFlag.Null, isFlagged: true);
                             writeValue = false;
                         }
                         else
                         {
-                            _stateData.FlagProperty(asProperty.GetIndex(), PropertyFlag.Null, isFlagged: false);
+                            _stateData.FlagProperty(propertyIndex.Value, PropertyFlag.Null, isFlagged: false);
                         }
                     }
 
@@ -543,11 +569,6 @@ namespace Microsoft.EntityFrameworkCore.ChangeTracking.Internal
                 }
             }
         }
-
-        private bool MayGetStoreValue([CanBeNull] IProperty property, IEntityType entityType)
-            => (property != null)
-               && ((property.ValueGenerated != ValueGenerated.Never)
-                   || StateManager.ValueGeneration.MayGetTemporaryValue(property, entityType));
 
         public virtual void DiscardStoreGeneratedValues() => _storeGeneratedValues = new StoreGeneratedValues();
 

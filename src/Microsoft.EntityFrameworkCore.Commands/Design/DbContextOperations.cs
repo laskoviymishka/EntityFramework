@@ -11,7 +11,6 @@ using Microsoft.EntityFrameworkCore.Design.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -45,6 +44,18 @@ namespace Microsoft.EntityFrameworkCore.Design
 
             var startup = new StartupInvoker(startupAssembly, environment, startupProjectDir);
             _runtimeServices = startup.ConfigureServices();
+        }
+
+        public virtual void DropDatabase([CanBeNull] string contextType, [NotNull] Func<string, string, bool> confirmCheck)
+        {
+            using (var context = CreateContext(contextType))
+            {
+                var connection = context.Database.GetDbConnection();
+                if (confirmCheck(connection.Database, connection.DataSource))
+                {
+                    context.Database.EnsureDeleted();
+                }
+            }
         }
 
         public virtual DbContext CreateContext([CanBeNull] string contextType)
@@ -81,7 +92,7 @@ namespace Microsoft.EntityFrameworkCore.Design
                 var manufacturedContexts =
                     from i in factory.ImplementedInterfaces
                     where i.GetTypeInfo().IsGenericType
-                        && i.GetGenericTypeDefinition() == typeof(IDbContextFactory<>)
+                          && i.GetGenericTypeDefinition() == typeof(IDbContextFactory<>)
                     select i.GenericTypeArguments[0];
                 foreach (var context in manufacturedContexts)
                 {

@@ -11,7 +11,6 @@ using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Utilities;
-using Microsoft.Extensions.Logging;
 
 namespace Microsoft.EntityFrameworkCore.Storage.Internal
 {
@@ -106,17 +105,17 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
             bool manageConnection = true,
             CancellationToken cancellationToken = default(CancellationToken))
             => ExecuteAsync(
-                    Check.NotNull(connection, nameof(connection)),
-                    nameof(ExecuteReader),
-                    parameterValues,
-                    openConnection: manageConnection,
-                    closeConnection: false,
-                    cancellationToken: cancellationToken).Cast<object, RelationalDataReader>();
+                Check.NotNull(connection, nameof(connection)),
+                nameof(ExecuteReader),
+                parameterValues,
+                openConnection: manageConnection,
+                closeConnection: false,
+                cancellationToken: cancellationToken).Cast<object, RelationalDataReader>();
 
         protected virtual object Execute(
             [NotNull] IRelationalConnection connection,
             [NotNull] string executeMethod,
-            [NotNull] IReadOnlyDictionary<string, object> parameterValues,
+            [CanBeNull] IReadOnlyDictionary<string, object> parameterValues,
             bool openConnection,
             bool closeConnection)
         {
@@ -125,11 +124,6 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
 
             var dbCommand = CreateCommand(connection, parameterValues);
 
-            WriteDiagnostic(
-                RelationalDiagnostics.BeforeExecuteCommand,
-                dbCommand,
-                executeMethod);
-
             object result;
 
             if (openConnection)
@@ -137,15 +131,18 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
                 connection.Open();
             }
 
-            Stopwatch stopwatch = null;
+            var startTimestamp = Stopwatch.GetTimestamp();
+            var instanceId = Guid.NewGuid();
+
+            DiagnosticSource.WriteCommandBefore(
+                dbCommand,
+                executeMethod,
+                instanceId,
+                startTimestamp,
+                async: false);
 
             try
             {
-                if (Logger.IsEnabled(LogLevel.Information))
-                {
-                    stopwatch = Stopwatch.StartNew();
-                }
-
                 switch (executeMethod)
                 {
                     case nameof(ExecuteNonQuery):
@@ -191,22 +188,31 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
                     }
                 }
 
-                stopwatch?.Stop();
+                var currentTimestamp = Stopwatch.GetTimestamp();
 
-                Logger.LogCommandExecuted(dbCommand, stopwatch?.ElapsedMilliseconds);
+                Logger.LogCommandExecuted(dbCommand, startTimestamp, currentTimestamp);
+
+                DiagnosticSource.WriteCommandAfter(
+                    dbCommand,
+                    executeMethod,
+                    instanceId,
+                    startTimestamp,
+                    currentTimestamp);
             }
             catch (Exception exception)
             {
-                stopwatch?.Stop();
+                var currentTimestamp = Stopwatch.GetTimestamp();
 
-                Logger.LogCommandExecuted(dbCommand, stopwatch?.ElapsedMilliseconds);
+                Logger.LogCommandExecuted(dbCommand, startTimestamp, currentTimestamp);
 
-                DiagnosticSource
-                    .WriteCommandError(
-                        dbCommand,
-                        executeMethod,
-                        async: false,
-                        exception: exception);
+                DiagnosticSource.WriteCommandError(
+                    dbCommand,
+                    executeMethod,
+                    instanceId,
+                    startTimestamp,
+                    currentTimestamp,
+                    exception,
+                    async: false);
 
                 if (openConnection && !closeConnection)
                 {
@@ -222,11 +228,6 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
                     connection.Close();
                 }
             }
-
-            WriteDiagnostic(
-                RelationalDiagnostics.AfterExecuteCommand,
-                dbCommand,
-                executeMethod);
 
             return result;
         }
@@ -244,12 +245,6 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
 
             var dbCommand = CreateCommand(connection, parameterValues);
 
-            WriteDiagnostic(
-                RelationalDiagnostics.BeforeExecuteCommand,
-                dbCommand,
-                executeMethod,
-                async: true);
-
             object result;
 
             if (openConnection)
@@ -257,15 +252,18 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
                 await connection.OpenAsync(cancellationToken);
             }
 
-            Stopwatch stopwatch = null;
+            var startTimestamp = Stopwatch.GetTimestamp();
+            var instanceId = Guid.NewGuid();
+
+            DiagnosticSource.WriteCommandBefore(
+                dbCommand,
+                executeMethod,
+                instanceId,
+                startTimestamp,
+                async: true);
 
             try
             {
-                if (Logger.IsEnabled(LogLevel.Information))
-                {
-                    stopwatch = Stopwatch.StartNew();
-                }
-
                 switch (executeMethod)
                 {
                     case nameof(ExecuteNonQuery):
@@ -311,22 +309,32 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
                     }
                 }
 
-                stopwatch?.Stop();
+                var currentTimestamp = Stopwatch.GetTimestamp();
 
-                Logger.LogCommandExecuted(dbCommand, stopwatch?.ElapsedMilliseconds);
+                Logger.LogCommandExecuted(dbCommand, startTimestamp, currentTimestamp);
+
+                DiagnosticSource.WriteCommandAfter(
+                    dbCommand,
+                    executeMethod,
+                    instanceId,
+                    startTimestamp,
+                    currentTimestamp,
+                    async: true);
             }
             catch (Exception exception)
             {
-                stopwatch?.Stop();
+                var currentTimestamp = Stopwatch.GetTimestamp();
 
-                Logger.LogCommandExecuted(dbCommand, stopwatch?.ElapsedMilliseconds);
+                Logger.LogCommandExecuted(dbCommand, startTimestamp, currentTimestamp);
 
-                DiagnosticSource
-                    .WriteCommandError(
-                        dbCommand,
-                        executeMethod,
-                        async: true,
-                        exception: exception);
+                DiagnosticSource.WriteCommandError(
+                    dbCommand,
+                    executeMethod,
+                    instanceId,
+                    startTimestamp,
+                    currentTimestamp,
+                    exception,
+                    async: true);
 
                 if (openConnection && !closeConnection)
                 {
@@ -343,25 +351,8 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
                 }
             }
 
-            WriteDiagnostic(
-                RelationalDiagnostics.AfterExecuteCommand,
-                dbCommand,
-                executeMethod,
-                async: true);
-
             return result;
         }
-
-        private void WriteDiagnostic(
-            string name,
-            DbCommand command,
-            string executeMethod,
-            bool async = false)
-            => DiagnosticSource.WriteCommand(
-                name,
-                command,
-                executeMethod,
-                async: async);
 
         private DbCommand CreateCommand(
             IRelationalConnection connection,
@@ -383,7 +374,7 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
 
             if (Parameters.Count > 0)
             {
-                if(parameterValues == null)
+                if (parameterValues == null)
                 {
                     throw new InvalidOperationException(
                         RelationalStrings.MissingParameterValue(
@@ -400,7 +391,8 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
                     }
                     else
                     {
-                        throw new InvalidOperationException(RelationalStrings.MissingParameterValue(parameter.InvariantName));
+                        throw new InvalidOperationException(
+                            RelationalStrings.MissingParameterValue(parameter.InvariantName));
                     }
                 }
             }

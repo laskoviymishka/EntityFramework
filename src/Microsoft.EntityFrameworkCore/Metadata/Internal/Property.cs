@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Threading;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Utilities;
@@ -15,7 +14,12 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 {
     [DebuggerDisplay("{DeclaringEntityType.Name,nq}.{Name,nq} ({ClrType?.Name,nq})")]
     public class Property
-        : ConventionalAnnotatable, IMutableProperty, IPropertyBaseAccessors, IPropertyIndexesAccessor, IPropertyKeyMetadata
+        : ConventionalAnnotatable,
+            IMutableProperty,
+            IPropertyBaseAccessors,
+            IPropertyIndexesAccessor,
+            IPropertyKeyMetadata,
+            IPropertyIndexMetadata
     {
         // Warning: Never access these fields directly as access needs to be thread-safe
         private IClrPropertyGetter _getter;
@@ -207,7 +211,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             if (!readOnlyAfterSave
                 && Keys != null)
             {
-                throw new NotSupportedException(CoreStrings.KeyPropertyMustBeReadOnly(Name, DeclaringEntityType.Name));
+                throw new InvalidOperationException(CoreStrings.KeyPropertyMustBeReadOnly(Name, DeclaringEntityType.Name));
             }
             SetFlag(readOnlyAfterSave, PropertyFlags.IsReadOnlyAfterSave);
             UpdateIsReadOnlyAfterSaveConfigurationSource(configurationSource);
@@ -360,6 +364,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         public virtual IEnumerable<Key> FindContainingKeys()
             => ((IProperty)this).FindContainingKeys().Cast<Key>();
 
+        public virtual IEnumerable<Index> FindContainingIndexes()
+            => ((IProperty)this).FindContainingIndexes().Cast<Index>();
+
         private bool TryGetFlag(PropertyFlags flag, out bool value)
         {
             var coded = _flags & (int)flag;
@@ -410,17 +417,17 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         }
 
         public virtual IClrPropertyGetter Getter
-            => LazyInitializer.EnsureInitialized(ref _getter, () => new ClrPropertyGetterFactory().Create(this));
+            => NonCapturingLazyInitializer.EnsureInitialized(ref _getter, this, p => new ClrPropertyGetterFactory().Create(p));
 
         public virtual IClrPropertySetter Setter
-            => LazyInitializer.EnsureInitialized(ref _setter, () => new ClrPropertySetterFactory().Create(this));
+            => NonCapturingLazyInitializer.EnsureInitialized(ref _setter, this, p => new ClrPropertySetterFactory().Create(p));
 
         public virtual PropertyAccessors Accessors
-            => LazyInitializer.EnsureInitialized(ref _accessors, () => new PropertyAccessorsFactory().Create(this));
+            => NonCapturingLazyInitializer.EnsureInitialized(ref _accessors, this, p => new PropertyAccessorsFactory().Create(p));
 
-        public virtual PropertyIndexes Indexes
+        public virtual PropertyIndexes PropertyIndexes
         {
-            get { return LazyInitializer.EnsureInitialized(ref _indexes, CalculateIndexes); }
+            get { return NonCapturingLazyInitializer.EnsureInitialized(ref _indexes, this, CalculateIndexes); }
 
             set
             {
@@ -432,7 +439,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 }
                 else
                 {
-                    LazyInitializer.EnsureInitialized(ref _indexes, () => value);
+                    NonCapturingLazyInitializer.EnsureInitialized(ref _indexes, value);
                 }
             }
         }
@@ -440,7 +447,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         public virtual IKey PrimaryKey { get; [param: CanBeNull] set; }
         public virtual IReadOnlyList<IKey> Keys { get; [param: CanBeNull] set; }
         public virtual IReadOnlyList<IForeignKey> ForeignKeys { get; [param: CanBeNull] set; }
+        public virtual IReadOnlyList<IIndex> Indexes { get; [param: CanBeNull] set; }
 
-        private PropertyIndexes CalculateIndexes() => DeclaringEntityType.CalculateIndexes(this);
+        private static PropertyIndexes CalculateIndexes(Property property) 
+            => property.DeclaringEntityType.CalculateIndexes(property);
     }
 }

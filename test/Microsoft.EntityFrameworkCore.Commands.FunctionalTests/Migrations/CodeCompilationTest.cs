@@ -4,7 +4,6 @@
 using System;
 using System.Reflection;
 using System.Text.RegularExpressions;
-using Microsoft.EntityFrameworkCore.Commands.TestUtilities;
 using Microsoft.EntityFrameworkCore.FunctionalTests.TestUtilities.Xunit;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
@@ -32,7 +31,8 @@ namespace Microsoft.EntityFrameworkCore.Commands.Migrations
             var migrationCode = generator.GenerateMigration(
                 "MyNamespace",
                 "MyMigration",
-                new[] {
+                new[]
+                {
                     new SqlOperation
                     {
                         Sql = "-- TEST",

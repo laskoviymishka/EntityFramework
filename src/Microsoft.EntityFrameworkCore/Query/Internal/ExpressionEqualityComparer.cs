@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+
 // ReSharper disable SwitchStatementMissingSomeCases
 // ReSharper disable ForCanBeConvertedToForeach
 // ReSharper disable LoopCanBeConvertedToQuery
@@ -98,7 +99,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                     {
                         var parameterExpression = (ParameterExpression)obj;
 
-                        hashCode += (hashCode * 397);
+                        hashCode += hashCode * 397;
                         if (parameterExpression.Name != null)
                         {
                             hashCode ^= parameterExpression.Name.GetHashCode();

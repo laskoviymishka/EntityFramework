@@ -111,10 +111,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Expressions
             }
         }
 
-        public virtual void ClearTables()
-        {
-            _tables.Clear();
-        }
+        public virtual void ClearTables() => _tables.Clear();
 
         public virtual bool IsCorrelated() => new CorrelationFindingExpressionVisitor().IsCorrelated(this);
 
@@ -351,11 +348,6 @@ namespace Microsoft.EntityFrameworkCore.Query.Expressions
                 return AddToProjection(aliasExpression);
             }
 
-            if (expression is SelectExpression)
-            {
-                ClearColumnProjections();
-            }
-
             _projection.Add(expression);
 
             if (resetProjectStar)
@@ -507,10 +499,11 @@ namespace Microsoft.EntityFrameworkCore.Query.Expressions
 
         public virtual void ClearColumnProjections()
         {
-            for (int i = _projection.Count - 1; i >= 0; i--)
+            for (var i = _projection.Count - 1; i >= 0; i--)
             {
                 var aliasExpression = _projection[i] as AliasExpression;
-                if (aliasExpression != null && aliasExpression.Expression is ColumnExpression)
+                if (aliasExpression != null
+                    && aliasExpression.Expression is ColumnExpression)
                 {
                     _projection.RemoveAt(i);
                 }

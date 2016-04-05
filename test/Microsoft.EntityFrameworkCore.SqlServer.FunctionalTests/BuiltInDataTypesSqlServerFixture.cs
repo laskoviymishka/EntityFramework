@@ -5,8 +5,6 @@ using System;
 using System.Linq;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore.FunctionalTests;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,7 +12,6 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests
 {
     public class BuiltInDataTypesSqlServerFixture : BuiltInDataTypesFixtureBase
     {
-        private readonly IServiceProvider _serviceProvider;
         private readonly DbContextOptions _options;
         private readonly SqlServerTestStore _testStore;
 
@@ -22,14 +19,14 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests
         {
             _testStore = SqlServerTestStore.CreateScratch();
 
-            _serviceProvider = new ServiceCollection()
+            var serviceProvider = new ServiceCollection()
                 .AddEntityFrameworkSqlServer()
                 .AddSingleton(TestSqlServerModelSource.GetFactory(OnModelCreating))
                 .BuildServiceProvider();
 
             _options = new DbContextOptionsBuilder()
                 .UseSqlServer(_testStore.Connection)
-                .UseInternalServiceProvider(_serviceProvider)
+                .UseInternalServiceProvider(serviceProvider)
                 .Options;
 
             using (var context = new DbContext(_options))
@@ -101,15 +98,9 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests
             MapSizedColumnTypes<MappedScaledDataTypes>(modelBuilder);
             MapPreciseColumnTypes<MappedPrecisionAndScaledDataTypes>(modelBuilder);
 
-            modelBuilder.Entity<MappedDataTypesWithIdentity>(b =>
-            {
-                b.HasKey(e => e.Id);
-            });
+            modelBuilder.Entity<MappedDataTypesWithIdentity>(b => { b.HasKey(e => e.Id); });
 
-            modelBuilder.Entity<MappedNullableDataTypesWithIdentity>(b =>
-            {
-                b.HasKey(e => e.Id);
-            });
+            modelBuilder.Entity<MappedNullableDataTypesWithIdentity>(b => { b.HasKey(e => e.Id); });
 
             modelBuilder.Entity<MappedSizedDataTypesWithIdentity>()
                 .Property(e => e.Id);

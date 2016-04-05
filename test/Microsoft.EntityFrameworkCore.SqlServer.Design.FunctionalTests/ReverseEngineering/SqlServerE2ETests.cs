@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using Xunit.Abstractions;
+
 #if NETSTANDARDAPP1_5
 using System.Reflection;
 using Microsoft.CodeAnalysis;
@@ -27,7 +28,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Design.FunctionalTests.Reverse
     {
         protected override string ProviderName => "Microsoft.EntityFrameworkCore.SqlServer.Design";
 
-        protected override void ConfigureDesignTimeServices(IServiceCollection services)
+        protected override IServiceCollection ConfigureDesignTimeServices(IServiceCollection services)
             => new SqlServerDesignTimeServices().ConfigureDesignTimeServices(services);
 
         public virtual string TestNamespace => "E2ETest.Namespace";

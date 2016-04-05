@@ -4,8 +4,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using Microsoft.CodeAnalysis;
 using Microsoft.EntityFrameworkCore.FunctionalTests.TestUtilities.Xunit;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Relational.Design.FunctionalTests.ReverseEngineering;
@@ -17,6 +15,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using Xunit.Abstractions;
 
+#if NETSTANDARDAPP1_5
+using System.Reflection;
+#endif
+
 namespace Microsoft.EntityFrameworkCore.Sqlite.Design.FunctionalTests.ReverseEngineering
 {
     [FrameworkSkipCondition(RuntimeFrameworks.CoreCLR, SkipReason = "https://github.com/aspnet/EntityFramework/issues/4841")]
@@ -25,7 +27,7 @@ namespace Microsoft.EntityFrameworkCore.Sqlite.Design.FunctionalTests.ReverseEng
         public const string TestProjectPath = "testout";
         public static readonly string TestProjectFullPath = Path.GetFullPath(TestProjectPath);
 
-        public SqliteE2ETestBase(ITestOutputHelper output)
+        protected SqliteE2ETestBase(ITestOutputHelper output)
             : base(output)
         {
         }
@@ -397,7 +399,7 @@ CREATE TABLE IF NOT EXISTS Comment (
         }
 
         protected override ICollection<BuildReference> References { get; } = new List<BuildReference>
-            {
+        {
 #if NETSTANDARDAPP1_5
                 BuildReference.ByName("System.Collections"),
                 BuildReference.ByName("System.Data.Common"),
@@ -406,23 +408,23 @@ CREATE TABLE IF NOT EXISTS Comment (
                 BuildReference.ByName("System.ComponentModel.Annotations"),
                 BuildReference.ByName("Microsoft.EntityFrameworkCore.Sqlite", depContextAssembly: typeof(SqliteE2ETestBase).GetTypeInfo().Assembly),
 #else
-                BuildReference.ByName("System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
-                BuildReference.ByName("System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
-                BuildReference.ByName("System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
-                BuildReference.ByName("System.ComponentModel.DataAnnotations, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35"),
-                BuildReference.ByName("Microsoft.EntityFrameworkCore.Sqlite"),
+            BuildReference.ByName("System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
+            BuildReference.ByName("System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
+            BuildReference.ByName("System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"),
+            BuildReference.ByName("System.ComponentModel.DataAnnotations, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35"),
+            BuildReference.ByName("Microsoft.EntityFrameworkCore.Sqlite"),
 #endif
-                BuildReference.ByName("Microsoft.EntityFrameworkCore"),
-                BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational"),
-                BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions"),
-                BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions")
-            };
+            BuildReference.ByName("Microsoft.EntityFrameworkCore"),
+            BuildReference.ByName("Microsoft.EntityFrameworkCore.Relational"),
+            BuildReference.ByName("Microsoft.Extensions.Caching.Abstractions"),
+            BuildReference.ByName("Microsoft.Extensions.Logging.Abstractions")
+        };
 
         protected abstract string DbSuffix { get; } // will be used to create different databases so tests running in parallel don't interfere
         protected abstract string ExpectedResultsParentDir { get; }
         protected abstract bool UseFluentApiOnly { get; }
 
-        protected override void ConfigureDesignTimeServices(IServiceCollection services)
+        protected override IServiceCollection ConfigureDesignTimeServices(IServiceCollection services)
             => new SqliteDesignTimeServices().ConfigureDesignTimeServices(services);
     }
 }

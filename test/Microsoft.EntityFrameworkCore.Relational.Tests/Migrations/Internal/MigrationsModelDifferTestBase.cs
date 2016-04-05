@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.FunctionalTests;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -34,6 +33,7 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Migrations.Internal
         }
 
         protected virtual ModelBuilder CreateModelBuilder() => TestHelpers.Instance.CreateConventionBuilder();
+
         protected virtual MigrationsModelDiffer CreateModelDiffer()
             => new MigrationsModelDiffer(
                 new ConcreteTypeMapper(),
@@ -44,16 +44,15 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Migrations.Internal
         {
             protected override string GetColumnType(IProperty property) => property.TestProvider().ColumnType;
 
-            public override RelationalTypeMapping FindMapping([NotNull] Type clrType)
+            public override RelationalTypeMapping FindMapping(Type clrType, bool unicode = true)
                 => clrType == typeof(string)
-                    ? new RelationalTypeMapping("varchar(4000)", typeof(string))
-                    : base.FindMapping(clrType);
+                    ? new RelationalTypeMapping("varchar(4000)", typeof(string), unicode: false)
+                    : base.FindMapping(clrType, unicode);
 
-            protected override RelationalTypeMapping FindCustomMapping([NotNull] IProperty property)
+            protected override RelationalTypeMapping FindCustomMapping(IProperty property, bool unicode = true)
                 => property.ClrType == typeof(string) && property.GetMaxLength().HasValue
-                    ? new RelationalTypeMapping("varchar(" + property.GetMaxLength() + ")", typeof(string))
-                    : base.FindCustomMapping(property);
-
+                    ? new RelationalTypeMapping((unicode ? "nvarchar(" : "varchar(") + property.GetMaxLength() + ")", typeof(string), unicode: false)
+                    : base.FindCustomMapping(property, unicode);
 
             private readonly IReadOnlyDictionary<Type, RelationalTypeMapping> _simpleMappings
                 = new Dictionary<Type, RelationalTypeMapping>
@@ -65,7 +64,7 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Migrations.Internal
             private readonly IReadOnlyDictionary<string, RelationalTypeMapping> _simpleNameMappings
                 = new Dictionary<string, RelationalTypeMapping>
                     {
-                        { "varchar", new RelationalTypeMapping("varchar", typeof(string)) },
+                        { "varchar", new RelationalTypeMapping("varchar", typeof(string), unicode: false) },
                         { "bigint", new RelationalTypeMapping("bigint", typeof(long)) }
                     };
 

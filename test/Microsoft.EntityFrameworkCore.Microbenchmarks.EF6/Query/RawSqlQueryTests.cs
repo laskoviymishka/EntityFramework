@@ -1,9 +1,9 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Linq;
 using Microsoft.EntityFrameworkCore.Microbenchmarks.Core;
 using Microsoft.EntityFrameworkCore.Microbenchmarks.EF6.Models.Orders;
-using System.Linq;
 using Xunit;
 
 namespace Microsoft.EntityFrameworkCore.Microbenchmarks.EF6.Query
@@ -120,11 +120,11 @@ namespace Microsoft.EntityFrameworkCore.Microbenchmarks.EF6.Query
         {
             public RawSqlQueryFixture()
                 : base("Perf_Query_RawSql_EF6", 1000, 1000, 2, 2)
-            { }
+            {
+            }
 
             protected override void OnDatabaseCreated(OrdersContext context)
-            {
-                context.Database.ExecuteSqlCommand(
+                => context.Database.ExecuteSqlCommand(
                     @"CREATE PROCEDURE dbo.SearchProducts
                         @minPrice decimal(18, 2),
                         @maxPrice decimal(18, 2)
@@ -132,7 +132,6 @@ namespace Microsoft.EntityFrameworkCore.Microbenchmarks.EF6.Query
                     BEGIN
                         SELECT * FROM dbo.Products WHERE CurrentPrice >= @minPrice AND CurrentPrice <= @maxPrice
                     END");
-            }
         }
     }
 }

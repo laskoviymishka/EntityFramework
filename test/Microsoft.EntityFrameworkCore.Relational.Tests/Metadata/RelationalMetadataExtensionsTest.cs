@@ -3,7 +3,6 @@
 
 using System;
 using Microsoft.EntityFrameworkCore.Internal;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Xunit;
@@ -27,7 +26,6 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Metadata
             property.Relational().ColumnName = "Eman";
 
             Assert.Equal("Name", property.Name);
-            Assert.Equal("Name", ((IProperty)property).Name);
             Assert.Equal("Eman", property.Relational().ColumnName);
 
             property.Relational().ColumnName = null;
@@ -49,7 +47,6 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Metadata
             entityType.Relational().TableName = "Customizer";
 
             Assert.Equal("Customer", entityType.DisplayName());
-            Assert.Equal("Customer", ((IEntityType)entityType).DisplayName());
             Assert.Equal("Customizer", entityType.Relational().TableName);
 
             entityType.Relational().TableName = null;
@@ -128,15 +125,36 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Metadata
                 .Property(e => e.Name)
                 .Metadata;
 
-            Assert.Null(property.Relational().GeneratedValueSql);
+            Assert.Null(property.Relational().DefaultValueSql);
 
-            property.Relational().GeneratedValueSql = "newsequentialid()";
+            property.Relational().DefaultValueSql = "newsequentialid()";
 
-            Assert.Equal("newsequentialid()", property.Relational().GeneratedValueSql);
+            Assert.Equal("newsequentialid()", property.Relational().DefaultValueSql);
 
-            property.Relational().GeneratedValueSql = null;
+            property.Relational().DefaultValueSql = null;
 
-            Assert.Null(property.Relational().GeneratedValueSql);
+            Assert.Null(property.Relational().DefaultValueSql);
+        }
+
+        [Fact]
+        public void Can_get_and_set_column_computed_expression()
+        {
+            var modelBuilder = new ModelBuilder(new ConventionSet());
+
+            var property = modelBuilder
+                .Entity<Customer>()
+                .Property(e => e.Name)
+                .Metadata;
+
+            Assert.Null(property.Relational().ComputedValueSql);
+
+            property.Relational().ComputedValueSql = "newsequentialid()";
+
+            Assert.Equal("newsequentialid()", property.Relational().ComputedValueSql);
+
+            property.Relational().ComputedValueSql = null;
+
+            Assert.Null(property.Relational().ComputedValueSql);
         }
 
         [Fact]

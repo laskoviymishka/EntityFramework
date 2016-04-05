@@ -1,10 +1,8 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Xunit;
@@ -55,12 +53,6 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
                 Assert.Same(principal, dependent.Category);
                 Assert.Equal(new[] { dependent }.ToList(), principal.Products);
                 Assert.Equal(entityState, context.Entry(principal).State);
-
-                if (entityState == EntityState.Unchanged)
-                {
-                    // Dependent FK gets modified when principal is attached 
-                    entityState = EntityState.Modified;
-                }
                 Assert.Equal(entityState, context.Entry(dependent).State);
             }
         }
@@ -151,12 +143,6 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
                 Assert.Same(principal, dependent.Category);
                 Assert.Equal(new[] { dependent }.ToList(), principal.Products);
                 Assert.Equal(entityState, context.Entry(principal).State);
-
-                if (entityState == EntityState.Unchanged)
-                {
-                    // Dependent FK gets modified when principal is attached 
-                    entityState = EntityState.Modified;
-                }
                 Assert.Equal(entityState, context.Entry(dependent).State);
             }
         }
@@ -179,12 +165,6 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
                 Assert.Same(principal, dependent.Category);
                 Assert.Equal(new[] { dependent }.ToList(), principal.Products);
                 Assert.Equal(entityState, context.Entry(principal).State);
-
-                if (entityState == EntityState.Unchanged)
-                {
-                    // Dependent FK gets modified when principal is attached 
-                    entityState = EntityState.Modified;
-                }
                 Assert.Equal(entityState, context.Entry(dependent).State);
             }
         }
@@ -429,12 +409,6 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
                 Assert.Equal(principal.Id, dependent.CategoryId);
                 Assert.Equal(new[] { dependent }.ToList(), principal.Products);
                 Assert.Equal(entityState, context.Entry(principal).State);
-
-                if (entityState == EntityState.Unchanged)
-                {
-                    // Dependent FK gets modified when principal is attached 
-                    entityState = EntityState.Modified;
-                }
                 Assert.Equal(entityState, context.Entry(dependent).State);
             }
         }
@@ -542,12 +516,6 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
                 Assert.Equal(principal.Id, dependent.CategoryId);
                 Assert.Same(principal, dependent.Category);
                 Assert.Equal(entityState, context.Entry(principal).State);
-
-                if (entityState == EntityState.Unchanged)
-                {
-                    // Dependent FK gets modified when principal is attached 
-                    entityState = EntityState.Modified;
-                }
                 Assert.Equal(entityState, context.Entry(dependent).State);
             }
         }
@@ -698,12 +666,6 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
                 Assert.Same(principal, dependent.Parent);
                 Assert.Same(dependent, principal.Child);
                 Assert.Equal(entityState, context.Entry(principal).State);
-
-                if (entityState == EntityState.Unchanged)
-                {
-                    // Dependent FK gets modified when principal is attached 
-                    entityState = EntityState.Modified;
-                }
                 Assert.Equal(entityState, context.Entry(dependent).State);
             }
         }
@@ -794,12 +756,6 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
                 Assert.Same(principal, dependent.Parent);
                 Assert.Same(dependent, principal.Child);
                 Assert.Equal(entityState, context.Entry(principal).State);
-
-                if (entityState == EntityState.Unchanged)
-                {
-                    // Dependent FK gets modified when principal is attached 
-                    entityState = EntityState.Modified;
-                }
                 Assert.Equal(entityState, context.Entry(dependent).State);
             }
         }
@@ -822,12 +778,6 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
                 Assert.Same(principal, dependent.Parent);
                 Assert.Same(dependent, principal.Child);
                 Assert.Equal(entityState, context.Entry(principal).State);
-
-                if (entityState == EntityState.Unchanged)
-                {
-                    // Dependent FK gets modified when principal is attached 
-                    entityState = EntityState.Modified;
-                }
                 Assert.Equal(entityState, context.Entry(dependent).State);
             }
         }
@@ -1072,12 +1022,6 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
                 Assert.Equal(principal.Id, dependent.ParentId);
                 Assert.Same(dependent, principal.Child);
                 Assert.Equal(entityState, context.Entry(principal).State);
-
-                if (entityState == EntityState.Unchanged)
-                {
-                    // Dependent FK gets modified when principal is attached 
-                    entityState = EntityState.Modified;
-                }
                 Assert.Equal(entityState, context.Entry(dependent).State);
             }
         }
@@ -1185,12 +1129,6 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
                 Assert.Equal(principal.Id, dependent.ParentId);
                 Assert.Same(principal, dependent.Parent);
                 Assert.Equal(entityState, context.Entry(principal).State);
-
-                if (entityState == EntityState.Unchanged)
-                {
-                    // Dependent FK gets modified when principal is attached 
-                    entityState = EntityState.Modified;
-                }
                 Assert.Equal(entityState, context.Entry(dependent).State);
             }
         }

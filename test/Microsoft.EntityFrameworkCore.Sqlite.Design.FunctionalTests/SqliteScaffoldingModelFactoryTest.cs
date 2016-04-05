@@ -25,12 +25,11 @@ namespace Microsoft.EntityFrameworkCore.Sqlite.Design.FunctionalTests
         public SqliteScaffoldingModelFactoryTest()
         {
             _testStore = SqliteTestStore.CreateScratch();
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddLogging();
-            new SqliteDesignTimeServices().ConfigureDesignTimeServices(serviceCollection);
-            serviceCollection.AddSingleton<IFileService, FileSystemFileService>();
 
-            var serviceProvider = serviceCollection
+            var serviceProvider = new SqliteDesignTimeServices()
+                .ConfigureDesignTimeServices(
+                    new ServiceCollection().AddLogging())
+                .AddSingleton<IFileService, FileSystemFileService>()
                 .BuildServiceProvider();
 
             _logger = new TestLogger();
@@ -71,11 +70,11 @@ namespace Microsoft.EntityFrameworkCore.Sqlite.Design.FunctionalTests
 
             Assert.NotNull(entityType);
 
-            Assert.Equal("\"dev\"", entityType.FindProperty("occupation").Sqlite().GeneratedValueSql);
-            Assert.Equal("2", entityType.FindProperty("pay").Sqlite().GeneratedValueSql);
-            Assert.Equal("current_timestamp", entityType.FindProperty("hiredate").Sqlite().GeneratedValueSql);
-            Assert.Equal("100 + 19.4", entityType.FindProperty("iq").Sqlite().GeneratedValueSql);
-            Assert.Null(entityType.FindProperty("name").Sqlite().GeneratedValueSql);
+            Assert.Equal("\"dev\"", entityType.FindProperty("occupation").Sqlite().DefaultValueSql);
+            Assert.Equal("2", entityType.FindProperty("pay").Sqlite().DefaultValueSql);
+            Assert.Equal("current_timestamp", entityType.FindProperty("hiredate").Sqlite().DefaultValueSql);
+            Assert.Equal("100 + 19.4", entityType.FindProperty("iq").Sqlite().DefaultValueSql);
+            Assert.Null(entityType.FindProperty("name").Sqlite().DefaultValueSql);
         }
 
         [Fact]
