@@ -16,366 +16,335 @@ using Microsoft.Extensions.Logging;
 
 namespace Microsoft.EntityFrameworkCore.Migrations.Internal
 {
-    public class Migrator : IMigrator
-    {
-        private readonly IMigrationsAssembly _migrationsAssembly;
-        private readonly IHistoryRepository _historyRepository;
-        private readonly IRelationalDatabaseCreator _databaseCreator;
-        private readonly IMigrationsSqlGenerator _migrationsSqlGenerator;
-        private readonly IRawSqlCommandBuilder _rawSqlCommandBuilder;
-        private readonly IRelationalConnection _connection;
-        private readonly ISqlGenerationHelper _sqlGenerationHelper;
-        private readonly ILogger _logger;
-        private readonly string _activeProvider;
+	public class Migrator : IMigrator
+	{
+		private readonly IMigrationsAssembly _migrationsAssembly;
+		private readonly IHistoryRepository _historyRepository;
+		private readonly IRelationalDatabaseCreator _databaseCreator;
+		private readonly IMigrationsSqlGenerator _migrationsSqlGenerator;
+		private readonly IRawSqlCommandBuilder _rawSqlCommandBuilder;
+		private readonly IRelationalConnection _connection;
+		private readonly ISqlGenerationHelper _sqlGenerationHelper;
+		private readonly ILogger _logger;
+		private readonly string _activeProvider;
 
-        public Migrator(
-            [NotNull] IMigrationsAssembly migrationsAssembly,
-            [NotNull] IHistoryRepository historyRepository,
-            [NotNull] IDatabaseCreator databaseCreator,
-            [NotNull] IMigrationsSqlGenerator migrationsSqlGenerator,
-            [NotNull] IRawSqlCommandBuilder rawSqlCommandBuilder,
-            [NotNull] IRelationalConnection connection,
-            [NotNull] ISqlGenerationHelper sqlGenerationHelper,
-            [NotNull] ILogger<Migrator> logger,
-            [NotNull] IDatabaseProviderServices providerServices)
-        {
-            Check.NotNull(migrationsAssembly, nameof(migrationsAssembly));
-            Check.NotNull(historyRepository, nameof(historyRepository));
-            Check.NotNull(databaseCreator, nameof(databaseCreator));
-            Check.NotNull(migrationsSqlGenerator, nameof(migrationsSqlGenerator));
-            Check.NotNull(rawSqlCommandBuilder, nameof(rawSqlCommandBuilder));
-            Check.NotNull(connection, nameof(connection));
-            Check.NotNull(sqlGenerationHelper, nameof(sqlGenerationHelper));
-            Check.NotNull(logger, nameof(logger));
-            Check.NotNull(providerServices, nameof(providerServices));
+		public Migrator(
+			[NotNull] IMigrationsAssembly migrationsAssembly,
+			[NotNull] IHistoryRepository historyRepository,
+			[NotNull] IDatabaseCreator databaseCreator,
+			[NotNull] IMigrationsSqlGenerator migrationsSqlGenerator,
+			[NotNull] IRawSqlCommandBuilder rawSqlCommandBuilder,
+			[NotNull] IRelationalConnection connection,
+			[NotNull] ISqlGenerationHelper sqlGenerationHelper,
+			[NotNull] ILogger<Migrator> logger,
+			[NotNull] IDatabaseProviderServices providerServices)
+		{
+			Check.NotNull(migrationsAssembly, nameof(migrationsAssembly));
+			Check.NotNull(historyRepository, nameof(historyRepository));
+			Check.NotNull(databaseCreator, nameof(databaseCreator));
+			Check.NotNull(migrationsSqlGenerator, nameof(migrationsSqlGenerator));
+			Check.NotNull(rawSqlCommandBuilder, nameof(rawSqlCommandBuilder));
+			Check.NotNull(connection, nameof(connection));
+			Check.NotNull(sqlGenerationHelper, nameof(sqlGenerationHelper));
+			Check.NotNull(logger, nameof(logger));
+			Check.NotNull(providerServices, nameof(providerServices));
 
-            _migrationsAssembly = migrationsAssembly;
-            _historyRepository = historyRepository;
-            _databaseCreator = (IRelationalDatabaseCreator)databaseCreator;
-            _migrationsSqlGenerator = migrationsSqlGenerator;
-            _rawSqlCommandBuilder = rawSqlCommandBuilder;
-            _connection = connection;
-            _sqlGenerationHelper = sqlGenerationHelper;
-            _logger = logger;
-            _activeProvider = providerServices.InvariantName;
-        }
+			_migrationsAssembly = migrationsAssembly;
+			_historyRepository = historyRepository;
+			_databaseCreator = (IRelationalDatabaseCreator)databaseCreator;
+			_migrationsSqlGenerator = migrationsSqlGenerator;
+			_rawSqlCommandBuilder = rawSqlCommandBuilder;
+			_connection = connection;
+			_sqlGenerationHelper = sqlGenerationHelper;
+			_logger = logger;
+			_activeProvider = providerServices.InvariantName;
+		}
 
-        public virtual void Migrate(string targetMigration = null)
-        {
-            var connection = _connection.DbConnection;
-            _logger.LogDebug(RelationalStrings.UsingConnection(connection.Database, connection.DataSource));
+		public virtual void Migrate(string targetMigration = null)
+		{
+			var connection = _connection.DbConnection;
+			_logger.LogDebug(RelationalStrings.UsingConnection(connection.Database, connection.DataSource));
 
-            if (!_historyRepository.Exists())
-            {
-                if (!_databaseCreator.Exists())
-                {
-                    _databaseCreator.Create();
-                }
+			if (!_historyRepository.Exists())
+			{
+				if (!_databaseCreator.Exists())
+				{
+					_databaseCreator.Create();
+				}
 
-                var command = _rawSqlCommandBuilder.Build(_historyRepository.GetCreateScript());
+				var command = _rawSqlCommandBuilder.Build(_historyRepository.GetCreateScript());
 
-                Execute(new[] { command });
-            }
+				Execute(new[] { command });
+			}
 
-            var commands = GetMigrationCommands(_historyRepository.GetAppliedMigrations(), targetMigration);
-            foreach (var command in commands)
-            {
-                Execute(command());
-            }
-        }
+			var commands = GetMigrationCommands(_historyRepository.GetAppliedMigrations(), targetMigration);
+			foreach (var command in commands)
+			{
+				Execute(command());
+			}
+		}
 
-        public virtual async Task MigrateAsync(
-            string targetMigration = null,
-            CancellationToken cancellationToken = default(CancellationToken))
-        {
-            var connection = _connection.DbConnection;
-            _logger.LogDebug(RelationalStrings.UsingConnection(connection.Database, connection.DataSource));
+		public virtual async Task MigrateAsync(
+			string targetMigration = null,
+			CancellationToken cancellationToken = default(CancellationToken))
+		{
+			var connection = _connection.DbConnection;
+			_logger.LogDebug(RelationalStrings.UsingConnection(connection.Database, connection.DataSource));
 
-            if (!await _historyRepository.ExistsAsync(cancellationToken))
-            {
-                if (!await _databaseCreator.ExistsAsync(cancellationToken))
-                {
-                    await _databaseCreator.CreateAsync(cancellationToken);
-                }
+			if (!await _historyRepository.ExistsAsync(cancellationToken))
+			{
+				if (!await _databaseCreator.ExistsAsync(cancellationToken))
+				{
+					await _databaseCreator.CreateAsync(cancellationToken);
+				}
 
-                var command = _rawSqlCommandBuilder.Build(_historyRepository.GetCreateScript());
+				var command = _rawSqlCommandBuilder.Build(_historyRepository.GetCreateScript());
 
-                await ExecuteAsync(
-                    new[] { command },
-                    cancellationToken);
-            }
+				await ExecuteAsync(
+					new[] { command },
+					cancellationToken);
+			}
 
-            var commands = GetMigrationCommands(
-                await _historyRepository.GetAppliedMigrationsAsync(cancellationToken),
-                targetMigration);
-            foreach (var command in commands)
-            {
-                await ExecuteAsync(command(), cancellationToken);
-            }
-        }
+			var commands = GetMigrationCommands(
+				await _historyRepository.GetAppliedMigrationsAsync(cancellationToken),
+				targetMigration);
+			foreach (var command in commands)
+			{
+				await ExecuteAsync(command(), cancellationToken);
+			}
+		}
 
-        private IEnumerable<Func<IReadOnlyList<IRelationalCommand>>> GetMigrationCommands(
-            IReadOnlyList<HistoryRow> appliedMigrationEntries,
-            string targetMigration = null)
-        {
-            IReadOnlyList<Migration> migrationsToApply, migrationsToRevert;
-            PopulateMigrations(
-                appliedMigrationEntries.Select(t => t.MigrationId),
-                targetMigration,
-                out migrationsToApply,
-                out migrationsToRevert);
+		private IEnumerable<Func<IReadOnlyList<IRelationalCommand>>> GetMigrationCommands(
+			IReadOnlyList<HistoryRow> appliedMigrationEntries,
+			string targetMigration = null)
+		{
+			IReadOnlyList<Migration> migrationsToApply, migrationsToRevert;
+			PopulateMigrations(
+				appliedMigrationEntries.Select(t => t.MigrationId),
+				targetMigration,
+				out migrationsToApply,
+				out migrationsToRevert);
 
-            for (var i = 0; i < migrationsToRevert.Count; i++)
-            {
-                var migration = migrationsToRevert[i];
+			for (var i = 0; i < migrationsToRevert.Count; i++)
+			{
+				var migration = migrationsToRevert[i];
 
-                yield return () =>
-                {
-                    _logger.LogInformation(RelationalStrings.RevertingMigration(migration.GetId()));
+				yield return () =>
+				{
+					_logger.LogInformation(RelationalStrings.RevertingMigration(migration.GetId()));
 
-                    return GenerateDownSql(
-                        migration,
-                        i != migrationsToRevert.Count - 1
-                            ? migrationsToRevert[i + 1]
-                            : null);
-                };
-            }
+					return GenerateDownSql(
+						migration,
+						i != migrationsToRevert.Count - 1
+							? migrationsToRevert[i + 1]
+							: null);
+				};
+			}
 
-            foreach (var migration in migrationsToApply)
-            {
-                yield return () =>
-                {
-                    _logger.LogInformation(RelationalStrings.ApplyingMigration(migration.GetId()));
+			for (var i = 0; i < migrationsToApply.Count; i++)
+			{
+				var migration = migrationsToApply[i];
 
-                    return GenerateUpSql(migration);
-                };
-            }
-        }
+				yield return () =>
+				{
+					_logger.LogInformation(RelationalStrings.ApplyingMigration(migration.GetId()));
 
-        private void PopulateMigrations(
-            IEnumerable<string> appliedMigrationEntries,
-            string targetMigration,
-            out IReadOnlyList<Migration> migrationsToApply,
-            out IReadOnlyList<Migration> migrationsToRevert)
-        {
-            var appliedMigrations = new Dictionary<string, TypeInfo>();
-            var unappliedMigrations = new Dictionary<string, TypeInfo>();
-            foreach (var migration in _migrationsAssembly.Migrations)
-            {
-                if (appliedMigrationEntries.Any(
-                    e => string.Equals(e, migration.Key, StringComparison.OrdinalIgnoreCase)))
-                {
-                    appliedMigrations.Add(migration.Key, migration.Value);
-                }
-                else
-                {
-                    unappliedMigrations.Add(migration.Key, migration.Value);
-                }
-            }
-            if (string.IsNullOrEmpty(targetMigration))
-            {
-                migrationsToApply = unappliedMigrations
-                    .Select(p => _migrationsAssembly.CreateMigration(p.Value, _activeProvider))
-                    .ToList();
-                migrationsToRevert = new Migration[0];
-            }
-            else if (targetMigration == Migration.InitialDatabase)
-            {
-                migrationsToApply = new Migration[0];
-                migrationsToRevert = appliedMigrations
-                    .OrderByDescending(m => m.Key)
-                    .Select(p => _migrationsAssembly.CreateMigration(p.Value, _activeProvider))
-                    .ToList();
-            }
-            else
-            {
-                targetMigration = _migrationsAssembly.GetMigrationId(targetMigration);
-                migrationsToApply = unappliedMigrations
-                    .Where(m => string.Compare(m.Key, targetMigration, StringComparison.OrdinalIgnoreCase) <= 0)
-                    .Select(p => _migrationsAssembly.CreateMigration(p.Value, _activeProvider))
-                    .ToList();
-                migrationsToRevert = appliedMigrations
-                    .Where(m => string.Compare(m.Key, targetMigration, StringComparison.OrdinalIgnoreCase) > 0)
-                    .OrderByDescending(m => m.Key)
-                    .Select(p => _migrationsAssembly.CreateMigration(p.Value, _activeProvider))
-                    .ToList();
-            }
+					return GenerateUpSql(
+						migration,
+						i != migrationsToApply.Count - 1
+							? migrationsToApply[i + 1]
+							: null);
+				};
+			}
+		}
 
-            for (var i = 0; i < migrationsToRevert.Count; i++)
-            {
-                var migration = migrationsToRevert[i];
+		private void PopulateMigrations(
+			IEnumerable<string> appliedMigrationEntries,
+			string targetMigration,
+			out IReadOnlyList<Migration> migrationsToApply,
+			out IReadOnlyList<Migration> migrationsToRevert)
+		{
+			var appliedMigrations = new Dictionary<string, TypeInfo>();
+			var unappliedMigrations = new Dictionary<string, TypeInfo>();
+			foreach (var migration in _migrationsAssembly.Migrations)
+			{
+				if (appliedMigrationEntries.Any(
+					e => string.Equals(e, migration.Key, StringComparison.OrdinalIgnoreCase)))
+				{
+					appliedMigrations.Add(migration.Key, migration.Value);
+				}
+				else
+				{
+					unappliedMigrations.Add(migration.Key, migration.Value);
+				}
+			}
+			if (string.IsNullOrEmpty(targetMigration))
+			{
+				migrationsToApply = unappliedMigrations
+					.Select(p => _migrationsAssembly.CreateMigration(p.Value, _activeProvider))
+					.ToList();
+				migrationsToRevert = new Migration[0];
+			}
+			else if (targetMigration == Migration.InitialDatabase)
+			{
+				migrationsToApply = new Migration[0];
+				migrationsToRevert = appliedMigrations
+					.OrderByDescending(m => m.Key)
+					.Select(p => _migrationsAssembly.CreateMigration(p.Value, _activeProvider))
+					.ToList();
+			}
+			else
+			{
+				targetMigration = _migrationsAssembly.GetMigrationId(targetMigration);
+				migrationsToApply = unappliedMigrations
+					.Where(m => string.Compare(m.Key, targetMigration, StringComparison.OrdinalIgnoreCase) <= 0)
+					.Select(p => _migrationsAssembly.CreateMigration(p.Value, _activeProvider))
+					.ToList();
+				migrationsToRevert = appliedMigrations
+					.Where(m => string.Compare(m.Key, targetMigration, StringComparison.OrdinalIgnoreCase) > 0)
+					.OrderByDescending(m => m.Key)
+					.Select(p => _migrationsAssembly.CreateMigration(p.Value, _activeProvider))
+					.ToList();
+			}
+		}
 
-                yield return () =>
-                    {
-                        _logger.LogInformation(RelationalStrings.RevertingMigration(migration.GetId()));
+		public virtual string GenerateScript(
+			string fromMigration = null,
+			string toMigration = null,
+			bool idempotent = false)
+		{
+			var skippedMigrations = _migrationsAssembly.Migrations
+				.Where(t => string.Compare(t.Key, fromMigration, StringComparison.OrdinalIgnoreCase) < 0)
+				.Select(t => t.Key);
 
-                        return GenerateDownSql(
-                            migration,
-                            i != migrationsToRevert.Count - 1
-                                ? migrationsToRevert[i + 1]
-                                : null);
-                    };
-            }
+			IReadOnlyList<Migration> migrationsToApply, migrationsToRevert;
+			PopulateMigrations(
+				skippedMigrations,
+				toMigration,
+				out migrationsToApply,
+				out migrationsToRevert);
 
-            for (var i = 0; i < migrationsToApply.Count; i++)
-            {
-                var migration = migrationsToApply[i];
+			var builder = new IndentedStringBuilder();
 
-                yield return () =>
-                {
-                    _logger.LogInformation(RelationalStrings.ApplyingMigration(migration.GetId()));
+			if (fromMigration == Migration.InitialDatabase || string.IsNullOrEmpty(fromMigration))
+			{
+				builder.AppendLine(_historyRepository.GetCreateIfNotExistsScript());
+				builder.Append(_sqlGenerationHelper.BatchTerminator);
+			}
 
-                    return GenerateUpSql(
-                        migration,
-                        i != migrationsToApply.Count - 1
-                            ? migrationsToApply[i + 1]
-                            : null);
-                };
-            }
-        }
+			for (var i = 0; i < migrationsToRevert.Count; i++)
+			{
+				var migration = migrationsToRevert[i];
+				var previousMigration = i != migrationsToRevert.Count - 1
+					? migrationsToRevert[i + 1]
+					: null;
 
-        public virtual string GenerateScript(
-            string fromMigration = null,
-            string toMigration = null,
-            bool idempotent = false)
-        {
-            var firstMigrationId = _migrationsAssembly.Migrations.Select(t => t.Key).FirstOrDefault();
-            var skippedMigrations = _migrationsAssembly.Migrations
-                .Where(t => string.Compare(t.Key, fromMigration, StringComparison.OrdinalIgnoreCase) < 0)
-                .Select(t => t.Key);
+				_logger.LogDebug(RelationalStrings.GeneratingDown(migration.GetId()));
 
-            IReadOnlyList<Migration> migrationsToApply, migrationsToRevert;
-            PopulateMigrations(
-                skippedMigrations,
-                toMigration,
-                out migrationsToApply,
-                out migrationsToRevert);
+				foreach (var command in GenerateDownSql(migration, previousMigration))
+				{
+					if (idempotent)
+					{
+						builder.AppendLine(_historyRepository.GetBeginIfExistsScript(migration.GetId()));
+						using (builder.Indent())
+						{
+							builder.AppendLines(command.CommandText);
+						}
+						builder.AppendLine(_historyRepository.GetEndIfScript());
+					}
+					else
+					{
+						builder.AppendLine(command.CommandText);
+					}
 
-            var builder = new IndentedStringBuilder();
+					builder.Append(_sqlGenerationHelper.BatchTerminator);
+				}
+			}
 
-            if (fromMigration == Migration.InitialDatabase || string.IsNullOrEmpty(fromMigration))
-            {
-                var migrationsToApply = migrations.Where(
-                    m => (string.Compare(m.Key, fromMigration, StringComparison.OrdinalIgnoreCase) > 0)
-                         && (string.Compare(m.Key, toMigration, StringComparison.OrdinalIgnoreCase) <= 0))
-                    .Select(m => _migrationsAssembly.CreateMigration(m.Value, _activeProvider))
-                    .ToList();
+			for (var i = 0; i < migrationsToApply.Count; i++)
+			{
+				var migration = migrationsToApply[i];
+				var previousMigration = i != migrationsToApply.Count - 1
+					? migrationsToApply[i + 1]
+					: null;
 
-                for (var i = 0; i < migrationsToApply.Count; i++)
-                {
-                    var migration = migrationsToApply[i];
-                    var previousMigration = i != migrationsToApply.Count - 1
-                        ? migrationsToApply[i + 1]
-                        : null;
+				_logger.LogDebug(RelationalStrings.GeneratingUp(migration.GetId()));
 
-                    if ((i == 0) && (migration.GetId() == migrations.Keys.First()))
-                    {
-                        builder.AppendLine(_historyRepository.GetCreateIfNotExistsScript());
-                        builder.Append(_sqlGenerationHelper.BatchTerminator);
-                    }
+				foreach (var command in GenerateUpSql(migration, previousMigration))
+				{
+					if (idempotent)
+					{
+						builder.AppendLine(_historyRepository.GetBeginIfNotExistsScript(migration.GetId()));
+						using (builder.Indent())
+						{
+							builder.AppendLines(command.CommandText);
+						}
+						builder.AppendLine(_historyRepository.GetEndIfScript());
+					}
+					else
+					{
+						builder.AppendLine(command.CommandText);
+					}
 
-                    _logger.LogDebug(RelationalStrings.GeneratingUp(migration.GetId()));
+					builder.Append(_sqlGenerationHelper.BatchTerminator);
+				}
+			}
 
-                    foreach (var command in GenerateUpSql(migration, previousMigration))
-                    {
-                        if (idempotent)
-                        {
-                            builder.AppendLine(_historyRepository.GetBeginIfNotExistsScript(migration.GetId()));
-                            using (builder.Indent())
-                            {
-                                builder.AppendLines(command.CommandText);
-                            }
-                            builder.AppendLine(_historyRepository.GetEndIfScript());
-                        }
-                        else
-                        {
-                            builder.AppendLine(command.CommandText);
-                        }
+			return builder.ToString();
+		}
 
-                    builder.Append(_sqlGenerationHelper.BatchTerminator);
-                }
-            }
+		protected virtual IReadOnlyList<IRelationalCommand> GenerateUpSql(
+			[NotNull] Migration migration,
+			[CanBeNull] Migration previousMigration)
+		{
+			Check.NotNull(migration, nameof(migration));
 
-            foreach (var migration in migrationsToApply)
-            {
-                _logger.LogDebug(RelationalStrings.GeneratingUp(migration.GetId()));
+			var commands = new List<IRelationalCommand>();
+			commands.AddRange(_migrationsSqlGenerator.Generate(migration.UpOperations, migration.TargetModel));
+			commands.Add(
+				_rawSqlCommandBuilder.Build(
+					_historyRepository.GetInsertScript(
+						new HistoryRow(
+							migration.GetId(),
+							ProductInfo.GetVersion(),
+							GenerateScript(migration.GetId(), previousMigration?.GetId())))));
 
-                foreach (var command in GenerateUpSql(migration))
-                {
-                    if (idempotent)
-                    {
-                        builder.AppendLine(_historyRepository.GetBeginIfNotExistsScript(migration.GetId()));
-                        using (builder.Indent())
-                        {
-                            builder.AppendLines(command.CommandText);
-                        }
-                        builder.AppendLine(_historyRepository.GetEndIfScript());
-                    }
-                    else
-                    {
-                        builder.AppendLine(command.CommandText);
-                    }
+			return commands;
+		}
 
-                    builder.Append(_sqlGenerationHelper.BatchTerminator);
-                }
-            }
+		protected virtual IReadOnlyList<IRelationalCommand> GenerateDownSql(
+			[NotNull] Migration migration,
+			[CanBeNull] Migration previousMigration)
+		{
+			Check.NotNull(migration, nameof(migration));
 
-            return builder.ToString();
-        }
+			var commands = new List<IRelationalCommand>();
+			commands.AddRange(_migrationsSqlGenerator.Generate(migration.DownOperations, previousMigration?.TargetModel));
+			commands.Add(
+				_rawSqlCommandBuilder.Build(_historyRepository.GetDeleteScript(migration.GetId())));
 
-        protected virtual IReadOnlyList<IRelationalCommand> GenerateUpSql(
-            [NotNull] Migration migration,
-            [CanBeNull] Migration previousMigration)
-        {
-            Check.NotNull(migration, nameof(migration));
+			return commands;
+		}
 
-            var commands = new List<IRelationalCommand>();
-            commands.AddRange(_migrationsSqlGenerator.Generate(migration.UpOperations, migration.TargetModel));
-            commands.Add(
-                _rawSqlCommandBuilder.Build(
-                    _historyRepository.GetInsertScript(
-                        new HistoryRow(
-                            migration.GetId(),
-                            ProductInfo.GetVersion(),
-                            GenerateScript(migration.GetId(),
-                            previousMigration?.GetId())))));
+		private void Execute(IEnumerable<IRelationalCommand> relationalCommands)
+		{
+			using (var transaction = _connection.BeginTransaction())
+			{
+				relationalCommands.ExecuteNonQuery(_connection);
 
-            return commands;
-        }
+				transaction.Commit();
+			}
+		}
 
-        protected virtual IReadOnlyList<IRelationalCommand> GenerateDownSql(
-            [NotNull] Migration migration,
-            [CanBeNull] Migration previousMigration)
-        {
-            Check.NotNull(migration, nameof(migration));
-
-            var commands = new List<IRelationalCommand>();
-            commands.AddRange(_migrationsSqlGenerator.Generate(migration.DownOperations, previousMigration?.TargetModel));
-            commands.Add(
-                _rawSqlCommandBuilder.Build(_historyRepository.GetDeleteScript(migration.GetId())));
-
-            return commands;
-        }
-
-        private void Execute(IEnumerable<IRelationalCommand> relationalCommands)
-        {
-            using (var transaction = _connection.BeginTransaction())
-            {
-                relationalCommands.ExecuteNonQuery(_connection);
-
-                transaction.Commit();
-            }
-        }
-
-        private async Task ExecuteAsync(
-            IEnumerable<IRelationalCommand> relationalCommands,
-            CancellationToken cancellationToken = default(CancellationToken))
-        {
-            using (var transaction = await _connection.BeginTransactionAsync(cancellationToken))
-            {
-                await relationalCommands.ExecuteNonQueryAsync(_connection, cancellationToken);
-                transaction.Commit();
-            }
-        }
-    }
+		private async Task ExecuteAsync(
+			IEnumerable<IRelationalCommand> relationalCommands,
+			CancellationToken cancellationToken = default(CancellationToken))
+		{
+			using (var transaction = await _connection.BeginTransactionAsync(cancellationToken))
+			{
+				await relationalCommands.ExecuteNonQueryAsync(_connection, cancellationToken);
+				transaction.Commit();
+			}
+		}
+	}
 }

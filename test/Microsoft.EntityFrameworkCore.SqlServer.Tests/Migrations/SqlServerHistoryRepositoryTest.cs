@@ -29,6 +29,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests.Migrations
             Assert.Equal(
                 "CREATE TABLE [__EFMigrationsHistory] (" + EOL +
                 "    [MigrationId] nvarchar(150) NOT NULL," + EOL +
+                "    [DownScript] nvarchar(max) NOT NULL," + EOL +
                 "    [ProductVersion] nvarchar(32) NOT NULL," + EOL +
                 "    CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])" + EOL +
                 ");" + EOL,
@@ -44,6 +45,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests.Migrations
                 "IF SCHEMA_ID(N'my') IS NULL EXEC(N'CREATE SCHEMA [my]');" + EOL +
                 "CREATE TABLE [my].[__EFMigrationsHistory] (" + EOL +
                 "    [MigrationId] nvarchar(150) NOT NULL," + EOL +
+                "    [DownScript] nvarchar(max) NOT NULL," + EOL +
                 "    [ProductVersion] nvarchar(32) NOT NULL," + EOL +
                 "    CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])" + EOL +
                 ");" + EOL,
@@ -60,6 +62,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests.Migrations
                 "BEGIN" + EOL +
                 "    CREATE TABLE [__EFMigrationsHistory] (" + EOL +
                 "        [MigrationId] nvarchar(150) NOT NULL," + EOL +
+                "        [DownScript] nvarchar(max) NOT NULL," + EOL +
                 "        [ProductVersion] nvarchar(32) NOT NULL," + EOL +
                 "        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])" + EOL +
                 "    );" + EOL +
@@ -78,6 +81,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests.Migrations
                 "    IF SCHEMA_ID(N'my') IS NULL EXEC(N'CREATE SCHEMA [my]');" + EOL +
                 "    CREATE TABLE [my].[__EFMigrationsHistory] (" + EOL +
                 "        [MigrationId] nvarchar(150) NOT NULL," + EOL +
+                "        [DownScript] nvarchar(max) NOT NULL," + EOL +
                 "        [ProductVersion] nvarchar(32) NOT NULL," + EOL +
                 "        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])" + EOL +
                 "    );" + EOL +

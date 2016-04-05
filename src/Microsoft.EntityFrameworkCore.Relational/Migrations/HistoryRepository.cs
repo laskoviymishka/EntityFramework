@@ -122,6 +122,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             history.HasKey(h => h.MigrationId);
             history.Property(h => h.MigrationId).HasMaxLength(150);
             history.Property(h => h.ProductVersion).HasMaxLength(32).IsRequired();
+            history.Property(h => h.DownScript).IsRequired();
         }
 
         public virtual IReadOnlyList<HistoryRow> GetAppliedMigrations()
@@ -191,7 +192,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 .Append(", ")
                 .Append(SqlGenerationHelper.DelimitIdentifier(ProductVersionColumnName))
                 .Append(", ")
-                .AppendLine(SqlGenerationHelper.DelimitIdentifier(DownScriptColumnName))
+                .Append(SqlGenerationHelper.DelimitIdentifier(DownScriptColumnName))
                 .AppendLine(")")
                 .Append("VALUES ('")
                 .Append(SqlGenerationHelper.EscapeLiteral(row.MigrationId))

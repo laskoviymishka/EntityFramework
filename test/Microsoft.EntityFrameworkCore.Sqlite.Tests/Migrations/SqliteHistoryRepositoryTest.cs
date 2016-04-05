@@ -30,6 +30,7 @@ namespace Microsoft.EntityFrameworkCore.Sqlite.Tests.Migrations
             Assert.Equal(
                 "CREATE TABLE \"__EFMigrationsHistory\" (" + EOL +
                 "    \"MigrationId\" TEXT NOT NULL CONSTRAINT \"PK___EFMigrationsHistory\" PRIMARY KEY," + EOL +
+                "    \"DownScript\" TEXT NOT NULL," + EOL +
                 "    \"ProductVersion\" TEXT NOT NULL" + EOL +
                 ");" + EOL,
                 sql);
@@ -43,6 +44,7 @@ namespace Microsoft.EntityFrameworkCore.Sqlite.Tests.Migrations
             Assert.Equal(
                 "CREATE TABLE IF NOT EXISTS \"__EFMigrationsHistory\" (" + EOL +
                 "    \"MigrationId\" TEXT NOT NULL CONSTRAINT \"PK___EFMigrationsHistory\" PRIMARY KEY," + EOL +
+                "    \"DownScript\" TEXT NOT NULL," + EOL +
                 "    \"ProductVersion\" TEXT NOT NULL" + EOL +
                 ");" + EOL,
                 sql);
