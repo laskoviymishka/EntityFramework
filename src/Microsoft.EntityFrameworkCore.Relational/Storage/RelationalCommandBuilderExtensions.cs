@@ -97,15 +97,15 @@ namespace Microsoft.EntityFrameworkCore.Storage
             [NotNull] this IRelationalCommandBuilder commandBuilder,
             [NotNull] string invariantName,
             [NotNull] string name,
-            [NotNull] Type type,
-            bool unicode)
+            [NotNull] RelationalTypeMapping typeMapping,
+            bool nullable)
         {
             Check.NotNull(commandBuilder, nameof(commandBuilder));
             Check.NotEmpty(invariantName, nameof(invariantName));
             Check.NotEmpty(name, nameof(name));
-            Check.NotNull(type, nameof(type));
+            Check.NotNull(typeMapping, nameof(typeMapping));
 
-            commandBuilder.ParameterBuilder.AddParameter(invariantName, name, type, unicode);
+            commandBuilder.ParameterBuilder.AddParameter(invariantName, name, typeMapping, nullable);
 
             return commandBuilder;
         }
@@ -136,6 +136,22 @@ namespace Microsoft.EntityFrameworkCore.Storage
             Check.NotNull(buildAction, nameof(buildAction));
 
             commandBuilder.ParameterBuilder.AddCompositeParameter(invariantName, buildAction);
+
+            return commandBuilder;
+        }
+
+        public static IRelationalCommandBuilder AddPropertyParameter(
+            [NotNull] this IRelationalCommandBuilder commandBuilder,
+            [NotNull] string invariantName,
+            [NotNull] string name,
+            [NotNull] IProperty property)
+        {
+            Check.NotNull(commandBuilder, nameof(commandBuilder));
+            Check.NotEmpty(invariantName, nameof(invariantName));
+            Check.NotEmpty(name, nameof(name));
+            Check.NotNull(property, nameof(property));
+
+            commandBuilder.ParameterBuilder.AddPropertyParameter(invariantName, name, property);
 
             return commandBuilder;
         }

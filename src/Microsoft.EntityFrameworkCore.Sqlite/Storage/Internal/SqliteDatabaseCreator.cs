@@ -12,6 +12,7 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
 {
     public class SqliteDatabaseCreator : RelationalDatabaseCreator
     {
+        // ReSharper disable once InconsistentNaming
         private const int SQLITE_CANTOPEN = 14;
 
         private readonly SqliteRelationalConnection _connection;
@@ -21,9 +22,10 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
             [NotNull] SqliteRelationalConnection connection,
             [NotNull] IMigrationsModelDiffer modelDiffer,
             [NotNull] IMigrationsSqlGenerator migrationsSqlGenerator,
+            [NotNull] IMigrationCommandExecutor migrationCommandExecutor,
             [NotNull] IModel model,
             [NotNull] IRawSqlCommandBuilder rawSqlCommandBuilder)
-            : base(model, connection, modelDiffer, migrationsSqlGenerator)
+            : base(model, connection, modelDiffer, migrationsSqlGenerator, migrationCommandExecutor)
         {
             Check.NotNull(rawSqlCommandBuilder, nameof(rawSqlCommandBuilder));
 
@@ -75,6 +77,7 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
             }
             catch
             {
+                // any exceptions here can be ignored
             }
 
             if (!string.IsNullOrEmpty(path))

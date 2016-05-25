@@ -117,17 +117,20 @@ namespace Microsoft.EntityFrameworkCore.Update
             LastCachedCommandIndex = commandPosition;
         }
 
+        protected virtual int GetParameterCount()
+            => ModificationCommands.Sum(c => c.ColumnModifications.Count);
+
         protected virtual RawSqlCommand CreateStoreCommand()
         {
             var commandBuilder = _commandBuilderFactory
                 .Create()
                 .Append(GetCommandText());
 
-            var parameterValues = new Dictionary<string, object>();
+            var parameterValues = new Dictionary<string, object>(GetParameterCount());
 
             foreach (var columnModification in ModificationCommands.SelectMany(t => t.ColumnModifications))
             {
-                if (columnModification.ParameterName != null)
+                if (columnModification.UseCurrentValueParameter)
                 {
                     commandBuilder.AddParameter(
                         columnModification.ParameterName,
@@ -139,7 +142,7 @@ namespace Microsoft.EntityFrameworkCore.Update
                         columnModification.Value);
                 }
 
-                if (columnModification.OriginalParameterName != null)
+                if (columnModification.UseOriginalValueParameter)
                 {
                     commandBuilder.AddParameter(
                         columnModification.OriginalParameterName,

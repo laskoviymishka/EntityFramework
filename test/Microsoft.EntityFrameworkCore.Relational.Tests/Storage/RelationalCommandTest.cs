@@ -7,7 +7,7 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore.FunctionalTests.TestUtilities.Xunit;
+using Microsoft.EntityFrameworkCore.Specification.Tests.TestUtilities.Xunit;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Relational.Tests.TestUtilities;
@@ -593,7 +593,7 @@ namespace Microsoft.EntityFrameworkCore.Relational.Tests.Storage
             Assert.Equal(18L, parameter.Value);
             Assert.Equal(ParameterDirection.Input, parameter.Direction);
             Assert.Equal(false, parameter.IsNullable);
-            Assert.Equal(mapping.StoreType, parameter.DbType);
+            Assert.Equal(mapping.DbType, parameter.DbType);
 
             parameter = fakeConnection.DbConnections[0].DbCommands[0].Parameters[2];
 

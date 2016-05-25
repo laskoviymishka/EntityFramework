@@ -6,6 +6,7 @@ using System.Linq;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata;
 
+// ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore
 {
     /// <summary>
@@ -18,7 +19,7 @@ namespace Microsoft.EntityFrameworkCore
         /// </summary>
         /// <param name="key"> The key to find the foreign keys for. </param>
         /// <returns> The foreign keys that reference the given key. </returns>
-        public static IEnumerable<IMutableForeignKey> FindReferencingForeignKeys([NotNull] this IMutableKey key)
-            => ((IKey)key).FindReferencingForeignKeys().Cast<IMutableForeignKey>();
+        public static IEnumerable<IMutableForeignKey> GetReferencingForeignKeys([NotNull] this IMutableKey key)
+            => ((IKey)key).GetReferencingForeignKeys().Cast<IMutableForeignKey>();
     }
 }

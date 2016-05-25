@@ -5,6 +5,7 @@ using System;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Logging;
 
+// ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore.Internal
 {
     internal static class CoreLoggerExtensions
@@ -23,6 +24,14 @@ namespace Microsoft.EntityFrameworkCore.Internal
             if (logger.IsEnabled(LogLevel.Debug))
             {
                 logger.Log<object>(LogLevel.Debug, (int)eventId, null, null, (_, __) => formatter());
+            }
+        }
+
+        public static void LogWarning(this ILogger logger, CoreLoggingEventId eventId, Func<string> formatter)
+        {
+            if (logger.IsEnabled(LogLevel.Warning))
+            {
+                logger.Log<object>(LogLevel.Warning, (int)eventId, null, null, (_, __) => formatter());
             }
         }
     }

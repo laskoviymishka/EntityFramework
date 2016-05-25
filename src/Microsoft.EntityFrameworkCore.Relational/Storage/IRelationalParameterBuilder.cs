@@ -19,8 +19,8 @@ namespace Microsoft.EntityFrameworkCore.Storage
         void AddParameter(
             [NotNull] string invariantName,
             [NotNull] string name,
-            [NotNull] Type type,
-            bool unicode);
+            [NotNull] RelationalTypeMapping typeMapping,
+            bool nullable);
 
         void AddParameter(
             [NotNull] string invariantName,
@@ -30,5 +30,10 @@ namespace Microsoft.EntityFrameworkCore.Storage
         void AddCompositeParameter(
             [NotNull] string invariantName,
             [NotNull] Action<IRelationalParameterBuilder> buildAction);
+
+        void AddPropertyParameter(
+            [NotNull] string invariantName,
+            [NotNull] string name,
+            [NotNull] IProperty property);
     }
 }

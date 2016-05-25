@@ -8,7 +8,7 @@
     <ProjectGuid>{D94396A3-391F-4015-9B61-89A9E08D6618}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Microsoft.EntityFrameworkCore</RootNamespace>
+    <RootNamespace>Microsoft.EntityFrameworkCore.Scaffolding</RootNamespace>
     <AssemblyName>Microsoft.EntityFrameworkCore.Sqlite.Design</AssemblyName>
     <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -63,10 +63,10 @@
       <DependentUpon>SqliteDesignStrings.resx</DependentUpon>
     </Compile>
     <Compile Include="Properties\InternalsVisibleTo.cs" />
-    <Compile Include="SqliteDatabaseModelFactory.cs" />
-    <Compile Include="SqliteDesignTimeServices.cs" />
-    <Compile Include="SqliteScaffoldingModelFactory.cs" />
-    <Compile Include="SqliteTableSelectionSetExtensions.cs" />
+    <Compile Include="Internal\SqliteDatabaseModelFactory.cs" />
+    <Compile Include="Internal\SqliteDesignTimeServices.cs" />
+    <Compile Include="Internal\SqliteScaffoldingModelFactory.cs" />
+    <Compile Include="Internal\SqliteTableSelectionSetExtensions.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Properties\SqliteDesignStrings.resx">

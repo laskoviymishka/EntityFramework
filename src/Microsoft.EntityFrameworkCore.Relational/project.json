@@ -1,22 +1,28 @@
 {
-  "version": "1.0.0-*",
+  "version": "1.0.0-rc3-*",
   "description": "Shared Entity Framework components for relational data stores.",
-  "compilationOptions": {
+  "buildOptions": {
     "warningsAsErrors": true,
     "keyFile": "../../tools/Key.snk",
     "nowarn": [
       "CS1591"
     ],
-    "xmlDoc": true
+    "xmlDoc": true,
+    "compile": {
+      "include": "../Shared/*.cs"
+    },
+    "embed": {
+      "includeFiles": "Properties/Microsoft.EntityFrameworkCore.Relational.rd.xml"
+    }
   },
   "dependencies": {
-    "Microsoft.EntityFrameworkCore": "1.0.0-*",
-    "System.Diagnostics.DiagnosticSource": "4.0.0-*"
+    "Microsoft.EntityFrameworkCore": "1.0.0-*"
   },
-  "compile": "../Shared/*.cs",
-  "resourceFiles": "Properties/Microsoft.EntityFrameworkCore.Relational.rd.xml",
   "frameworks": {
     "net451": {
+      "dependencies": {
+        "System.Diagnostics.DiagnosticSource": "4.0.0-*"
+      },
       "frameworkAssemblies": {
         "System.Data": "",
         "System.Diagnostics.Tracing": {
@@ -33,12 +39,12 @@
     },
     "netstandard1.3": {
       "imports": [
-        "dotnet5.4",
         "portable-net452+win81"
       ],
       "dependencies": {
         "Microsoft.CSharp": "4.0.1-*",
         "System.Data.Common": "4.0.1-*",
+        "System.Diagnostics.DiagnosticSource": "4.0.0-*",
         "System.Text.RegularExpressions": "4.0.12-*"
       }
     }

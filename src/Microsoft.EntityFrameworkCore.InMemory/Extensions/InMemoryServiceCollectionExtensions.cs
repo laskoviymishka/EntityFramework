@@ -13,7 +13,6 @@ using Microsoft.EntityFrameworkCore.ValueGeneration.Internal;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 // ReSharper disable once CheckNamespace
-
 namespace Microsoft.Extensions.DependencyInjection
 {
     public static class InMemoryServiceCollectionExtensions
@@ -29,7 +28,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.TryAdd(new ServiceCollection()
                 .AddSingleton<InMemoryValueGeneratorCache>()
-                .AddSingleton<IInMemoryStore, InMemoryStore>()
+                .AddSingleton<IInMemoryStoreSource, InMemoryStoreSource>()
                 .AddSingleton<IInMemoryTableFactory, InMemoryTableFactory>()
                 .AddSingleton<InMemoryModelSource>()
                 .AddScoped<InMemoryValueGeneratorSelector>()

@@ -4,10 +4,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Microsoft.EntityFrameworkCore.FunctionalTests.TestUtilities.Xunit;
+using Microsoft.EntityFrameworkCore.Specification.Tests.TestUtilities.Xunit;
 using Microsoft.EntityFrameworkCore.Internal;
-using Microsoft.EntityFrameworkCore.Relational.Design.FunctionalTests.ReverseEngineering;
-using Microsoft.EntityFrameworkCore.Relational.Design.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore.Relational.Design.Specification.Tests.ReverseEngineering;
+using Microsoft.EntityFrameworkCore.Relational.Design.Specification.Tests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Internal;
 using Microsoft.EntityFrameworkCore.Sqlite.FunctionalTests;
@@ -15,13 +15,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using Xunit.Abstractions;
 
-#if NETSTANDARDAPP1_5
+#if NETCOREAPP1_0
 using System.Reflection;
 #endif
 
 namespace Microsoft.EntityFrameworkCore.Sqlite.Design.FunctionalTests.ReverseEngineering
 {
-    [FrameworkSkipCondition(RuntimeFrameworks.CoreCLR, SkipReason = "https://github.com/aspnet/EntityFramework/issues/4841")]
+    [FrameworkSkipCondition(RuntimeFrameworks.CoreCLR | RuntimeFrameworks.Mono, SkipReason = "https://github.com/aspnet/EntityFramework/issues/4841")]
     public abstract class SqliteE2ETestBase : E2ETestBase
     {
         public const string TestProjectPath = "testout";
@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS Users_Groups (
                         "ManyToMany" + DbSuffix + "Context.expected",
                         "Groups.expected",
                         "Users.expected",
-                        "Users_Groups.expected"
+                        "UsersGroups.expected"
                     }
                 };
                 var actualFileSet = new FileSet(InMemoryFiles, TestProjectFullPath)
@@ -400,7 +400,7 @@ CREATE TABLE IF NOT EXISTS Comment (
 
         protected override ICollection<BuildReference> References { get; } = new List<BuildReference>
         {
-#if NETSTANDARDAPP1_5
+#if NETCOREAPP1_0
                 BuildReference.ByName("System.Collections"),
                 BuildReference.ByName("System.Data.Common"),
                 BuildReference.ByName("System.Linq.Expressions"),

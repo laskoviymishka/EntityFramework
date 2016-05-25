@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using Microsoft.EntityFrameworkCore.FunctionalTests;
+using Microsoft.EntityFrameworkCore.Specification.Tests;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.ValueGeneration.Internal;
@@ -38,7 +38,7 @@ namespace Microsoft.EntityFrameworkCore.InMemory.Tests
         }
 
         private static object CreateAndUseFactory(IProperty property) 
-            => new InMemoryIntegerValueGeneratorFactory().Create(property).Next();
+            => new InMemoryIntegerValueGeneratorFactory().Create(property).Next(null);
 
         [Fact]
         public void Throws_for_non_integer_property()

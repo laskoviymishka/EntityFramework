@@ -15,7 +15,7 @@ using Microsoft.EntityFrameworkCore.Utilities;
 namespace Microsoft.EntityFrameworkCore.Internal
 {
     public class InternalDbSet<TEntity>
-        : DbSet<TEntity>, IOrderedQueryable<TEntity>, IAsyncEnumerableAccessor<TEntity>, IInfrastructure<IServiceProvider>
+        : DbSet<TEntity>, IQueryable<TEntity>, IAsyncEnumerableAccessor<TEntity>, IInfrastructure<IServiceProvider>
         where TEntity : class
     {
         private readonly DbContext _context;
@@ -56,15 +56,19 @@ namespace Microsoft.EntityFrameworkCore.Internal
             => _context.Update(Check.NotNull(entity, nameof(entity)));
 
         public override void AddRange(params TEntity[] entities)
+            // ReSharper disable once CoVariantArrayConversion
             => _context.AddRange(Check.NotNull(entities, nameof(entities)));
 
         public override void AttachRange(params TEntity[] entities)
+            // ReSharper disable once CoVariantArrayConversion
             => _context.AttachRange(Check.NotNull(entities, nameof(entities)));
 
         public override void RemoveRange(params TEntity[] entities)
+            // ReSharper disable once CoVariantArrayConversion
             => _context.RemoveRange(Check.NotNull(entities, nameof(entities)));
 
         public override void UpdateRange(params TEntity[] entities)
+            // ReSharper disable once CoVariantArrayConversion
             => _context.UpdateRange(Check.NotNull(entities, nameof(entities)));
 
         public override void AddRange(IEnumerable<TEntity> entities)

@@ -21,7 +21,6 @@ using Remotion.Linq.Parsing.Structure.NodeTypeProviders;
 
 // Intentionally in this namespace since this is for use by other relational providers rather than
 // by top-level app developers.
-
 namespace Microsoft.EntityFrameworkCore.Infrastructure
 {
     /// <summary>
@@ -45,13 +44,6 @@ namespace Microsoft.EntityFrameworkCore.Infrastructure
         ///         <see cref="IServiceCollection" /> to register the services required by the database.
         ///         For example, when using Microsoft.EntityFrameworkCore.SqlServer you would call
         ///         <c>collection.AddEntityFrameworkSqlServer()</c>.
-        ///     </para>
-        ///     <para>
-        ///         For derived contexts to be registered in the <see cref="IServiceProvider" /> and resolve their services
-        ///         from the <see cref="IServiceProvider" /> you must chain a call to the
-        ///         <see
-        ///             cref="Extensions.DependencyInjection.EntityFrameworkServiceCollectionExtensions.AddDbContext{TContext}(IServiceCollection, Action{DbContextOptionsBuilder})" />
-        ///         method on the returned <see cref="IServiceCollection" />.
         ///     </para>
         /// </remarks>
         /// <example>

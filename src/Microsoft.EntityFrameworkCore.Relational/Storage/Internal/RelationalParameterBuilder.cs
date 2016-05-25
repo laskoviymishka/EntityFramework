@@ -31,18 +31,18 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
                     Check.NotEmpty(name, nameof(name)),
                     TypeMapper));
 
-        public virtual void AddParameter(string invariantName, string name, Type type, bool unicode)
+        public virtual void AddParameter(string invariantName, string name, RelationalTypeMapping typeMapping, bool nullable)
         {
             Check.NotEmpty(invariantName, nameof(invariantName));
             Check.NotEmpty(name, nameof(name));
-            Check.NotNull(type, nameof(type));
+            Check.NotNull(typeMapping, nameof(typeMapping));
 
             _parameters.Add(
                 new TypeMappedRelationalParameter(
                     invariantName,
                     name,
-                    TypeMapper.GetMapping(type, unicode),
-                    type.IsNullableType()));
+                    typeMapping,
+                    nullable));
         }
 
         public virtual void AddParameter(string invariantName, string name, IProperty property)
@@ -75,6 +75,20 @@ namespace Microsoft.EntityFrameworkCore.Storage.Internal
                         invariantName,
                         innerList.Parameters));
             }
+        }
+
+        public virtual void AddPropertyParameter(string invariantName, string name, IProperty property)
+        {
+            Check.NotEmpty(invariantName, nameof(invariantName));
+            Check.NotEmpty(name, nameof(name));
+            Check.NotNull(property, nameof(property));
+
+            _parameters.Add(
+                new TypeMappedPropertyRelationalParameter(
+                    invariantName,
+                    name,
+                    TypeMapper.GetMapping(property),
+                    property));
         }
     }
 }

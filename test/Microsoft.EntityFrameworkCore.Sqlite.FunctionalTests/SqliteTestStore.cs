@@ -6,7 +6,7 @@ using System.Data.Common;
 using System.IO;
 using System.Threading;
 using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore.FunctionalTests;
+using Microsoft.EntityFrameworkCore.Specification.Tests;
 
 namespace Microsoft.EntityFrameworkCore.Sqlite.FunctionalTests
 {
@@ -17,7 +17,7 @@ namespace Microsoft.EntityFrameworkCore.Sqlite.FunctionalTests
         public static SqliteTestStore GetOrCreateShared(string name, Action initializeDatabase = null) =>
             new SqliteTestStore(name).CreateShared(initializeDatabase);
 
-#if NETSTANDARDAPP1_5
+#if NETCOREAPP1_0
         private static string BaseDirectory => AppContext.BaseDirectory;
 #else
         private static string BaseDirectory => AppDomain.CurrentDomain.BaseDirectory;

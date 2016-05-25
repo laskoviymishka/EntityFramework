@@ -69,15 +69,23 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
             var methodInfo = methodCallExpression.Method;
             var declaringType = methodInfo.DeclaringType;
 
-            if (declaringType == typeof(EF)
-                || declaringType == typeof(DbContext))
+            if (declaringType == typeof(DbContext))
             {
                 return methodCallExpression;
             }
 
-            if (!methodInfo.IsStatic
-                || declaringType == typeof(Queryable)
+            if (declaringType == typeof(Queryable)
                 || declaringType == typeof(EntityFrameworkQueryableExtensions))
+            {
+                return base.VisitMethodCall(methodCallExpression);
+            }
+            
+            if (_partialEvaluationInfo.IsEvaluatableExpression(methodCallExpression))
+            {
+                return TryExtractParameter(methodCallExpression);
+            }
+
+            if (!methodInfo.IsStatic)
             {
                 return base.VisitMethodCall(methodCallExpression);
             }
@@ -107,7 +115,7 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
 
                     if (parameterInfos[i].GetCustomAttribute<NotParameterizedAttribute>() != null)
                     {
-                        var parameter = newArgument as ParameterExpression;
+                        var parameter = newArgument.RemoveConvert() as ParameterExpression;
 
                         if (parameter != null)
                         {
@@ -172,6 +180,28 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
             }
         }
 
+        protected override Expression VisitUnary(UnaryExpression unaryExpression)
+        {
+            var newExpression = base.VisitUnary(unaryExpression);
+
+            if (newExpression != unaryExpression
+                && newExpression.NodeType == ExpressionType.Convert)
+            {
+                var newUnaryExpression = (UnaryExpression)newExpression;
+
+                if (newUnaryExpression.Operand.NodeType == ExpressionType.Parameter
+                    && newUnaryExpression.Operand.Type == typeof(object))
+                {
+                    return Expression.Parameter(
+                        newUnaryExpression.Type,
+                        ((ParameterExpression)newUnaryExpression.Operand).Name);
+                }
+
+            }
+                
+            return newExpression;
+        }
+
         private Expression TryExtractParameter(Expression expression)
         {
             try
@@ -181,6 +211,7 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
                 var parameterValue = Evaluate(expression, out parameterName);
 
                 var parameterExpression = parameterValue as Expression;
+
                 if (parameterExpression != null)
                 {
                     return parameterExpression;

@@ -141,19 +141,43 @@ namespace Microsoft.EntityFrameworkCore.Internal
         }
 
         /// <summary>
-        /// Lazy original value tracking cannot be turned on for entity type '{entityType}'. Entities that do not implement both INotifyPropertyChanging and INotifyPropertyChanged require original values to be stored eagerly in order to correct detect changes made to entities.
+        /// The entity type '{entityType}' is configured to use the '{changeTrackingStrategy}' change tracking strategy but does not implement the required '{notificationInterface}' interface.
         /// </summary>
-        public static string EagerOriginalValuesRequired([CanBeNull] object entityType)
+        public static string ChangeTrackingInterfaceMissing([CanBeNull] object entityType, [CanBeNull] object changeTrackingStrategy, [CanBeNull] object notificationInterface)
         {
-            return string.Format(CultureInfo.CurrentCulture, GetString("EagerOriginalValuesRequired", "entityType"), entityType);
+            return string.Format(CultureInfo.CurrentCulture, GetString("ChangeTrackingInterfaceMissing", "entityType", "changeTrackingStrategy", "notificationInterface"), entityType, changeTrackingStrategy, notificationInterface);
         }
 
         /// <summary>
-        /// The original value for property '{property}' of entity type '{entityType}' cannot be accessed because it is not being tracked. To access all original values set 'UseLazyOriginalValues' to false on the entity type.
+        /// The collection type being used for navigation property '{navigation}' on entity type '{entityType}' does not implement 'INotifyCollectionChanged'. Any entity type configured to use the '{changeTrackingStrategy}' change tracking strategy must use collections that implement 'INotifyCollectionChanged'. Consider using 'ObservableCollection&lt;T&gt;' for this.
+        /// </summary>
+        public static string NonNotifyingCollection([CanBeNull] object navigation, [CanBeNull] object entityType, [CanBeNull] object changeTrackingStrategy)
+        {
+            return string.Format(CultureInfo.CurrentCulture, GetString("NonNotifyingCollection", "navigation", "entityType", "changeTrackingStrategy"), navigation, entityType, changeTrackingStrategy);
+        }
+
+        /// <summary>
+        /// 'ObservableCollection&lt;T&gt;.Clear()' is not supported because it uses the 'INotifyCollectionChanged' 'Reset' operation, which does not supply the items removed. Either use multiple calls to 'Remove' or use a notifying collection that supports 'Clear', such as 'Microsoft.EntityFrameworkCore.ChangeTracking.ObservableHashSet&lt;T&gt;'.
+        /// </summary>
+        public static string ResetNotSupported
+        {
+            get { return GetString("ResetNotSupported"); }
+        }
+
+        /// <summary>
+        /// The original value for property '{property}' of entity type '{entityType}' cannot be accessed because it is not being tracked. Original values are not recorded for most properties of entities when the 'ChangingAndChangedNotifications' strategy is used. To access all original values use a different change tracking strategy such as 'ChangingAndChangedNotificationsWithOriginalValues'.
         /// </summary>
         public static string OriginalValueNotTracked([CanBeNull] object property, [CanBeNull] object entityType)
         {
             return string.Format(CultureInfo.CurrentCulture, GetString("OriginalValueNotTracked", "property", "entityType"), property, entityType);
+        }
+
+        /// <summary>
+        /// Cannot change ObservableHashSet during a CollectionChanged event.
+        /// </summary>
+        public static string ObservableCollectionReentrancy
+        {
+            get { return GetString("ObservableCollectionReentrancy"); }
         }
 
         /// <summary>
@@ -181,7 +205,7 @@ namespace Microsoft.EntityFrameworkCore.Internal
         }
 
         /// <summary>
-        /// The CLR entity materializer cannot be used for entity type '{entityType}' because it is a shadow-state entity type.  Materialization to a CLR type is only possible for entity types that have a corresponding CLR type.
+        /// The CLR entity materializer cannot be used for entity type '{entityType}' because it is a shadow state entity type.  Materialization to a CLR type is only possible for entity types that have a corresponding CLR type.
         /// </summary>
         public static string NoClrType([CanBeNull] object entityType)
         {
@@ -197,7 +221,7 @@ namespace Microsoft.EntityFrameworkCore.Internal
         }
 
         /// <summary>
-        /// No database provider has been configured for this DbContext. A provider can be configured by overriding the DbContext.OnConfiguring method or by using AddDbContext on the application service provider. If AddDbContext is used, then also ensure that your DbContext type accepts a DbContextOptions object in its constructor.
+        /// No database provider has been configured for this DbContext. A provider can be configured by overriding the DbContext.OnConfiguring method or by using AddDbContext on the application service provider. If AddDbContext is used, then also ensure that your DbContext type accepts a DbContextOptions&lt;TContext&gt; object in its constructor and passes it to the base constructor for DbContext.
         /// </summary>
         public static string NoProviderConfigured
         {
@@ -269,7 +293,7 @@ namespace Microsoft.EntityFrameworkCore.Internal
         }
 
         /// <summary>
-        /// The property '{property}' cannot exist on entity type '{entityType}' because the property is not marked as shadow state and no corresponding CLR property exists on the underlying type.
+        /// The property '{property}' cannot be added to entity type '{entityType}' because the property is not marked as shadow state and no corresponding CLR property exists on the underlying type.
         /// </summary>
         public static string NoClrProperty([CanBeNull] object property, [CanBeNull] object entityType)
         {
@@ -277,11 +301,11 @@ namespace Microsoft.EntityFrameworkCore.Internal
         }
 
         /// <summary>
-        /// The property '{property}' cannot exist on entity type '{entityType}' because the property is not marked as shadow state and the type of the corresponding CLR property does not match the type specified in the property.
+        /// The property '{property}' cannot be added to entity type '{entityType}' because the property is not in shadow state and the type of the corresponding CLR property '{clrType}' does not match the specified type '{propertyType}'.
         /// </summary>
-        public static string PropertyWrongClrType([CanBeNull] object property, [CanBeNull] object entityType)
+        public static string PropertyWrongClrType([CanBeNull] object property, [CanBeNull] object entityType, [CanBeNull] object clrType, [CanBeNull] object propertyType)
         {
-            return string.Format(CultureInfo.CurrentCulture, GetString("PropertyWrongClrType", "property", "entityType"), property, entityType);
+            return string.Format(CultureInfo.CurrentCulture, GetString("PropertyWrongClrType", "property", "entityType", "clrType", "propertyType"), property, entityType, clrType, propertyType);
         }
 
         /// <summary>
@@ -314,14 +338,6 @@ namespace Microsoft.EntityFrameworkCore.Internal
         public static string DuplicateNavigation([CanBeNull] object navigation, [CanBeNull] object entityType, [CanBeNull] object duplicateEntityType)
         {
             return string.Format(CultureInfo.CurrentCulture, GetString("DuplicateNavigation", "navigation", "entityType", "duplicateEntityType"), navigation, entityType, duplicateEntityType);
-        }
-
-        /// <summary>
-        /// The navigation property '{navigation}' cannot be added to the entity type '{entityType}' because the entity type is defined in shadow state and navigations properties cannot be added to shadow state.
-        /// </summary>
-        public static string NavigationOnShadowEntity([CanBeNull] object navigation, [CanBeNull] object entityType)
-        {
-            return string.Format(CultureInfo.CurrentCulture, GetString("NavigationOnShadowEntity", "navigation", "entityType"), navigation, entityType);
         }
 
         /// <summary>
@@ -637,7 +653,7 @@ namespace Microsoft.EntityFrameworkCore.Internal
         }
 
         /// <summary>
-        /// An exception was thrown while attempting to evaluate a LINQ query parameter expression. To show aditional information call EnableSensitiveDataLogging() when overriding DbContext.OnConfiguring.
+        /// An exception was thrown while attempting to evaluate a LINQ query parameter expression. To show additional information call EnableSensitiveDataLogging() when overriding DbContext.OnConfiguring.
         /// </summary>
         public static string ExpressionParameterizationException
         {
@@ -709,11 +725,11 @@ namespace Microsoft.EntityFrameworkCore.Internal
         }
 
         /// <summary>
-        /// The DbContextOptions object registered in the service provider must be a DbContextOptions&lt;TContext&gt; where TContext is the type of the DbContext being used.
+        /// The DbContextOptions passed to the {contextType} constructor must be a DbContextOptions&lt;{contextType}&gt;. When registering multiple DbContext types make sure that the constructor for each context type has a DbContextOptions&lt;TContext&gt; parameter rather than a non-generic DbContextOptions parameter.
         /// </summary>
-        public static string NonGenericOptions
+        public static string NonGenericOptions([CanBeNull] object contextType)
         {
-            get { return GetString("NonGenericOptions"); }
+            return string.Format(CultureInfo.CurrentCulture, GetString("NonGenericOptions", "contextType"), contextType);
         }
 
         /// <summary>
@@ -826,14 +842,6 @@ namespace Microsoft.EntityFrameworkCore.Internal
         public static string PropertyWrongEntityClrType([CanBeNull] object property, [CanBeNull] object entityType, [CanBeNull] object clrType)
         {
             return string.Format(CultureInfo.CurrentCulture, GetString("PropertyWrongEntityClrType", "property", "entityType", "clrType"), property, entityType, clrType);
-        }
-
-        /// <summary>
-        /// The CLR type for property '{property}' cannot be changed because it is referenced by the foreign key {foreignKey} from entity type '{entityType}'.
-        /// </summary>
-        public static string PropertyClrTypeCannotBeChangedWhenReferenced([CanBeNull] object property, [CanBeNull] object foreignKey, [CanBeNull] object entityType)
-        {
-            return string.Format(CultureInfo.CurrentCulture, GetString("PropertyClrTypeCannotBeChangedWhenReferenced", "property", "foreignKey", "entityType"), property, foreignKey, entityType);
         }
 
         /// <summary>
@@ -981,27 +989,19 @@ namespace Microsoft.EntityFrameworkCore.Internal
         }
 
         /// <summary>
-        /// The specified CLR type '{clrType}' does not match the entity type name '{entity}'.
-        /// </summary>
-        public static string ClrTypeWrongName([CanBeNull] object clrType, [CanBeNull] object entity)
-        {
-            return string.Format(CultureInfo.CurrentCulture, GetString("ClrTypeWrongName", "clrType", "entity"), clrType, entity);
-        }
-
-        /// <summary>
-        /// The CLR type cannot be set on the entity type '{entityType}' because it has members, base entity type or derived entity types.
-        /// </summary>
-        public static string EntityTypeInUse([CanBeNull] object entityType)
-        {
-            return string.Format(CultureInfo.CurrentCulture, GetString("EntityTypeInUse", "entityType"), entityType);
-        }
-
-        /// <summary>
         /// The entity type '{entityType}' was not found. Ensure that the entity type has been added to the model.
         /// </summary>
         public static string EntityTypeNotFound([CanBeNull] object entityType)
         {
             return string.Format(CultureInfo.CurrentCulture, GetString("EntityTypeNotFound", "entityType"), entityType);
+        }
+
+        /// <summary>
+        /// The extension method ‘{method}’ is being used with a custom implementation of ‘{interfaceType}’. Use of custom implementations of the Entity Framework metadata interfaces is not supported. Consider deriving from ‘{concreteType}’ instead. Please contact the Entity Framework team if you have a compelling case for a custom implementation of the metadata interfaces so that we can consider ways to achieve this.
+        /// </summary>
+        public static string CustomMetadata([CanBeNull] object method, [CanBeNull] object interfaceType, [CanBeNull] object concreteType)
+        {
+            return string.Format(CultureInfo.CurrentCulture, GetString("CustomMetadata", "method", "interfaceType", "concreteType"), method, interfaceType, concreteType);
         }
 
         /// <summary>
@@ -1149,7 +1149,7 @@ namespace Microsoft.EntityFrameworkCore.Internal
         }
 
         /// <summary>
-        /// The corresponding CLR type for entity type '{entityType}' is abstract and there is no derived entity type in the model that corresponds to a concrete CLR type.
+        /// The corresponding CLR type for entity type '{entityType}' is not instantiable and there is no derived entity type in the model that corresponds to a concrete CLR type.
         /// </summary>
         public static string AbstractLeafEntityType([CanBeNull] object entityType)
         {
@@ -1157,11 +1157,67 @@ namespace Microsoft.EntityFrameworkCore.Internal
         }
 
         /// <summary>
-        /// The discriminator value for '{entityType1}' is '{discriminatorValue}' which is the same for '{entityType2}'. Every concrete entity type in the hierarchy needs to have a unique discriminator value.
+        /// Could not find setter for property {property}
         /// </summary>
-        public static string DuplicateDiscriminatorValue([CanBeNull] object entityType1, [CanBeNull] object discriminatorValue, [CanBeNull] object entityType2)
+        public static string NoClrSetter([CanBeNull] object property)
         {
-            return string.Format(CultureInfo.CurrentCulture, GetString("DuplicateDiscriminatorValue", "entityType1", "discriminatorValue", "entityType2"), entityType1, discriminatorValue, entityType2);
+            return string.Format(CultureInfo.CurrentCulture, GetString("NoClrSetter", "property"), property);
+        }
+
+        /// <summary>
+        /// The property '{property}' cannot be added to the entity type '{entityType}' because there was no property type specified and there is no corresponding CLR property. To add a shadow state property the property type needs to be specified.
+        /// </summary>
+        public static string NoPropertyType([CanBeNull] object property, [CanBeNull] object entityType)
+        {
+            return string.Format(CultureInfo.CurrentCulture, GetString("NoPropertyType", "property", "entityType"), property, entityType);
+        }
+
+        /// <summary>
+        /// The property '{property}' on entity type '{entityType}' has a temporary value. Either set a permanent value explicitly or ensure that the database is configured to generate values for this property.
+        /// </summary>
+        public static string TempValue([CanBeNull] object property, [CanBeNull] object entityType)
+        {
+            return string.Format(CultureInfo.CurrentCulture, GetString("TempValue", "property", "entityType"), property, entityType);
+        }
+
+        /// <summary>
+        /// The database generated a null value for non-nullable property '{property}' of entity type '{entityType}'. Ensure value generation configuration in the database matches the configuration in the model.
+        /// </summary>
+        public static string DatabaseGeneratedNull([CanBeNull] object property, [CanBeNull] object entityType)
+        {
+            return string.Format(CultureInfo.CurrentCulture, GetString("DatabaseGeneratedNull", "property", "entityType"), property, entityType);
+        }
+
+        /// <summary>
+        /// Sequence contains more than one element
+        /// </summary>
+        public static string MoreThanOneElement
+        {
+            get { return GetString("MoreThanOneElement"); }
+        }
+
+        /// <summary>
+        /// Sequence contains no elements
+        /// </summary>
+        public static string NoElements
+        {
+            get { return GetString("NoElements"); }
+        }
+
+        /// <summary>
+        /// A parameterless constructor was not found on entity type '{entityType}'. In order to create an instance of '{entityType}' EF requires that a parameterless constructor be declared.
+        /// </summary>
+        public static string NoParameterlessConstructor([CanBeNull] object entityType)
+        {
+            return string.Format(CultureInfo.CurrentCulture, GetString("NoParameterlessConstructor", "entityType"), entityType);
+        }
+
+        /// <summary>
+        /// The Include operation for navigation: '{navigation}' was ignored because the target navigation is not reachable in the final query results.
+        /// </summary>
+        public static string LogIgnoredInclude([CanBeNull] object navigation)
+        {
+            return string.Format(CultureInfo.CurrentCulture, GetString("LogIgnoredInclude", "navigation"), navigation);
         }
 
         private static string GetString(string name, params string[] formatterNames)

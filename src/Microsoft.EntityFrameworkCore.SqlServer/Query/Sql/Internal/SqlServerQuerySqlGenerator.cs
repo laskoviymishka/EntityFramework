@@ -1,10 +1,12 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using JetBrains.Annotations;
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Query.Expressions;
 using Microsoft.EntityFrameworkCore.Query.Expressions.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -90,9 +92,21 @@ namespace Microsoft.EntityFrameworkCore.Query.Sql.Internal
             return rowNumberExpression;
         }
 
+        public virtual Expression VisitDatePartExpression(DatePartExpression datePartExpression)
+        {
+            Check.NotNull(datePartExpression, nameof(datePartExpression));
+
+            Sql.Append("DATEPART(")
+                .Append(datePartExpression.DatePart)
+                .Append(", ");
+            Visit(datePartExpression.Argument);
+            Sql.Append(")");
+            return datePartExpression;
+        }
+
         public override Expression VisitSqlFunction(SqlFunctionExpression sqlFunctionExpression)
         {
-            if (sqlFunctionExpression.FunctionName.StartsWith("@@"))
+            if (sqlFunctionExpression.FunctionName.StartsWith("@@", StringComparison.Ordinal))
             {
                 Sql.Append(sqlFunctionExpression.FunctionName);
                 return sqlFunctionExpression;

@@ -108,6 +108,12 @@ namespace Microsoft.EntityFrameworkCore.Relational.Design
                                 Name = "created",
                                 DataType = "string",
                                 ValueGenerated = ValueGenerated.OnAdd
+                            },
+                            new ColumnModel
+                            {
+                                Name = "current",
+                                DataType = "string",
+                                ComputedValue = "compute_this()"
                             }
                         }
                     }
@@ -129,24 +135,30 @@ namespace Microsoft.EntityFrameworkCore.Relational.Design
                     },
                 col2 =>
                     {
-                        Assert.Equal("modified", col2.Relational().ColumnName);
-                        Assert.Equal(ValueGenerated.OnAddOrUpdate, col2.ValueGenerated);
+                        Assert.Equal("Current", col2.Name);
+                        Assert.Equal(typeof(string), col2.ClrType);
+                        Assert.Equal("compute_this()", col2.Relational().ComputedColumnSql);
                     },
                 col3 =>
                     {
-                        Assert.Equal("occupation", col3.Relational().ColumnName);
-                        Assert.Equal(typeof(string), col3.ClrType);
-                        Assert.False(col3.IsColumnNullable());
-                        Assert.Null(col3.GetMaxLength());
-                        Assert.Equal("\"dev\"", col3.Relational().DefaultValueSql);
+                        Assert.Equal("modified", col3.Relational().ColumnName);
+                        Assert.Equal(ValueGenerated.OnAddOrUpdate, col3.ValueGenerated);
                     },
                 col4 =>
                     {
-                        Assert.Equal("salary", col4.Name);
-                        Assert.Equal(typeof(long?), col4.ClrType);
-                        Assert.True(col4.IsColumnNullable());
-                        Assert.Equal(100, col4.GetMaxLength());
-                        Assert.Null(col4.Relational().DefaultValue);
+                        Assert.Equal("occupation", col4.Relational().ColumnName);
+                        Assert.Equal(typeof(string), col4.ClrType);
+                        Assert.False(col4.IsColumnNullable());
+                        Assert.Null(col4.GetMaxLength());
+                        Assert.Equal("\"dev\"", col4.Relational().DefaultValueSql);
+                    },
+                col5 =>
+                    {
+                        Assert.Equal("Salary", col5.Name);
+                        Assert.Equal(typeof(long?), col5.ClrType);
+                        Assert.True(col5.IsColumnNullable());
+                        Assert.Equal(100, col5.GetMaxLength());
+                        Assert.Null(col5.Relational().DefaultValue);
                     });
         }
 
@@ -498,8 +510,8 @@ namespace Microsoft.EntityFrameworkCore.Relational.Design
             var principalKey = fk.PrincipalKey;
 
             Assert.Equal("Parent", principalKey.DeclaringEntityType.Name);
-            Assert.Equal("Id_A", principalKey.Properties[0].Name);
-            Assert.Equal("Id_B", principalKey.Properties[1].Name);
+            Assert.Equal("IdA", principalKey.Properties[0].Name);
+            Assert.Equal("IdB", principalKey.Properties[1].Name);
         }
 
         [Fact]
@@ -699,10 +711,10 @@ namespace Microsoft.EntityFrameworkCore.Relational.Design
                         Name = "E F", Columns =
                         {
                             new ColumnModel { Name = "San itized", DataType = "long" },
-                            new ColumnModel { Name = "San_itized", DataType = "long" }
+                            new ColumnModel { Name = "San+itized", DataType = "long" }
                         }
                     },
-                    new TableModel { Name = "E_F" }
+                    new TableModel { Name = "E+F" }
                 }
             };
 
@@ -715,7 +727,7 @@ namespace Microsoft.EntityFrameworkCore.Relational.Design
                 ef1 =>
                     {
                         Assert.Equal("E F", ef1.Relational().TableName);
-                        Assert.Equal("E_F", ef1.Name);
+                        Assert.Equal("E_f", ef1.Name);
                         Assert.Collection(ef1.GetProperties(),
                             id => { Assert.Equal("Id", id.Name); },
                             s1 =>
@@ -726,13 +738,13 @@ namespace Microsoft.EntityFrameworkCore.Relational.Design
                             s2 =>
                                 {
                                     Assert.Equal("San_itized1", s2.Name);
-                                    Assert.Equal("San_itized", s2.Relational().ColumnName);
+                                    Assert.Equal("San+itized", s2.Relational().ColumnName);
                                 });
                     },
                 ef2 =>
                     {
-                        Assert.Equal("E_F", ef2.Relational().TableName);
-                        Assert.Equal("E_F1", ef2.Name);
+                        Assert.Equal("E+F", ef2.Relational().TableName);
+                        Assert.Equal("E_f1", ef2.Name);
                         var id = Assert.Single(ef2.GetProperties());
                         Assert.Equal("Id", id.Name);
                         Assert.Equal("Id", id.Relational().ColumnName);
@@ -806,10 +818,10 @@ namespace Microsoft.EntityFrameworkCore.Relational.Design
                 { "long", _long }
             };
 
-        protected override IReadOnlyDictionary<Type, RelationalTypeMapping> GetSimpleMappings()
+        protected override IReadOnlyDictionary<Type, RelationalTypeMapping> GetClrTypeMappings()
             => _simpleMappings;
 
-        protected override IReadOnlyDictionary<string, RelationalTypeMapping> GetSimpleNameMappings()
+        protected override IReadOnlyDictionary<string, RelationalTypeMapping> GetStoreTypeMappings()
             => _simpleNameMappings;
 
         protected override string GetColumnType(IProperty property) => ((Property)property).Relational().ColumnType;

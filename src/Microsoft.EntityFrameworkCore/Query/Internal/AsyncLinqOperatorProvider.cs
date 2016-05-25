@@ -29,6 +29,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                 .GetTypeInfo().GetDeclaredMethod(nameof(_ToEnumerable));
 
         [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
         private static EnumerableAdapter<TResult> _ToEnumerable<TResult>(IAsyncEnumerable<TResult> results)
             => new EnumerableAdapter<TResult>(results);
 
@@ -55,6 +56,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                 .GetTypeInfo().GetDeclaredMethod(nameof(_ToOrdered));
 
         [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
         private static OrderedEnumerableAdapter<TResult> _ToOrdered<TResult>(IAsyncEnumerable<TResult> results)
             => new OrderedEnumerableAdapter<TResult>(results);
 
@@ -84,6 +86,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                 .GetTypeInfo().GetDeclaredMethod(nameof(_InterceptExceptions));
 
         [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
         private static IAsyncEnumerable<T> _InterceptExceptions<T>(
             IAsyncEnumerable<T> source, Type contextType, ILogger logger, QueryContext queryContext)
             => new ExceptionInterceptor<T>(source, contextType, logger, queryContext);
@@ -157,6 +160,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                 .GetTypeInfo().GetDeclaredMethod(nameof(_TrackEntities));
 
         [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
         private static IAsyncEnumerable<TOut> _TrackEntities<TOut, TIn>(
             IAsyncEnumerable<TOut> results,
             QueryContext queryContext,
@@ -166,7 +170,9 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
         {
             queryContext.BeginTrackingQuery();
 
-            return results.Select(result =>
+            return _Select(
+                results,
+                result =>
                 {
                     if (result != null)
                     {
@@ -204,6 +210,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                 .GetTypeInfo().GetDeclaredMethod(nameof(_TrackGroupedEntities));
 
         [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
         private static IAsyncEnumerable<TrackingGrouping<TKey, TOut, TIn>> _TrackGroupedEntities<TKey, TOut, TIn>(
             IAsyncEnumerable<IGrouping<TKey, TOut>> groupings,
             QueryContext queryContext,
@@ -211,13 +218,13 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
             IList<Func<TIn, object>> entityAccessors)
             where TIn : class
         {
-            return groupings
-                .Select(g =>
-                    new TrackingGrouping<TKey, TOut, TIn>(
-                        g,
-                        queryContext,
-                        entityTrackingInfos,
-                        entityAccessors));
+            return _Select(
+                groupings,
+                g => new TrackingGrouping<TKey, TOut, TIn>(
+                    g,
+                    queryContext,
+                    entityTrackingInfos,
+                    entityAccessors));
         }
 
         public virtual MethodInfo TrackGroupedEntities => _trackGroupedEntities;
@@ -275,8 +282,9 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                 .GetTypeInfo().GetDeclaredMethod(nameof(_ToSequence));
 
         [UsedImplicitly]
-        private static IAsyncEnumerable<T> _ToSequence<T>(T element)
-            => new AsyncEnumerableAdapter<T>(new[] { element });
+        // ReSharper disable once InconsistentNaming
+        internal static IAsyncEnumerable<T> _ToSequence<T>(Task<T> task)
+            => new TaskResultAsyncEnumerable<T>(task);
 
         public virtual MethodInfo ToSequence => _toSequence;
 
@@ -285,6 +293,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                 .GetTypeInfo().GetDeclaredMethod(nameof(_ToQueryable));
 
         [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
         private static IOrderedQueryable<TSource> _ToQueryable<TSource>(IAsyncEnumerable<TSource> source)
             => new AsyncQueryableAdapter<TSource>(source);
 
@@ -321,6 +330,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                 .GetTypeInfo().GetDeclaredMethod(nameof(_SelectMany));
 
         [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
         private static IAsyncEnumerable<TResult> _SelectMany<TSource, TCollection, TResult>(
             IAsyncEnumerable<TSource> source,
             Func<TSource, IAsyncEnumerable<TCollection>> collectionSelector,
@@ -334,6 +344,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                 .GetTypeInfo().GetDeclaredMethod(nameof(_Join));
 
         [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
         private static IAsyncEnumerable<TResult> _Join<TOuter, TInner, TKey, TResult>(
             IAsyncEnumerable<TOuter> outer,
             IAsyncEnumerable<TInner> inner,
@@ -349,6 +360,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                 .GetTypeInfo().GetDeclaredMethod(nameof(_GroupJoin));
 
         [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
         private static IAsyncEnumerable<TResult> _GroupJoin<TOuter, TInner, TKey, TResult>(
             IAsyncEnumerable<TOuter> outer,
             IAsyncEnumerable<TInner> inner,
@@ -363,10 +375,47 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
             = typeof(AsyncLinqOperatorProvider)
                 .GetTypeInfo().GetDeclaredMethod(nameof(_Select));
 
-        [UsedImplicitly]
-        private static IAsyncEnumerable<TResult> _Select<TSource, TResult>(
-            IAsyncEnumerable<TSource> source, Func<TSource, TResult> selector)
-            => source.Select(selector);
+        // ReSharper disable once InconsistentNaming
+        public static IAsyncEnumerable<TResult> _Select<TSource, TResult>(
+            [NotNull] IAsyncEnumerable<TSource> source, [NotNull] Func<TSource, TResult> selector)
+            => new SelectAsyncEnumerable<TSource, TResult>(source, selector);
+
+        private sealed class SelectAsyncEnumerable<TSource, TResult> : IAsyncEnumerable<TResult>
+        {
+            private readonly IAsyncEnumerable<TSource> _source;
+            private readonly Func<TSource, TResult> _selector;
+
+            public SelectAsyncEnumerable(
+                IAsyncEnumerable<TSource> source, Func<TSource, TResult> selector)
+            {
+                _source = source;
+                _selector = selector;
+            }
+
+            public IAsyncEnumerator<TResult> GetEnumerator()
+                => new SelectAsyncEnumerator(_source.GetEnumerator(), _selector);
+
+            private sealed class SelectAsyncEnumerator : IAsyncEnumerator<TResult>
+            {
+                private readonly IAsyncEnumerator<TSource> _source;
+                private readonly Func<TSource, TResult> _selector;
+
+                public SelectAsyncEnumerator(
+                    IAsyncEnumerator<TSource> asyncEnumerator,
+                    Func<TSource, TResult> selector)
+                {
+                    _source = asyncEnumerator;
+                    _selector = selector;
+                }
+
+                public void Dispose() => _source.Dispose();
+
+                public Task<bool> MoveNext(CancellationToken cancellationToken)
+                    => _source.MoveNext(cancellationToken);
+
+                public TResult Current => _selector(_source.Current);
+            }
+        }
 
         public virtual MethodInfo Select => _select;
 
@@ -375,6 +424,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                 .GetTypeInfo().GetDeclaredMethod(nameof(_OrderBy));
 
         [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
         private static IOrderedAsyncEnumerable<TSource> _OrderBy<TSource, TKey>(
             IAsyncEnumerable<TSource> source, Func<TSource, TKey> expression, OrderingDirection orderingDirection)
             => orderingDirection == OrderingDirection.Asc
@@ -388,6 +438,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                 .GetTypeInfo().GetDeclaredMethod(nameof(_ThenBy));
 
         [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
         private static IOrderedAsyncEnumerable<TSource> _ThenBy<TSource, TKey>(
             IOrderedAsyncEnumerable<TSource> source, Func<TSource, TKey> expression, OrderingDirection orderingDirection)
             => orderingDirection == OrderingDirection.Asc
@@ -401,6 +452,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                 .GetTypeInfo().GetDeclaredMethod(nameof(_Where));
 
         [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
         private static IAsyncEnumerable<TSource> _Where<TSource>(
             IAsyncEnumerable<TSource> source, Func<TSource, bool> predicate) => source.Where(predicate);
 
@@ -408,40 +460,118 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
 
         // Result operators
 
-        private static readonly MethodInfo _any = GetMethod("Any");
-        private static readonly MethodInfo _all = GetMethod("All", 1);
+        private static readonly MethodInfo _any 
+            = typeof(AsyncLinqOperatorProvider)
+                .GetTypeInfo().GetDeclaredMethod(nameof(_Any));
+
+        [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
+        private static async Task<bool> _Any<TSource>(
+            IAsyncEnumerable<TSource> source, CancellationToken cancellationToken)
+        {
+            using (var asyncEnumerator = source.GetEnumerator())
+            {
+                return await asyncEnumerator.MoveNext(cancellationToken);
+            }
+        }
+
+        public virtual MethodInfo Any => _any;
+        
+        private static readonly MethodInfo _all 
+            = typeof(AsyncLinqOperatorProvider)
+                .GetTypeInfo().GetDeclaredMethod(nameof(_All));
+
+        [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
+        private static async Task<bool> _All<TSource>(
+            IAsyncEnumerable<TSource> source, Func<TSource, bool> predicate, CancellationToken cancellationToken)
+        {
+            using (var asyncEnumerator = source.GetEnumerator())
+            {
+                while (await asyncEnumerator.MoveNext(cancellationToken))
+                {
+                    if (!predicate(asyncEnumerator.Current))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        public virtual MethodInfo All => _all;
+        
         private static readonly MethodInfo _cast = GetMethod("Cast");
         private static readonly MethodInfo _count = GetMethod("Count");
         private static readonly MethodInfo _contains = GetMethod("Contains", 1);
         private static readonly MethodInfo _defaultIfEmpty = GetMethod("DefaultIfEmpty");
         private static readonly MethodInfo _defaultIfEmptyArg = GetMethod("DefaultIfEmpty", 1);
         private static readonly MethodInfo _distinct = GetMethod("Distinct");
-        private static readonly MethodInfo _first = GetMethod("First");
-        private static readonly MethodInfo _firstOrDefault = GetMethod("FirstOrDefault");
 
-        public virtual MethodInfo Any => _any;
-        public virtual MethodInfo All => _all;
+        private static readonly MethodInfo _first 
+            = typeof(AsyncLinqOperatorProvider)
+                .GetTypeInfo().GetDeclaredMethod(nameof(_First));
+
+        [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
+        private static async Task<TSource> _First<TSource>(
+            IAsyncEnumerable<TSource> source, CancellationToken cancellationToken)
+        {
+            using (var asyncEnumerator = source.GetEnumerator())
+            {
+                if (await asyncEnumerator.MoveNext(cancellationToken))
+                {
+                    return asyncEnumerator.Current;
+                }
+            }
+
+            throw new InvalidOperationException(CoreStrings.NoElements);
+        }
+
+        public virtual MethodInfo First => _first;
+
+        private static readonly MethodInfo _firstOrDefault
+            = typeof(AsyncLinqOperatorProvider)
+                .GetTypeInfo().GetDeclaredMethod(nameof(_FirstOrDefault));
+
+        [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
+        private static async Task<TSource> _FirstOrDefault<TSource>(
+            IAsyncEnumerable<TSource> source, CancellationToken cancellationToken)
+        {
+            using (var asyncEnumerator = source.GetEnumerator())
+            {
+                if (await asyncEnumerator.MoveNext(cancellationToken))
+                {
+                    return asyncEnumerator.Current;
+                }
+            }
+
+            return default(TSource);
+        }
+
+        public virtual MethodInfo FirstOrDefault => _firstOrDefault;
+        
         public virtual MethodInfo Cast => _cast;
         public virtual MethodInfo Count => _count;
         public virtual MethodInfo Contains => _contains;
         public virtual MethodInfo DefaultIfEmpty => _defaultIfEmpty;
         public virtual MethodInfo DefaultIfEmptyArg => _defaultIfEmptyArg;
         public virtual MethodInfo Distinct => _distinct;
-
-        public virtual MethodInfo First => _first;
-        public virtual MethodInfo FirstOrDefault => _firstOrDefault;
-
+        
         private static readonly MethodInfo _groupBy
             = typeof(AsyncLinqOperatorProvider).GetTypeInfo().GetDeclaredMethod(nameof(_GroupBy));
 
         [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
         private static IAsyncEnumerable<IGrouping<TKey, TElement>> _GroupBy<TSource, TKey, TElement>(
             IAsyncEnumerable<TSource> source,
             Func<TSource, TKey> keySelector,
             Func<TSource, TElement> elementSelector)
             => new GroupByAsyncEnumerable<TSource, TKey, TElement>(source, keySelector, elementSelector);
 
-        internal class GroupByAsyncEnumerable<TSource, TKey, TElement> : IAsyncEnumerable<IGrouping<TKey, TElement>>
+        internal sealed class GroupByAsyncEnumerable<TSource, TKey, TElement> : IAsyncEnumerable<IGrouping<TKey, TElement>>
         {
             private readonly IAsyncEnumerable<TSource> _source;
             private readonly Func<TSource, TKey> _keySelector;
@@ -460,7 +590,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
             public IAsyncEnumerator<IGrouping<TKey, TElement>> GetEnumerator()
                 => new GroupByEnumerator(this);
 
-            private class GroupByEnumerator : IAsyncEnumerator<IGrouping<TKey, TElement>>
+            private sealed class GroupByEnumerator : IAsyncEnumerator<IGrouping<TKey, TElement>>
             {
                 private readonly GroupByAsyncEnumerable<TSource, TKey, TElement> _groupByAsyncEnumerable;
 
@@ -510,21 +640,130 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
 
         public virtual MethodInfo GroupBy => _groupBy;
 
-        private static readonly MethodInfo _last = GetMethod("Last");
-        private static readonly MethodInfo _lastOrDefault = GetMethod("LastOrDefault");
+        private static readonly MethodInfo _last 
+            = typeof(AsyncLinqOperatorProvider)
+                .GetTypeInfo().GetDeclaredMethod(nameof(_Last));
+
+        [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
+        private static async Task<TSource> _Last<TSource>(
+            IAsyncEnumerable<TSource> source, CancellationToken cancellationToken)
+        {
+            using (var asyncEnumerator = source.GetEnumerator())
+            {
+                if (await asyncEnumerator.MoveNext(cancellationToken))
+                {
+                    TSource result;
+                    do
+                    {
+                        result = asyncEnumerator.Current;
+                    }
+                    while (await asyncEnumerator.MoveNext(cancellationToken));
+
+                    return result;
+                }
+            }
+
+            throw new InvalidOperationException(CoreStrings.NoElements);
+        }
+
+        public virtual MethodInfo Last => _last;
+
+        private static readonly MethodInfo _lastOrDefault
+            = typeof(AsyncLinqOperatorProvider)
+                .GetTypeInfo().GetDeclaredMethod(nameof(_LastOrDefault));
+
+        [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
+        private static async Task<TSource> _LastOrDefault<TSource>(
+            IAsyncEnumerable<TSource> source, CancellationToken cancellationToken)
+        {
+            using (var asyncEnumerator = source.GetEnumerator())
+            {
+                if (await asyncEnumerator.MoveNext(cancellationToken))
+                {
+                    TSource result;
+                    do
+                    {
+                        result = asyncEnumerator.Current;
+                    }
+                    while (await asyncEnumerator.MoveNext(cancellationToken));
+
+                    return result;
+                }
+            }
+
+            return default(TSource);
+        }
+
+        public virtual MethodInfo LastOrDefault => _lastOrDefault;
+
         private static readonly MethodInfo _longCount = GetMethod("LongCount");
         private static readonly MethodInfo _ofType = GetMethod("OfType");
-        private static readonly MethodInfo _single = GetMethod("Single");
-        private static readonly MethodInfo _singleOrDefault = GetMethod("SingleOrDefault");
         private static readonly MethodInfo _skip = GetMethod("Skip", 1);
         private static readonly MethodInfo _take = GetMethod("Take", 1);
 
-        public virtual MethodInfo Last => _last;
-        public virtual MethodInfo LastOrDefault => _lastOrDefault;
         public virtual MethodInfo LongCount => _longCount;
         public virtual MethodInfo OfType => _ofType;
+
+        private static readonly MethodInfo _single 
+            = typeof(AsyncLinqOperatorProvider)
+                .GetTypeInfo().GetDeclaredMethod(nameof(_Single));
+
+        [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
+        private static async Task<TSource> _Single<TSource>(
+            IAsyncEnumerable<TSource> source, CancellationToken cancellationToken)
+        {
+            using (var asyncEnumerator = source.GetEnumerator())
+            {
+                if (!await asyncEnumerator.MoveNext(cancellationToken))
+                {
+                    throw new InvalidOperationException(CoreStrings.NoElements);
+                }
+
+                var item = asyncEnumerator.Current;
+
+                if (!await asyncEnumerator.MoveNext(cancellationToken))
+                {
+                    return item;
+                }
+            }
+
+            throw new InvalidOperationException(CoreStrings.MoreThanOneElement);
+        }
+
         public virtual MethodInfo Single => _single;
+
+        private static readonly MethodInfo _singleOrDefault
+            = typeof(AsyncLinqOperatorProvider)
+                .GetTypeInfo().GetDeclaredMethod(nameof(_SingleOrDefault));
+
+        [UsedImplicitly]
+        // ReSharper disable once InconsistentNaming
+        private static async Task<TSource> _SingleOrDefault<TSource>(
+            IAsyncEnumerable<TSource> source, CancellationToken cancellationToken)
+        {
+            using (var asyncEnumerator = source.GetEnumerator())
+            {
+                if (!await asyncEnumerator.MoveNext(cancellationToken))
+                {
+                    return default(TSource);
+                }
+
+                var item = asyncEnumerator.Current;
+
+                if (!await asyncEnumerator.MoveNext(cancellationToken))
+                {
+                    return item;
+                }
+            }
+
+            throw new InvalidOperationException(CoreStrings.MoreThanOneElement);
+        }
+
         public virtual MethodInfo SingleOrDefault => _singleOrDefault;
+
         public virtual MethodInfo Skip => _skip;
         public virtual MethodInfo Take => _take;
 
@@ -562,7 +801,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
             return new AsyncEnumerableAdapter<T>(source);
         }
 
-        private class AsyncEnumerableAdapter<T> : IAsyncEnumerable<T>
+        private sealed class AsyncEnumerableAdapter<T> : IAsyncEnumerable<T>
         {
             private readonly IEnumerable<T> _source;
 
@@ -574,7 +813,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
             public IAsyncEnumerator<T> GetEnumerator()
                 => new AsyncEnumeratorAdapter(_source.GetEnumerator());
 
-            private class AsyncEnumeratorAdapter : IAsyncEnumerator<T>
+            private sealed class AsyncEnumeratorAdapter : IAsyncEnumerator<T>
             {
                 private readonly IEnumerator<T> _enumerator;
 
@@ -596,7 +835,6 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
             }
         }
 
-
         // Set operations
         private static readonly MethodInfo _concat = GetMethod("Concat", 1);
         private static readonly MethodInfo _except = GetMethod("Except", 1);
@@ -607,7 +845,6 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
         public virtual MethodInfo Except => _except;
         public virtual MethodInfo Intersect => _intersect;
         public virtual MethodInfo Union => _union;
-
 
         private static MethodInfo GetMethod(string name, int parameterCount = 0)
         {

@@ -20,7 +20,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Sql
         Expression VisitCrossJoin([NotNull] CrossJoinExpression crossJoinExpression);
         Expression VisitLateralJoin([NotNull] LateralJoinExpression lateralJoinExpression);
         Expression VisitInnerJoin([NotNull] InnerJoinExpression innerJoinExpression);
-        Expression VisitOuterJoin([NotNull] LeftOuterJoinExpression leftOuterJoinExpression);
+        Expression VisitLeftOuterJoin([NotNull] LeftOuterJoinExpression leftOuterJoinExpression);
         Expression VisitExists([NotNull] ExistsExpression existsExpression);
         Expression VisitCount([NotNull] CountExpression countExpression);
         Expression VisitSum([NotNull] SumExpression sumExpression);
@@ -30,5 +30,6 @@ namespace Microsoft.EntityFrameworkCore.Query.Sql
         Expression VisitSqlFunction([NotNull] SqlFunctionExpression sqlFunctionExpression);
         Expression VisitStringCompare([NotNull] StringCompareExpression stringCompareExpression);
         Expression VisitExplicitCast([NotNull] ExplicitCastExpression explicitCastExpression);
+        Expression VisitPropertyParameter([NotNull] PropertyParameterExpression propertyParameterExpression);
     }
 }

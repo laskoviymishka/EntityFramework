@@ -2,13 +2,13 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using JetBrains.Annotations;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Utilities;
 
 // ReSharper disable once CheckNamespace
-
 namespace Microsoft.EntityFrameworkCore
 {
     public static class SqlServerPropertyBuilderExtensions
@@ -54,13 +54,8 @@ namespace Microsoft.EntityFrameworkCore
             Check.NotNull(propertyBuilder, nameof(propertyBuilder));
             Check.NullButNotEmpty(sql, nameof(sql));
 
-            var property = (Property)propertyBuilder.Metadata;
-            if (ConfigurationSource.Convention.Overrides(property.GetValueGeneratedConfigurationSource()))
-            {
-                property.SetValueGenerated(ValueGenerated.OnAdd, ConfigurationSource.Convention);
-            }
-
-            propertyBuilder.Metadata.SqlServer().DefaultValueSql = sql;
+            var internalPropertyBuilder = propertyBuilder.GetInfrastructure<InternalPropertyBuilder>();
+            internalPropertyBuilder.SqlServer(ConfigurationSource.Explicit).DefaultValueSql(sql);
 
             return propertyBuilder;
         }
@@ -76,13 +71,8 @@ namespace Microsoft.EntityFrameworkCore
         {
             Check.NotNull(propertyBuilder, nameof(propertyBuilder));
 
-            var property = (Property)propertyBuilder.Metadata;
-            if (ConfigurationSource.Convention.Overrides(property.GetValueGeneratedConfigurationSource()))
-            {
-                property.SetValueGenerated(ValueGenerated.OnAdd, ConfigurationSource.Convention);
-            }
-
-            propertyBuilder.Metadata.SqlServer().DefaultValue = value;
+            var internalPropertyBuilder = propertyBuilder.GetInfrastructure<InternalPropertyBuilder>();
+            internalPropertyBuilder.SqlServer(ConfigurationSource.Explicit).DefaultValue(value);
 
             return propertyBuilder;
         }
@@ -99,13 +89,8 @@ namespace Microsoft.EntityFrameworkCore
             Check.NotNull(propertyBuilder, nameof(propertyBuilder));
             Check.NullButNotEmpty(sql, nameof(sql));
 
-            var property = (Property)propertyBuilder.Metadata;
-            if (ConfigurationSource.Convention.Overrides(property.GetValueGeneratedConfigurationSource()))
-            {
-                property.SetValueGenerated(ValueGenerated.OnAddOrUpdate, ConfigurationSource.Convention);
-            }
-
-            propertyBuilder.Metadata.SqlServer().ComputedValueSql = sql;
+            var internalPropertyBuilder = propertyBuilder.GetInfrastructure<InternalPropertyBuilder>();
+            internalPropertyBuilder.SqlServer(ConfigurationSource.Explicit).ComputedColumnSql(sql);
 
             return propertyBuilder;
         }
@@ -130,9 +115,10 @@ namespace Microsoft.EntityFrameworkCore
 
             var model = property.DeclaringEntityType.Model;
 
-            var sequence =
-                model.SqlServer().FindSequence(name, schema) ??
-                new Sequence(model, SqlServerFullAnnotationNames.Instance.SequencePrefix, name, schema) { IncrementBy = 10 };
+            if (model.SqlServer().FindSequence(name, schema) == null)
+            {
+                model.SqlServer().GetOrAddSequence(name, schema).IncrementBy = 10;
+            }
 
             property.SqlServer().ValueGenerationStrategy = SqlServerValueGenerationStrategy.SequenceHiLo;
             property.ValueGenerated = ValueGenerated.OnAdd;

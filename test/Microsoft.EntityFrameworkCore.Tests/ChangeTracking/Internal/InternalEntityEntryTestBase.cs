@@ -6,7 +6,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
-using Microsoft.EntityFrameworkCore.FunctionalTests;
+using Microsoft.EntityFrameworkCore.Specification.Tests;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
@@ -21,6 +21,25 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
 {
     public abstract class InternalEntityEntryTestBase
     {
+        [Fact]
+        public virtual void Store_setting_null_for_non_nullable_store_generated_property_throws()
+        {
+            var model = BuildModel();
+            var entityType = model.FindEntityType(typeof(SomeEntity).FullName);
+            var keyProperty = entityType.FindProperty("Id");
+            keyProperty.ValueGenerated = ValueGenerated.OnAdd;
+
+            var contextServices = TestHelpers.Instance.CreateContextServices(model);
+
+            var entry = CreateInternalEntry(contextServices, entityType, new SomeEntity());
+            entry.SetEntityState(EntityState.Added);
+            entry.PrepareToSave();
+
+            Assert.Equal(
+                CoreStrings.DatabaseGeneratedNull("Id", keyProperty.DeclaringEntityType.DisplayName()),
+                Assert.Throws<InvalidOperationException>(() => entry.SetCurrentValue(keyProperty, null)).Message);
+        }
+
         [Fact]
         public virtual void Changing_state_from_Unknown_causes_entity_to_start_tracking()
         {
@@ -315,9 +334,11 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
             entry.SetEntityState(EntityState.Added);
             entry.MarkAsTemporary(keyProperty);
 
+            Assert.True(entry.HasTemporaryValue(keyProperty));
+
             entry.SetEntityState(EntityState.Detached);
 
-            Assert.False(entry.HasTemporaryValue(keyProperty));
+            Assert.True(entry.HasTemporaryValue(keyProperty));
 
             entry[keyProperty] = 1;
             entry.SetEntityState(EntityState.Unchanged);
@@ -594,7 +615,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
         {
             var model = BuildModel();
             var entityType = model.FindEntityType(typeof(FullNotificationEntity).FullName);
-            entityType.UseEagerSnapshots = true;
+            entityType.ChangeTrackingStrategy = ChangeTrackingStrategy.Snapshot;
 
             AllOriginalValuesTest(model, entityType, new FullNotificationEntity { Id = 1, Name = "Kool" });
         }
@@ -1129,21 +1150,6 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
                 Assert.Throws<InvalidOperationException>(() => entry.HandleConceptualNulls()).Message);
         }
 
-        public class TestInMemoryValueGeneratorSelector : InMemoryValueGeneratorSelector
-        {
-            private readonly TemporaryNumberValueGeneratorFactory _inMemoryFactory = new TemporaryNumberValueGeneratorFactory();
-
-            public TestInMemoryValueGeneratorSelector(IValueGeneratorCache cache)
-                : base(cache)
-            {
-            }
-
-            public override ValueGenerator Create(IProperty property, IEntityType entityType)
-                => property.ClrType == typeof(int)
-                    ? _inMemoryFactory.Create(property)
-                    : base.Create(property, entityType);
-        }
-
         private class Root
         {
             public int Id { get; set; }
@@ -1168,70 +1174,68 @@ namespace Microsoft.EntityFrameworkCore.Tests.ChangeTracking.Internal
         }
 
         protected virtual InternalEntityEntry CreateInternalEntry(IServiceProvider contextServices, IEntityType entityType, object entity)
-            => contextServices.GetRequiredService<IInternalEntityEntrySubscriber>().SnapshotAndSubscribe(
-                new InternalEntityEntryFactory()
-                    .Create(contextServices.GetRequiredService<IStateManager>(), entityType, entity));
+        {
+            var entry = new InternalEntityEntryFactory()
+                .Create(contextServices.GetRequiredService<IStateManager>(), entityType, entity);
+
+            contextServices.GetRequiredService<IInternalEntityEntrySubscriber>().SnapshotAndSubscribe(entry);
+            return entry;
+        }
 
         protected virtual InternalEntityEntry CreateInternalEntry(IServiceProvider contextServices, IEntityType entityType, object entity, ValueBuffer valueBuffer)
-            => contextServices.GetRequiredService<IInternalEntityEntrySubscriber>().SnapshotAndSubscribe(
-                new InternalEntityEntryFactory()
-                    .Create(contextServices.GetRequiredService<IStateManager>(), entityType, entity, valueBuffer));
+        {
+            var entry = new InternalEntityEntryFactory()
+                .Create(contextServices.GetRequiredService<IStateManager>(), entityType, entity, valueBuffer);
+
+            contextServices.GetRequiredService<IInternalEntityEntrySubscriber>().SnapshotAndSubscribe(entry);
+            return entry;
+        }
 
         protected virtual Model BuildModel()
         {
             var model = new Model();
 
             var someSimpleEntityType = model.AddEntityType(typeof(SomeSimpleEntityBase));
-            var simpleKeyProperty = someSimpleEntityType.AddProperty("Id", typeof(int));
-            simpleKeyProperty.IsShadowProperty = false;
+            var simpleKeyProperty = someSimpleEntityType.AddProperty("Id", typeof(int), shadow: false);
             simpleKeyProperty.RequiresValueGenerator = true;
             someSimpleEntityType.GetOrSetPrimaryKey(simpleKeyProperty);
 
             var someCompositeEntityType = model.AddEntityType(typeof(SomeCompositeEntityBase));
-            var compositeKeyProperty1 = someCompositeEntityType.AddProperty("Id1", typeof(int));
-            compositeKeyProperty1.IsShadowProperty = false;
-            var compositeKeyProperty2 = someCompositeEntityType.AddProperty("Id2", typeof(string));
-            compositeKeyProperty2.IsShadowProperty = false;
+            var compositeKeyProperty1 = someCompositeEntityType.AddProperty("Id1", typeof(int), shadow: false);
+            var compositeKeyProperty2 = someCompositeEntityType.AddProperty("Id2", typeof(string), shadow: false);
             compositeKeyProperty2.IsNullable = false;
             someCompositeEntityType.GetOrSetPrimaryKey(new[] { compositeKeyProperty1, compositeKeyProperty2 });
 
             var entityType1 = model.AddEntityType(typeof(SomeEntity));
             entityType1.HasBaseType(someSimpleEntityType);
-            var property3 = entityType1.AddProperty("Name", typeof(string));
-            property3.IsShadowProperty = false;
+            var property3 = entityType1.AddProperty("Name", typeof(string), shadow: false);
             property3.IsConcurrencyToken = true;
 
             var entityType2 = model.AddEntityType(typeof(SomeDependentEntity));
             entityType2.HasBaseType(someCompositeEntityType);
-            var fk = entityType2.AddProperty("SomeEntityId", typeof(int));
-            fk.IsShadowProperty = false;
+            var fk = entityType2.AddProperty("SomeEntityId", typeof(int), shadow: false);
             entityType2.GetOrAddForeignKey(new[] { fk }, entityType1.FindPrimaryKey(), entityType1);
-            var justAProperty = entityType2.AddProperty("JustAProperty", typeof(int));
-            justAProperty.IsShadowProperty = false;
+            var justAProperty = entityType2.AddProperty("JustAProperty", typeof(int), shadow: false);
             justAProperty.RequiresValueGenerator = true;
 
             var entityType3 = model.AddEntityType(typeof(FullNotificationEntity));
-            var property6 = entityType3.AddProperty("Id", typeof(int));
-            property6.IsShadowProperty = false;
+            var property6 = entityType3.AddProperty("Id", typeof(int), shadow: false);
             entityType3.GetOrSetPrimaryKey(property6);
-            var property7 = entityType3.AddProperty("Name", typeof(string));
-            property7.IsShadowProperty = false;
+            var property7 = entityType3.AddProperty("Name", typeof(string), shadow: false);
             property7.IsConcurrencyToken = true;
+            entityType3.ChangeTrackingStrategy = ChangeTrackingStrategy.ChangingAndChangedNotifications;
 
             var entityType4 = model.AddEntityType(typeof(ChangedOnlyEntity));
-            var property8 = entityType4.AddProperty("Id", typeof(int));
-            property8.IsShadowProperty = false;
+            var property8 = entityType4.AddProperty("Id", typeof(int), shadow: false);
             entityType4.GetOrSetPrimaryKey(property8);
-            var property9 = entityType4.AddProperty("Name", typeof(string));
-            property9.IsShadowProperty = false;
+            var property9 = entityType4.AddProperty("Name", typeof(string), shadow: false);
             property9.IsConcurrencyToken = true;
+            entityType4.ChangeTrackingStrategy = ChangeTrackingStrategy.ChangedNotifications;
 
             var entityType5 = model.AddEntityType(typeof(SomeMoreDependentEntity));
             entityType5.HasBaseType(someSimpleEntityType);
-            var fk5a = entityType5.AddProperty("Fk1", typeof(int));
-            fk5a.IsShadowProperty = false;
-            var fk5b = entityType5.AddProperty("Fk2", typeof(string));
-            fk5b.IsShadowProperty = false;
+            var fk5a = entityType5.AddProperty("Fk1", typeof(int), shadow: false);
+            var fk5b = entityType5.AddProperty("Fk2", typeof(string), shadow: false);
             entityType5.GetOrAddForeignKey(new[] { fk5a, fk5b }, entityType2.FindPrimaryKey(), entityType2);
 
             return model;

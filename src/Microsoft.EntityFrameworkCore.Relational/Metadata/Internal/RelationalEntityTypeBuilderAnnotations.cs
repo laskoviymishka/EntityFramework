@@ -25,6 +25,18 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         protected new virtual RelationalAnnotationsBuilder Annotations => (RelationalAnnotationsBuilder)base.Annotations;
         protected virtual InternalEntityTypeBuilder EntityTypeBuilder => (InternalEntityTypeBuilder)Annotations.MetadataBuilder;
 
+        protected override RelationalModelAnnotations GetAnnotations(IModel model)
+            => new RelationalModelBuilderAnnotations(
+                ((Model)model).Builder,
+                Annotations.ConfigurationSource,
+                ProviderFullAnnotationNames);
+
+        protected override RelationalEntityTypeAnnotations GetAnnotations(IEntityType entityType)
+            => new RelationalEntityTypeBuilderAnnotations(
+                ((EntityType)entityType).Builder,
+                Annotations.ConfigurationSource,
+                ProviderFullAnnotationNames);
+
         public virtual bool ToTable([CanBeNull] string name)
         {
             Check.NullButNotEmpty(name, nameof(name));
@@ -119,15 +131,15 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             [CanBeNull] Func<InternalEntityTypeBuilder, InternalPropertyBuilder> createProperty,
             [CanBeNull] Type propertyType)
         {
+            var configurationSource = Annotations.ConfigurationSource;
             var discriminatorProperty = DiscriminatorProperty;
-            if ((discriminatorProperty != null)
-                && (createProperty != null))
+            if (discriminatorProperty != null
+                && (createProperty != null || propertyType != null)
+                && !configurationSource.Overrides(GetDiscriminatorPropertyConfigurationSource()))
             {
-                if (!SetDiscriminatorProperty(null))
-                {
-                    return null;
-                }
+                return null;
             }
+
             var rootType = EntityTypeBuilder.Metadata.RootType();
             var rootTypeBuilder = EntityTypeBuilder.Metadata == rootType
                 ? EntityTypeBuilder
@@ -138,9 +150,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             {
                 propertyBuilder = createProperty(rootTypeBuilder);
             }
+            else if (propertyType != null)
+            {
+                propertyBuilder = rootTypeBuilder.Property(DefaultDiscriminatorName, propertyType, configurationSource);
+            }
             else if (discriminatorProperty == null)
             {
-                propertyBuilder = rootTypeBuilder.Property(DefaultDiscriminatorName, ConfigurationSource.Convention);
+                propertyBuilder = rootTypeBuilder.Property(DefaultDiscriminatorName, typeof(string), ConfigurationSource.Convention);
             }
             else
             {
@@ -149,37 +165,25 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 
             if (propertyBuilder == null)
             {
-                if ((discriminatorProperty != null)
-                    && (createProperty != null))
-                {
-                    SetDiscriminatorProperty(discriminatorProperty);
-                }
                 return null;
             }
 
-            if ((discriminatorProperty != null)
-                && (createProperty != null)
-                && (propertyBuilder.Metadata != discriminatorProperty))
+            var oldDiscriminatorProperty = discriminatorProperty as Property;
+            if (oldDiscriminatorProperty?.Builder != null
+                && (createProperty != null || propertyType != null)
+                && propertyBuilder.Metadata != discriminatorProperty)
             {
                 if (discriminatorProperty.DeclaringEntityType == EntityTypeBuilder.Metadata)
                 {
-                    EntityTypeBuilder.RemoveShadowPropertiesIfUnused(new[] { (Property)discriminatorProperty });
+                    EntityTypeBuilder.RemoveShadowPropertiesIfUnused(new[] { oldDiscriminatorProperty });
                 }
             }
 
-            var configurationSource = Annotations.ConfigurationSource;
-            if (propertyType != null)
+            if (discriminatorProperty == null
+                || createProperty != null
+                || propertyType != null)
             {
-                if (!propertyBuilder.HasClrType(propertyType, configurationSource))
-                {
-                    return null;
-                }
-            }
-
-            if ((discriminatorProperty == null)
-                || (createProperty != null))
-            {
-                var discriminatorSet = SetDiscriminatorProperty(propertyBuilder.Metadata);
+                var discriminatorSet = SetDiscriminatorProperty(propertyBuilder.Metadata, discriminatorProperty?.ClrType);
                 Debug.Assert(discriminatorSet);
             }
 

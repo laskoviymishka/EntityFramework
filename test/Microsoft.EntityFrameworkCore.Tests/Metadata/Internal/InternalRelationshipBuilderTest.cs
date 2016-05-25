@@ -24,7 +24,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             var dependentEntityBuilder = modelBuilder.Entity(typeof(Order), ConfigurationSource.Explicit);
 
             var relationshipBuilder = dependentEntityBuilder.Relationship(
-                principalEntityBuilder, ConfigurationSource.Convention, setPrincipalEnd: false);
+                principalEntityBuilder, ConfigurationSource.Convention);
 
             var fk = relationshipBuilder.Metadata;
             Assert.Equal(ConfigurationSource.Convention, fk.GetConfigurationSource());
@@ -58,8 +58,8 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             Assert.Null(relationshipBuilder.DeleteBehavior(DeleteBehavior.Restrict, ConfigurationSource.DataAnnotation));
             Assert.Null(relationshipBuilder.DependentEntityType(
                 relationshipBuilder.Metadata.PrincipalEntityType, ConfigurationSource.DataAnnotation));
-            Assert.Null(relationshipBuilder.DependentToPrincipal(null, ConfigurationSource.DataAnnotation));
-            Assert.Null(relationshipBuilder.PrincipalToDependent(null, ConfigurationSource.DataAnnotation));
+            Assert.Null(relationshipBuilder.DependentToPrincipal((string)null, ConfigurationSource.DataAnnotation));
+            Assert.Null(relationshipBuilder.PrincipalToDependent((string)null, ConfigurationSource.DataAnnotation));
         }
 
         [Fact]
@@ -71,14 +71,14 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             var dependentEntityBuilder = modelBuilder.Entity(typeof(Order), ConfigurationSource.Explicit);
 
             var foreignKey = dependentEntityBuilder.Relationship(
-                principalEntityBuilder, ConfigurationSource.Explicit, setPrincipalEnd: false).Metadata;
+                principalEntityBuilder, ConfigurationSource.Explicit).Metadata;
 
             foreignKey.UpdateForeignKeyPropertiesConfigurationSource(ConfigurationSource.Explicit);
             foreignKey.UpdatePrincipalKeyConfigurationSource(ConfigurationSource.Explicit);
             foreignKey.UpdatePrincipalEndConfigurationSource(ConfigurationSource.Explicit);
 
-            foreignKey.HasDependentToPrincipal(Order.CustomerProperty.Name);
-            foreignKey.HasPrincipalToDependent(Customer.OrdersProperty.Name);
+            foreignKey.HasDependentToPrincipal(Order.CustomerProperty);
+            foreignKey.HasPrincipalToDependent(Customer.OrdersProperty);
             foreignKey.IsRequired = false;
             foreignKey.IsUnique = false;
             foreignKey.DeleteBehavior = DeleteBehavior.Cascade;
@@ -237,7 +237,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             var relationshipBuilder = orderEntityBuilder.Relationship(customerEntityBuilder, ConfigurationSource.Convention);
 
             Assert.Equal(
-                CoreStrings.NoClrProperty("ShadowCustomerId", typeof(Order)),
+                CoreStrings.NoPropertyType("ShadowCustomerId", nameof(Order)),
                 Assert.Throws<InvalidOperationException>(() => relationshipBuilder.HasForeignKey(new[] { "ShadowCustomerId", "ShadowCustomerUnique" }, ConfigurationSource.Convention)).Message);
         }
 
@@ -251,7 +251,7 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             var relationshipBuilder = orderEntityBuilder.Relationship(customerEntityBuilder, ConfigurationSource.Convention);
 
             Assert.Equal(
-                CoreStrings.NoClrProperty("ShadowCustomerId", typeof(Order)),
+                CoreStrings.NoPropertyType("ShadowCustomerId", nameof(Order)),
                 Assert.Throws<InvalidOperationException>(() => relationshipBuilder.HasForeignKey(new[] { "ShadowCustomerId" }, ConfigurationSource.Convention)).Message);
         }
 
@@ -628,8 +628,8 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
                 },
                 principalEntityBuilder.Metadata.FindPrimaryKey(),
                 principalEntityBuilder.Metadata);
-            existingForeignKey.HasPrincipalToDependent(Customer.OrdersProperty.Name);
-            existingForeignKey.HasDependentToPrincipal(Order.CustomerProperty.Name);
+            existingForeignKey.HasPrincipalToDependent(Customer.OrdersProperty);
+            existingForeignKey.HasDependentToPrincipal(Order.CustomerProperty);
             Assert.Equal(ConfigurationSource.Explicit, existingForeignKey.GetDependentToPrincipalConfigurationSource());
             Assert.Equal(ConfigurationSource.Explicit, existingForeignKey.GetPrincipalToDependentConfigurationSource());
 

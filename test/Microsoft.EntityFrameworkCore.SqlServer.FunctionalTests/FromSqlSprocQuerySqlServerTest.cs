@@ -1,7 +1,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using Microsoft.EntityFrameworkCore.FunctionalTests;
+using Microsoft.EntityFrameworkCore.Specification.Tests;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -32,7 +32,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests
             base.From_sql_queryable_stored_procedure_with_parameter();
 
             Assert.Equal(
-                @"@p0: ALFKI
+                @"@p0: ALFKI (Size = 4000)
 
 [dbo].[CustOrderHist] @CustomerID = @p0",
                 Sql);
@@ -61,7 +61,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests
             base.From_sql_queryable_stored_procedure_with_parameter_composed();
 
             Assert.Equal(
-                @"@p0: ALFKI
+                @"@p0: ALFKI (Size = 4000)
 
 [dbo].[CustOrderHist] @CustomerID = @p0",
                 Sql);

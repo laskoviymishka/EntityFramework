@@ -48,12 +48,9 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests
         {
             const int blockSize = 4;
 
-            var state = new SqlServerSequenceValueGeneratorState(
-                new Sequence(
-                    new Model(), RelationalFullAnnotationNames.Instance.SequencePrefix, "Foo")
-                {
-                    IncrementBy = blockSize
-                });
+            var sequence = Sequence.GetOrAddSequence(new Model(), RelationalFullAnnotationNames.Instance.SequencePrefix, "Foo");
+            sequence.IncrementBy = blockSize;
+            var state = new SqlServerSequenceValueGeneratorState(sequence);
 
             var generator = new SqlServerSequenceHiLoValueGenerator<TValue>(
                 new FakeRawSqlCommandBuilder(blockSize),
@@ -63,7 +60,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests
 
             for (var i = 1; i <= 27; i++)
             {
-                Assert.Equal(i, (int)Convert.ChangeType(generator.Next(), typeof(int), CultureInfo.InvariantCulture));
+                Assert.Equal(i, (int)Convert.ChangeType(generator.Next(null), typeof(int), CultureInfo.InvariantCulture));
             }
         }
 
@@ -95,12 +92,9 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests
 
             var serviceProvider = SqlServerTestHelpers.Instance.CreateServiceProvider();
 
-            var state = new SqlServerSequenceValueGeneratorState(
-                new Sequence(
-                    new Model(), RelationalFullAnnotationNames.Instance.SequencePrefix, "Foo")
-                {
-                    IncrementBy = blockSize
-                });
+            var sequence = Sequence.GetOrAddSequence(new Model(), RelationalFullAnnotationNames.Instance.SequencePrefix, "Foo");
+            sequence.IncrementBy = blockSize;
+            var state = new SqlServerSequenceValueGeneratorState(sequence);
 
             var executor = new FakeRawSqlCommandBuilder(blockSize);
             var sqlGenerator = new SqlServerUpdateSqlGenerator(new SqlServerSqlGenerationHelper(), new SqlServerTypeMapper());
@@ -118,7 +112,7 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests
                             var connection = CreateConnection(serviceProvider);
                             var generator = new SqlServerSequenceHiLoValueGenerator<long>(executor, sqlGenerator, state, connection);
 
-                            generatedValues[testNumber].Add(generator.Next());
+                            generatedValues[testNumber].Add(generator.Next(null));
                         }
                     };
             }
@@ -131,12 +125,9 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.Tests
         [Fact]
         public void Does_not_generate_temp_values()
         {
-            var state = new SqlServerSequenceValueGeneratorState(
-                new Sequence(
-                    new Model(), RelationalFullAnnotationNames.Instance.SequencePrefix, "Foo")
-                {
-                    IncrementBy = 4
-                });
+            var sequence = Sequence.GetOrAddSequence(new Model(), RelationalFullAnnotationNames.Instance.SequencePrefix, "Foo");
+            sequence.IncrementBy = 4;
+            var state = new SqlServerSequenceValueGeneratorState(sequence);
 
             var generator = new SqlServerSequenceHiLoValueGenerator<int>(
                 new FakeRawSqlCommandBuilder(4),

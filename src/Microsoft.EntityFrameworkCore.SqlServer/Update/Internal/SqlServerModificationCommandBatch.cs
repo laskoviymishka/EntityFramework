@@ -82,17 +82,20 @@ namespace Microsoft.EntityFrameworkCore.Update.Internal
             return true;
         }
 
+        protected override int GetParameterCount()
+            => _parameterCount;
+
         private static int CountParameters(ModificationCommand modificationCommand)
         {
             var parameterCount = 0;
             foreach (var columnModification in modificationCommand.ColumnModifications)
             {
-                if (columnModification.ParameterName != null)
+                if (columnModification.UseCurrentValueParameter)
                 {
                     parameterCount++;
                 }
 
-                if (columnModification.OriginalParameterName != null)
+                if (columnModification.UseOriginalValueParameter)
                 {
                     parameterCount++;
                 }

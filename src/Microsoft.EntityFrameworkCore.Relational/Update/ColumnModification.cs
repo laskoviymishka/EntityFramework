@@ -1,53 +1,44 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using JetBrains.Annotations;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Utilities;
 
 namespace Microsoft.EntityFrameworkCore.Update
 {
     public class ColumnModification
     {
-        private readonly LazyRef<string> _parameterName;
-        private readonly LazyRef<string> _originalParameterName;
-        private readonly LazyRef<string> _outputParameterName;
+        private string _parameterName;
+        private string _originalParameterName;
+        private readonly Func<string> _generateParameterName;
 
         public ColumnModification(
             [NotNull] IUpdateEntry entry,
             [NotNull] IProperty property,
             [NotNull] IRelationalPropertyAnnotations propertyAnnotations,
-            [NotNull] ParameterNameGenerator parameterNameGenerator,
+            [NotNull] Func<string> generateParameterName,
             bool isRead,
             bool isWrite,
             bool isKey,
-            bool isCondition)
+            bool isCondition, 
+            bool isConcurrencyToken)
         {
             Check.NotNull(entry, nameof(entry));
             Check.NotNull(property, nameof(property));
             Check.NotNull(propertyAnnotations, nameof(propertyAnnotations));
-            Check.NotNull(parameterNameGenerator, nameof(parameterNameGenerator));
+            Check.NotNull(generateParameterName, nameof(generateParameterName));
 
             Entry = entry;
             Property = property;
             ColumnName = propertyAnnotations.ColumnName;
-
-            _parameterName = isWrite
-                ? new LazyRef<string>(parameterNameGenerator.GenerateNext)
-                : new LazyRef<string>((string)null);
-            _originalParameterName = isCondition
-                ? new LazyRef<string>(parameterNameGenerator.GenerateNext)
-                : new LazyRef<string>((string)null);
-            _outputParameterName = isRead
-                ? new LazyRef<string>(parameterNameGenerator.GenerateNext)
-                : new LazyRef<string>((string)null);
-
+            _generateParameterName = generateParameterName;
             IsRead = isRead;
             IsWrite = isWrite;
             IsKey = isKey;
             IsCondition = isCondition;
+            IsConcurrencyToken = isConcurrencyToken;
         }
 
         public virtual IUpdateEntry Entry { get; }
@@ -60,16 +51,19 @@ namespace Microsoft.EntityFrameworkCore.Update
 
         public virtual bool IsCondition { get; }
 
+        public virtual bool IsConcurrencyToken { get; }
+
         public virtual bool IsKey { get; }
 
+        public virtual bool UseOriginalValueParameter => IsCondition && IsConcurrencyToken;
+
+        public virtual bool UseCurrentValueParameter => IsWrite || (IsCondition && !IsConcurrencyToken);
+
         public virtual string ParameterName
-            => _parameterName.Value;
+            => _parameterName ?? (_parameterName = _generateParameterName());
 
         public virtual string OriginalParameterName
-            => _originalParameterName.Value;
-
-        public virtual string OutputParameterName
-            => _outputParameterName.Value;
+            => _originalParameterName ?? (_originalParameterName = _generateParameterName());
 
         public virtual string ColumnName { get; }
 

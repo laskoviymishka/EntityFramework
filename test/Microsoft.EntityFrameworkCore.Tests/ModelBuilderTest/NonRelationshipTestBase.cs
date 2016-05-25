@@ -511,6 +511,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
                         b.Property<string>("Strange").IsConcurrencyToken(false);
                         b.Property<int>("Top").IsConcurrencyToken();
                         b.Property<string>("Bottom").IsConcurrencyToken(false);
+                        b.HasChangeTrackingStrategy(ChangeTrackingStrategy.ChangingAndChangedNotifications);
                     });
 
                 var entityType = (IEntityType)model.FindEntityType(typeof(Quarks));
@@ -716,7 +717,7 @@ namespace Microsoft.EntityFrameworkCore.Tests
             {
                 var modelBuilder = CreateModelBuilder();
                 var entityType = (EntityType)modelBuilder.Entity<SelfRef>().Metadata;
-                var shadowProperty = entityType.AddProperty("ShadowProperty", ConfigurationSource.Convention);
+                var shadowProperty = entityType.AddProperty("ShadowProperty", typeof(string), configurationSource: ConfigurationSource.Convention);
                 shadowProperty.IsNullable = false;
                 entityType.AddKey(shadowProperty);
 

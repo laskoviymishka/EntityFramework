@@ -7,6 +7,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Microsoft.EntityFrameworkCore.Metadata.Internal
@@ -41,16 +42,22 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             var entryParameter = Expression.Parameter(typeof(InternalEntityEntry), "entry");
 
             var shadowIndex = (propertyBase as IProperty)?.GetShadowIndex() ?? -1;
-            var currentValueExpression = shadowIndex >= 0
-                ? (Expression)Expression.Call(
+            Expression currentValueExpression;
+            if (shadowIndex >= 0)
+            {
+                currentValueExpression = Expression.Call(
                     entryParameter,
                     InternalEntityEntry.ReadShadowValueMethod.MakeGenericMethod(typeof(TProperty)),
-                    Expression.Constant(shadowIndex))
-                : Expression.Property(
+                    Expression.Constant(shadowIndex));
+            }
+            else
+            {
+                currentValueExpression = Expression.Property(
                     Expression.Convert(
                         Expression.Property(entryParameter, "Entity"),
                         entityClrType),
-                    entityClrType.GetAnyProperty(propertyBase.Name));
+                    propertyBase.GetPropertyInfo());
+            }
 
             var storeGeneratedIndex = propertyBase.GetStoreGeneratedIndex();
             if (storeGeneratedIndex >= 0)
@@ -75,15 +82,16 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 
             return Expression.Lambda<Func<InternalEntityEntry, TProperty>>(
                 originalValuesIndex >= 0
-                    ? Expression.Call(
+                    ? (Expression)Expression.Call(
                         entryParameter,
                         InternalEntityEntry.ReadOriginalValueMethod.MakeGenericMethod(typeof(TProperty)),
                         Expression.Constant(property),
                         Expression.Constant(originalValuesIndex))
-                    : Expression.Call(
-                        entryParameter,
-                        InternalEntityEntry.GetCurrentValueMethod.MakeGenericMethod(typeof(TProperty)),
-                        Expression.Constant(property)),
+                    : Expression.Block(
+                        Expression.Throw(Expression.Constant(
+                            new InvalidOperationException(
+                                CoreStrings.OriginalValueNotTracked(property.Name, property.DeclaringEntityType.DisplayName())))),
+                        Expression.Constant(default(TProperty), typeof(TProperty))),
                 entryParameter)
                 .Compile();
         }

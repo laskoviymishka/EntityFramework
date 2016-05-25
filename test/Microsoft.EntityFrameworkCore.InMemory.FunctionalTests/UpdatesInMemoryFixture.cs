@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using Microsoft.EntityFrameworkCore.FunctionalTests;
-using Microsoft.EntityFrameworkCore.FunctionalTests.TestModels.UpdatesModel;
+using Microsoft.EntityFrameworkCore.Specification.Tests;
+using Microsoft.EntityFrameworkCore.Specification.Tests.TestModels.UpdatesModel;
 using Microsoft.EntityFrameworkCore.Storage.Internal;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -34,7 +34,7 @@ namespace Microsoft.EntityFrameworkCore.InMemory.FunctionalTests
                             UpdatesModelInitializer.Seed(context);
                         }
                     },
-                () => { _serviceProvider.GetRequiredService<IInMemoryStore>().Clear(); });
+                () => { _serviceProvider.GetRequiredService<IInMemoryStoreSource>().GetGlobalStore().Clear(); });
 
         public override UpdatesContext CreateContext(InMemoryTestStore testStore)
             => new UpdatesContext(_optionsBuilder.Options);
