@@ -13,6 +13,7 @@ using Xunit.Abstractions;
 #if NETCOREAPP1_1
 using System.Threading;
 #endif
+
 namespace Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests
 {
     public class QuerySqlServerTest : QueryTestBase<NorthwindQuerySqlServerFixture>
@@ -21,6 +22,27 @@ namespace Microsoft.EntityFrameworkCore.SqlServer.FunctionalTests
             : base(fixture)
         {
             //TestSqlLoggerFactory.CaptureOutput(testOutputHelper);
+        }
+
+        [ConditionalFact]
+        public virtual void Cache_key_expressions_are_detached()
+        {
+            WeakReference wr;
+            MakeGarbage(CreateContext(), out wr);
+
+            GC.Collect();
+
+            Assert.False(wr.IsAlive);
+        }
+
+        private static void MakeGarbage(NorthwindContext context, out WeakReference wr)
+        {
+            using (context)
+            {
+                wr = new WeakReference(context.Customers.First());
+
+                Assert.True(wr.IsAlive);
+            }
         }
 
         public override void Project_to_object_array()
@@ -1630,7 +1652,8 @@ FROM (
     SELECT TOP(@__p_0) [c0].*
     FROM [Customers] AS [c0]
     ORDER BY [c0].[CustomerID]
-) AS [t]",
+) AS [t]
+ORDER BY [t].[CustomerID]",
                 Sql);
         }
 
@@ -3611,7 +3634,8 @@ FROM (
     SELECT TOP(@__p_0) [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
     FROM [Customers] AS [c]
     ORDER BY [c].[CustomerID]
-) AS [t]",
+) AS [t]
+ORDER BY [t].[CustomerID]",
                 Sql);
         }
 
@@ -3628,7 +3652,8 @@ FROM (
     FROM [Customers] AS [c]
     CROSS JOIN [Orders] AS [o]
     ORDER BY [c].[CustomerID], [o].[OrderID]
-) AS [t]",
+) AS [t]
+ORDER BY [t].[CustomerID], [t].[OrderID]",
                 Sql);
         }
 
@@ -6378,6 +6403,90 @@ CROSS APPLY (
     ) AS [t3] ON 1 = 1
 ) AS [t4]
 WHERE (([c].[City] = N'Seattle') AND [c].[City] IS NOT NULL) AND ([t1].[OrderID] IS NOT NULL AND [t4].[OrderID] IS NOT NULL)",
+                Sql);
+        }
+
+        public override void OrderBy_skip_take_level_1()
+        {
+            base.OrderBy_skip_take_level_1();
+
+            Assert.Equal(
+                @"@__p_0: 5
+@__p_1: 8
+
+SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+FROM [Customers] AS [c]
+ORDER BY [c].[ContactTitle], [c].[ContactName]
+OFFSET @__p_0 ROWS FETCH NEXT @__p_1 ROWS ONLY",
+                Sql);
+        }
+
+        public override void OrderBy_skip_take_level_2()
+        {
+            base.OrderBy_skip_take_level_2();
+
+            Assert.Equal(
+                @"@__p_2: 3
+@__p_0: 5
+@__p_1: 8
+
+SELECT TOP(@__p_2) [t].*
+FROM (
+    SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    ORDER BY [c].[ContactTitle], [c].[ContactName]
+    OFFSET @__p_0 ROWS FETCH NEXT @__p_1 ROWS ONLY
+) AS [t]
+ORDER BY [t].[ContactTitle], [t].[ContactName]",
+                Sql);
+        }
+
+        public override void OrderBy_skip_take_distinct()
+        {
+            base.OrderBy_skip_take_distinct();
+
+            Assert.Equal(
+                @"@__p_2: 8
+@__p_0: 5
+@__p_1: 15
+
+SELECT DISTINCT TOP(@__p_2) [t].*
+FROM (
+    SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    ORDER BY [c].[ContactTitle], [c].[ContactName]
+    OFFSET @__p_0 ROWS FETCH NEXT @__p_1 ROWS ONLY
+) AS [t]",
+                Sql);
+        }
+
+        public override void OrderBy_skip_take_level_3()
+        {
+            base.OrderBy_skip_take_level_3();
+
+            Assert.Equal(
+                @"@__p_4: 5
+@__p_3: 8
+@__p_2: 10
+@__p_0: 5
+@__p_1: 15
+
+SELECT TOP(@__p_4) [t1].*
+FROM (
+    SELECT TOP(@__p_3) [t0].*
+    FROM (
+        SELECT TOP(@__p_2) [t].*
+        FROM (
+            SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+            FROM [Customers] AS [c]
+            ORDER BY [c].[ContactTitle], [c].[ContactName]
+            OFFSET @__p_0 ROWS FETCH NEXT @__p_1 ROWS ONLY
+        ) AS [t]
+        ORDER BY [t].[ContactTitle], [t].[ContactName]
+    ) AS [t0]
+    ORDER BY [t0].[ContactTitle], [t0].[ContactName]
+) AS [t1]
+ORDER BY [t1].[ContactTitle], [t1].[ContactName]",
                 Sql);
         }
 

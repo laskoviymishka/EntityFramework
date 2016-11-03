@@ -130,7 +130,6 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
             var alterDatabaseOperations = new List<MigrationOperation>();
             var alterTableOperations = new List<MigrationOperation>();
             var columnOperations = new List<MigrationOperation>();
-            var computedColumnOperations = new List<MigrationOperation>();
             var alterOperations = new List<MigrationOperation>();
             var restartSequenceOperations = new List<MigrationOperation>();
             var constraintOperations = new List<MigrationOperation>();
@@ -982,10 +981,12 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
                     Annotations.For(t).Name,
                     StringComparison.OrdinalIgnoreCase)
                           && s.IsUnique == t.IsUnique
+                          && Annotations.For(s).Filter == Annotations.For(t).Filter
                           && !HasDifferences(MigrationsAnnotations.For(s), MigrationsAnnotations.For(t))
                           && s.Properties.Select(diffContext.FindTarget).SequenceEqual(t.Properties),
                 // ReSharper disable once ImplicitlyCapturedClosure
                 (s, t) => s.IsUnique == t.IsUnique
+                          && Annotations.For(s).Filter == Annotations.For(t).Filter
                           && !HasDifferences(MigrationsAnnotations.For(s), MigrationsAnnotations.For(t))
                           && s.Properties.Select(diffContext.FindTarget).SequenceEqual(t.Properties));
 
@@ -1031,7 +1032,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations.Internal
                 Schema = targetEntityTypeAnnotations.Schema,
                 Table = targetEntityTypeAnnotations.TableName,
                 Columns = GetColumns(target.Properties),
-                IsUnique = target.IsUnique
+                IsUnique = target.IsUnique,
+                Filter = Annotations.For(target).Filter
             };
             operation.AddAnnotations(MigrationsAnnotations.For(target));
 
